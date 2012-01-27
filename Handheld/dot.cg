@@ -1,0 +1,97 @@
+/*
+   Author: Themaister
+   License: Public domain
+*/
+
+struct tex_coord
+{
+   float4 c00_10;
+   float4 c20_01;
+   float4 c21_02;
+   float4 c12_22;
+   float2 c11;
+   float2 pixel_no;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 tex : TEXCOORD,
+
+   uniform input IN,
+   out tex_coord coords
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+
+   float dx = 1.0 / IN.texture_size.x;
+   float dy = 1.0 / IN.texture_size.y;
+
+   coords = tex_coord(
+      float4(tex + float2(-dx, -dy), tex + float2(0, -dy)),
+      float4(tex + float2(dx, -dy), tex + float2(-dx, 0)),
+      float4(tex + float2(dx, 0), tex + float2(-dx, dy)),
+      float4(tex + float2(0, dy), tex + float2(dx, dy)),
+      tex,
+      tex * IN.texture_size
+   );
+}
+
+const float gamma = 2.4;
+const float shine = 0.05;
+const float blend = 0.65;
+
+float dist(float2 coord, float2 source)
+{
+   float2 delta = coord - source;
+   return sqrt(dot(delta, delta));
+}
+
+float color_bloom(float3 color)
+{
+   const float3 gray_coeff = float3(0.30, 0.59, 0.11);
+   float bright = dot(color, gray_coeff);
+   return lerp(1.0 + shine, 1.0 - shine, bright);
+}
+
+float3 lookup(float2 pixel_no, float offset_x, float offset_y, float3 color)
+{
+   float2 offset = float2(offset_x, offset_y);
+   float delta = dist(frac(pixel_no), offset + float2(0.5));
+   return color * exp(-gamma * delta * color_bloom(color));
+}
+
+#define TEX(coord) tex2D(s0, co.coord).rgb
+
+float4 main_fragment(in tex_coord co, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float3 mid_color = lookup(co.pixel_no, 0.0, 0.0, TEX(c11));
+   float3 color = float3(0.0);
+   color += lookup(co.pixel_no, -1.0, -1.0, TEX(c00_10.xy));
+   color += lookup(co.pixel_no,  0.0, -1.0, TEX(c00_10.zw));
+   color += lookup(co.pixel_no,  1.0, -1.0, TEX(c20_01.xy));
+   color += lookup(co.pixel_no, -1.0,  0.0, TEX(c20_01.zw));
+   color += mid_color;
+   color += lookup(co.pixel_no,  1.0,  0.0, TEX(c21_02.xy));
+   color += lookup(co.pixel_no, -1.0,  1.0, TEX(c21_02.zw));
+   color += lookup(co.pixel_no,  0.0,  1.0, TEX(c12_22.xy));
+   color += lookup(co.pixel_no,  1.0,  1.0, TEX(c12_22.zw));
+   float3 out_color = lerp(1.2 * mid_color, color, blend);
+
+   return float4(out_color, 1.0);
+}
+

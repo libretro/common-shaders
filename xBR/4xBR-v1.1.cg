@@ -1,0 +1,148 @@
+/*
+   Hyllian's 4xBR v1.1 Shader
+   
+   Copyright (C) 2011 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+const static float3 dtt = float3(65536,255,1);
+
+float reduce(half3 color)
+{
+	return dot(color, dtt);
+}
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1.xy = float2(  0,-dy); // B
+	OUT.t1.zw = float2(-dx,  0); // D
+
+
+	return OUT;
+}
+
+
+#define FILTRO(PE, PI, PH, PF, PG, PC, PD, PB, PA, G5, C4, G0, C1, I4, I5, N15, N14, N11, F, H) \
+	if ( PE!=PH && ((PH==PF && ( (PE!=PI && (PE!=PB || PE!=PD || PB==C1 && PD==G0 || PF!=PB && PF!=PC || PH!=PD && PH!=PG)) \
+	   || (PE==PG && (PI==PH || PE==PD || PH!=PD)) \
+	   || (PE==PC && (PI==PH || PE==PB || PF!=PB)) ))\
+	   || (PE!=PF && (PE==PC && (PF!=PI && (PH==PI && PF!=PB || PE!=PI && PF==C4) || PE!=PI && PE==PG)))) ) \
+                 {\
+	                N11 = (N11+F)*0.5;\
+        	        N14 = (N14+H)*0.5;\
+                	N15 = F;\
+                 }\
+	else if (PE!=PH && PE!=PF && (PH!=PI && PE==PG && (PF==PI && PH!=PD || PE!=PI && PH==G5)))\
+	{\
+                N11 = (N11+H)*0.5;\
+                N14 = N11;\
+                N15 = H;\
+	}\
+
+
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 fp = frac(VAR.texCoord*IN.texture_size);
+
+	float2 g1 = VAR.t1.xy*(step(0.5,fp.x)+step(0.5, fp.y)-1) + VAR.t1.zw*(step(0.5,fp.x) - step(0.5, fp.y));
+	float2 g2 = VAR.t1.xy*(step(0.5,fp.y) - step(0.5, fp.x)) + VAR.t1.zw*(step(0.5,fp.x)+step(0.5, fp.y)-1);
+
+	half3 A = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	half3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
+	half3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
+	half3 E = tex2D(decal, VAR.texCoord       ).xyz;
+	half3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
+	half3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
+	half3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
+	half3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
+
+	half3  A1 = tex2D(decal,VAR.texCoord +2.0*g1+g2   ).xyz;
+	half3  C1 = tex2D(decal,VAR.texCoord +2.0*g1-g2   ).xyz;
+	half3  A0 = tex2D(decal,VAR.texCoord +g1+2.0*g2   ).xyz;
+	half3  G0 = tex2D(decal,VAR.texCoord -g1+2.0*g2   ).xyz;
+	half3  C4 = tex2D(decal,VAR.texCoord +g1-2.0*g2   ).xyz;
+	half3  I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
+	half3  G5 = tex2D(decal,VAR.texCoord -2.0*g1+g2   ).xyz;
+	half3  I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
+
+	half3 E11 = E;
+	half3 E14 = E;
+	half3 E15 = E;
+		
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+	float e = reduce(E);
+	float f = reduce(F);
+	float g = reduce(G);
+	float h = reduce(H);
+	float i = reduce(I);
+	
+	float  a1 = reduce( A1);
+	float  c1 = reduce( C1);
+	float  a0 = reduce( A0);
+	float  g0 = reduce( G0);
+	float  c4 = reduce( C4);
+	float  i4 = reduce( I4);
+	float  g5 = reduce( G5);
+	float  i5 = reduce( I5);
+
+	FILTRO(e, i, h, f, g, c, d, b, a, g5, c4, g0, c1, i4, i5, E15, E14, E11, F, H);
+
+	float3 res;
+
+	res = (fp.x < 0.50) ? ((fp.x < 0.25) ? ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E11: (fp.y < 0.75) ? E14: E15) : ((fp.y < 0.25) ? E14: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E  : E11)) : ((fp.x < 0.75) ? ((fp.y < 0.25) ? E11: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E   : E14) : ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E14: (fp.y < 0.75) ? E11 : E15));
+
+	return float4(res, 1.0);
+}

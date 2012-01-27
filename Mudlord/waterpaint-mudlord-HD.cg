@@ -1,0 +1,136 @@
+/* Default Vertex shader */
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+static const float edgeColorAmount = 2.0; 
+static const float Detail = 1.0;
+
+static const float BlurWeights[13] =
+{
+    0.002216,
+    0.008764,
+    0.026995,
+    0.064759,
+    0.120985,
+    0.176033,
+    0.199471,
+    0.176033,
+    0.120985,
+    0.064759,
+    0.026995,
+    0.008764,
+    0.002216,
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float4 t6 : TEXCOORD6;
+	float4 t7 : TEXCOORD7;
+	float4 t8 : TEXCOORD8;
+	float4 t9 : TEXCOORD9;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 tex      : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+   float2 texelSize = 1.0 / IN.texture_size;
+   float2 offset = { 1.0/512.0, 1.0/448.0 };
+
+	out_vertex OUT = { 
+		mul(modelViewProj, position),
+		color,
+		tex,
+		float4(tex,tex) + float4(-offset.x, -offset.y,       0.0, -offset.y),
+		float4(tex,tex) + float4( offset.x, -offset.y, -offset.x,       0.0),
+		float4(tex,tex) + float4( offset.x,       0.0, -offset.x,  offset.y),
+		float4(tex,tex) + float4(      0.0,  offset.y,  offset.x,  offset.y),
+		float4(tex,tex) + float4(-6*offset, -5*offset),
+		float4(tex,tex) + float4(-4*offset, -3*offset),
+		float4(tex,tex) + float4(-2*offset,  2*offset),
+		float4(tex,tex) + float4( 3*offset,  4*offset),
+		float4(tex,tex) + float4( 5*offset,  6*offset)
+	};
+
+	return OUT;
+}
+
+
+
+float edge_detect_sobel(sampler s0, out_vertex TC)
+{
+    // sobel
+    half4 g00 = tex2D(s0,   TC.t1.xy);   // Top Left
+    half4 g01 = tex2D(s0,   TC.t1.zw);   // Up
+    half4 g02 = tex2D(s0,   TC.t2.xy);   // Top Right
+    half4 g10 = tex2D(s0,   TC.t2.zw);   // Left
+    half4 g12 = tex2D(s0,   TC.t3.xy);   // Right
+    half4 g20 = tex2D(s0,   TC.t3.zw);   // Bottom Left
+    half4 g21 = tex2D(s0,   TC.t4.xy);   // Bottom
+    half4 g22 = tex2D(s0,   TC.t4.zw);   // Bottom Right
+
+    //compute luminance from sampled regions
+    float3 rgb2lum = float3(0.3, 0.59, 0.11);
+    g00 = dot(g00.rgb, rgb2lum);
+    g01 = dot(g01.rgb, rgb2lum);
+    g02 = dot(g02.rgb, rgb2lum);
+    g10 = dot(g10.rgb, rgb2lum);
+    g12 = dot(g12.rgb, rgb2lum);
+    g20 = dot(g20.rgb, rgb2lum);
+    g21 = dot(g21.rgb, rgb2lum);
+    g22 = dot(g22.rgb, rgb2lum);
+
+    //compute sobel mask
+    half4 Gx = -(g00 + 2 * g10 + g20) + (g02 + 2 * g12 + g22);
+    half4 Gy = -(g00 + 2 * g01 + g02) + (g20 + 2 * g21 + g22);
+    half4 color = abs(Gx) +abs(Gy);
+   return color;
+}
+
+#define SUM(TCOORD, IND)\
+	sum += tex2D(s0, TCOORD) * BlurWeights[IND];\
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+   float gradient = edge_detect_sobel(s0, VAR);
+   gradient = saturate(gradient*0.2);
+
+   float4 sum = 0;
+
+    SUM(VAR.t5.xy, 0);
+    SUM(VAR.t5.zw, 1);
+    SUM(VAR.t6.xy, 2);
+    SUM(VAR.t6.zw, 3);
+    SUM(VAR.t7.xy, 4);
+    SUM(VAR.t1.xy, 5);
+    SUM(VAR.texCoord, 6);
+    SUM(VAR.t4.zw, 7);
+    SUM(VAR.t7.zw, 8);
+    SUM(VAR.t8.xy, 9);
+    SUM(VAR.t8.zw, 10);
+    SUM(VAR.t9.xy, 11);
+    SUM(VAR.t9.zw, 12);
+
+    float4 pixelColor = tex2D(s0, VAR.texCoord);
+    return ( gradient*Detail*(1-edgeColorAmount) + gradient*Detail*pixelColor*edgeColorAmount + sum);
+
+}

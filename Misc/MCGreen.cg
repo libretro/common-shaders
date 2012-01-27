@@ -1,0 +1,78 @@
+/*
+
+   Copyright (C) 2007 guest(r) - guest.r@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+/*
+
+   This nice shader reads the brightness values of "pixels" and returns an image
+
+   with only a single color used - to produce the "monochrome" effect, otherwise seen on
+
+   now very obsolete types of displays.
+
+   The final numbers of colors can be set to produce a final reduced color look while still
+
+   emulating an "advanced" gfx. chipset.
+
+*/
+
+const float colors = 256.0; // number of colors the display can show
+
+/* Default Vertex shader */
+void main_vertex
+(
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   otexCoord = texCoord;
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+};
+
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+{
+	half3 ink = half3(0.32, 0.50, 0.0);  
+	half3 c11 = tex2D(s_p, tex).xyz;
+	half lct = floor(colors*length(c11))/colors;
+
+	output OUT;
+	OUT.color = half4(lct*ink,1);
+   	return OUT;
+}
+

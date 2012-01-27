@@ -1,0 +1,229 @@
+/*
+   Hyllian's 2xBR v2 Shader
+   
+   Copyright (C) 2011 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+/*
+	VERTEX_SHADER
+*/
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+	uniform float4x4 modelViewProj,
+
+	out float4 oPosition	: POSITION,
+	out float4 oColor	: COLOR,
+	out float2 otexCoord	: TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+/*
+	FRAGMENT SHADER
+*/
+
+
+const float3 dtt = float3(65536,255,1);
+
+struct output
+{
+	float4 color	: COLOR;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+float reduce(half3 color)
+{ 
+	return dot(color, dtt);
+}
+
+output main_fragment(float2 texCoord: TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN)
+{
+
+	float2 ps = float2(0.9999/IN.texture_size.x, 0.9999/IN.texture_size.y);
+	half2 dx = half2(ps.x, 0.0);
+	half2 dy = half2(0.0, ps.y);
+
+	float2 pixcoord = texCoord/ps;
+	float2 fp	= frac(pixcoord);
+	float2 d11	= texCoord-fp*ps;
+
+	// Reading the texels
+
+	half3 A = tex2D(decal,d11-dx-dy).xyz;
+	half3 B = tex2D(decal,d11   -dy).xyz;
+	half3 C = tex2D(decal,d11+dx-dy).xyz;
+	half3 D = tex2D(decal,d11-dx   ).xyz;
+	half3 E = tex2D(decal,d11      ).xyz;
+	half3 F = tex2D(decal,d11+dx   ).xyz;
+	half3 G = tex2D(decal,d11-dx+dy).xyz;
+	half3 H = tex2D(decal,d11+dy   ).xyz;
+	half3 I = tex2D(decal,d11+dx+dy).xyz;
+	
+	half3 P00 = tex2D(decal,d11-dx-dx-dy-dy).xyz;
+	half3 P04 = tex2D(decal,d11+dx+dx-dy-dy).xyz;
+	half3 P40 = tex2D(decal,d11-dx-dx+dy+dy).xyz;
+	half3 P44 = tex2D(decal,d11+dx+dx+dy+dy).xyz;
+
+	half3 E0 = E;
+	half3 E1 = E;
+	half3 E2 = E;
+	half3 E3 = E;
+		
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+	float e = reduce(E);
+	float f = reduce(F);
+	float g = reduce(G);
+	float h = reduce(H);
+	float i = reduce(I);
+
+	float p00 = reduce(P00);
+	float p04 = reduce(P04);
+	float p40 = reduce(P40);
+	float p44 = reduce(P44);
+
+	
+	if ( e!=h && h==f && ( (e!=i && (e!=b || e!=d || f!=b && f!=c || h!=d && h!=g))
+		|| (e==g && (i==h || e==d || h!=d))
+		|| (e==c && (i==h || e==b || f!=b))
+	      ))
+		{
+			if (e==c && e==d && h==g)
+			{
+					E3  = lerp(E3 , H,  0.75);
+					E2  = E2 + H - E3;
+			}
+			else if (e==g && e==b && f==c)
+			{
+					E3  = lerp(E3 , F,  0.75);
+					E1  = E1 + F - E3;
+			}
+			else
+			{
+				E3  = lerp(E3 , F,  0.5);
+			}
+		}
+	else if (e!=h && e!=i && e!=f && e==g && e==c)
+	{
+		E3  = lerp(E3 , F,  0.5);
+	}
+
+
+	if ( e!=f && f==b && ( (e!=c && (e!=d || e!=h || b!=d && b!=a || f!=h && f!=i))
+		|| (e==i && (c==f || e==h || f!=h))
+		|| (e==a && (c==f || e==d || b!=d))
+	      ) )
+		{
+			if (e==a && e==h && f==i)
+			{
+					E1  = lerp(E1 , F,  0.75);
+					E3  = E3 + F - E1;
+			}
+			else if (e==i && e==d && b==a)
+			{
+					E1  = lerp(E1 , B,  0.75);
+					E0  = E0 + B - E1;
+			}
+			else
+			{
+				E1  = lerp(E1 , B,  0.5);
+			}
+		}
+	else if (e!=f && e!=c && e!=b && e==i && e==a)
+	{
+		E1  = lerp(E1 , B,  0.5);
+	}
+
+
+
+	if ( e!=b && b==d && ( (e!=a && (e!=h || e!=f || d!=h && d!=g || b!=f && b!=c))
+		|| (e==c && (a==b || e==f || b!=f))
+		|| (e==g && (a==b || e==h || d!=h))
+	      ) )
+		{
+			if (e==g && e==f && b==c)
+			{
+					E0  = lerp(E0 , B,  0.75);
+					E1  = E1 + B - E0;
+			}
+			else if (e==c && e==h && d==g)
+			{
+					E0  = lerp(E0 , D,  0.75);
+					E2  = E2 + D - E0;
+			}
+			else
+			{
+				E0  = lerp(E0 , D,  0.5);
+			}
+		}
+	else if (e!=b && e!=a && e!=d && e==c && e==g)
+	{
+		E0  = lerp(E0 , D,  0.5);
+	}
+
+
+	if ( e!=d && d==h && ( (e!=g && (e!=f || e!=b || h!=f && h!=i || d!=b && d!=a))
+		|| (e==a && (g==d || e==b || d!=b))
+		|| (e==i && (g==d || e==f || h!=f))
+	      ))
+		{
+			if (e==i && e==b && d==a)
+			{
+					E2  = lerp(E2 , D,  0.75);
+					E0  = E0 + D - E2;
+			}
+			else if (e==a && e==f && h==i)
+			{
+					E2  = lerp(E2 , H,  0.75);
+					E3  = E3 + H - E2;
+			}
+			else
+			{
+				E2  = lerp(E2 , H,  0.5);
+			}
+		}
+	else if (e!=d && e!=g && e!=h && e==a && e==i)
+	{
+		E2  = lerp(E2 , H,  0.5);
+	}
+
+	
+	float3 res;
+
+	res = (fp.x < 0.50) ? (fp.y < 0.50 ? E0 : E2) : (fp.y < 0.50 ? E1: E3);
+	
+	// Product interpolation
+	output OUT;
+	OUT.color = float4(res, 1.0); 
+	return OUT;
+}

@@ -1,0 +1,73 @@
+/*
+	VERTEX_SHADER
+*/
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+};
+
+
+struct VERTEX_OUTPUT {
+  float4 position : POSITION;
+  float4 color    : COLOR;
+  float2 texCoord : TEXCOORD0;
+};
+
+
+VERTEX_OUTPUT main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj
+)
+{
+	VERTEX_OUTPUT OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+	OUT.texCoord = texCoord;
+
+	return OUT;
+}
+
+
+/* 
+	FRAGMENT SHADER
+*/
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+
+struct VERTEX_INPUT
+{
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 CT : TEXCOORD0;
+};
+
+
+output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+	output OUT;
+
+	float4 Color = tex2D( decal, VAR.CT );
+        Color.a = 1.0f;
+        Color.rgb = 0.5f;
+        Color -= tex2D( decal, VAR.CT.xy-0.001)*2.0f;
+        Color += tex2D( decal, VAR.CT.xy+0.001)*2.0f;
+        Color.rgb = (Color.r+Color.g+Color.b)/3.0f;
+	
+	OUT.color = Color;
+	return OUT;
+}
+
+
+
+
+

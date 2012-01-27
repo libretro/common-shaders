@@ -1,0 +1,211 @@
+/*
+   Hyllian's 2xBR v2.2 Shader
+   
+   Copyright (C) 2011 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+/*
+	VERTEX_SHADER
+*/
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+	uniform float4x4 modelViewProj,
+
+	out float4 oPosition	: POSITION,
+	out float4 oColor	: COLOR,
+	out float2 otexCoord	: TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+/*
+	FRAGMENT SHADER
+*/
+
+
+const float3 dtt = float3(65536,255,1);
+
+struct output
+{
+	float4 color	: COLOR;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+float reduce(half3 color)
+{ 
+	return dot(color, dtt);
+}
+
+
+#define FILTRO(PA,PB,PC,PD,PE,PF,PG,PH,PI,P00,P04,P40,P44,A1,B1,C1,A0,D0,G0,C4,F4,I4,G5,H5,I5, N3, N2, N1, F, H) \
+	if ( PE!=PH && PH==PF && ( (PE!=PI && (PE!=PB || PE!=PD || PB==C1 && PD==G0 || PF!=PB && PF!=PC || PH!=PD && PH!=PG))\
+		|| (PE==PG && (PI==PH || PE==PD || PH!=PD))\
+		|| (PE==PC && (PI==PH || PE==PB || PF!=PB)) ))\
+		{\
+			if (PE==PC && PE==PD && PH==PG)\
+			{\
+				if (PD==D0 && PG==G0)\
+				{\
+					E[N3]  = lerp(E[N3], H, 0.8333);\
+					E[N2]  = lerp(E[N2], H, 0.5);\
+				}\
+				else\
+				{\
+					E[N3]  = lerp(E[N3], H, 0.75);\
+					E[N2]  = E[N2] + H - E[N3];\
+				}\
+			}\
+			else if (PE==PG && PE==PB && PF==PC)\
+			{\
+				if (PB==B1 && PC==C1)\
+				{\
+					E[N3]  = lerp(E[N3], F, 0.8333);\
+					E[N1]  = (E[N1]+F)*0.5;\
+				}\
+				else\
+				{\
+					E[N3]  = lerp(E[N3], F,  0.75);\
+					E[N1]  = E[N1] + F - E[N3];\
+				}\
+			}\
+			else\
+			{\
+				E[N3]  = (E[N3]+F)*0.5;\
+			}\
+		}\
+        else if (PF!=PI && PI==F4 && (PF!=I4 || PI!=P44) && PF==C4 && PF==PE && PI==PH && PE==PD && PH==PG)\
+	{\
+		E[N3] = lerp(E[N3], H, 0.1667);\
+	}\
+        else if (PH!=PI && PI==H5 && (PH!=I5 || PI!=P44) && PH==G5 && PH==PE && PI==PF && PE==PB && PF==PC)\
+	{\
+		E[N3] = lerp(E[N3], F, 0.1667);\
+	}\
+	else if (PE!=PH && PE!=PF && (PF!=PI && PE==PC && (PH==PI && PF!=PB || PE!=PI && PF==C4)))\
+	{\
+		E[N3]  = (E[N3]+F)*0.5;\
+	}\
+	else if (PE!=PH && PE!=PF && (PH!=PI && PE==PG && (PF==PI && PH!=PD || PE!=PI && PH==G5)))\
+	{\
+		E[N3]  = (E[N3]+H)*0.5;\
+	}\
+        else if (PE!=PH && PE!=PI && PE!=PF && PG==PE && PE==PC)\
+	{\
+		E[N3] = (F+H)*0.5;\
+	}\
+
+output main_fragment(float2 texCoord: TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN)
+{
+
+	float2 ps = float2(0.9999/IN.texture_size.x, 0.9999/IN.texture_size.y);
+	half2 dx = half2(ps.x, 0.0);
+	half2 dy = half2(0.0, ps.y);
+
+	float2 pixcoord = texCoord/ps;
+	float2 fp	= frac(pixcoord);
+	float2 d11	= texCoord-fp*ps;
+
+	half3 E[4];
+
+	// Reading the texels
+
+	half3 A = tex2D(decal,d11-dx-dy).xyz;
+	half3 B = tex2D(decal,d11   -dy).xyz;
+	half3 C = tex2D(decal,d11+dx-dy).xyz;
+	half3 D = tex2D(decal,d11-dx   ).xyz;
+	half3 E0 = tex2D(decal,d11      ).xyz;
+	half3 F = tex2D(decal,d11+dx   ).xyz;
+	half3 G = tex2D(decal,d11-dx+dy).xyz;
+	half3 H = tex2D(decal,d11+dy   ).xyz;
+	half3 I = tex2D(decal,d11+dx+dy).xyz;
+	
+	half3 P00 = tex2D(decal,d11-dx-dx-dy-dy).xyz;
+	half3 P04 = tex2D(decal,d11+dx+dx-dy-dy).xyz;
+	half3 P40 = tex2D(decal,d11-dx-dx+dy+dy).xyz;
+	half3 P44 = tex2D(decal,d11+dx+dx+dy+dy).xyz;
+	half3  A1 = tex2D(decal,d11   -dx-dy-dy).xyz;
+	half3  B1 = tex2D(decal,d11      -dy-dy).xyz;
+	half3  C1 = tex2D(decal,d11   +dx-dy-dy).xyz;
+	half3  A0 = tex2D(decal,d11-dx-dx-dy   ).xyz;
+	half3  D0 = tex2D(decal,d11-dx-dx      ).xyz;
+	half3  G0 = tex2D(decal,d11-dx-dx+dy   ).xyz;
+	half3  C4 = tex2D(decal,d11+dx+dx-dy   ).xyz;
+	half3  F4 = tex2D(decal,d11+dx+dx      ).xyz;
+	half3  I4 = tex2D(decal,d11+dx+dx+dy   ).xyz;
+	half3  G5 = tex2D(decal,d11   -dx+dy+dy).xyz;
+	half3  H5 = tex2D(decal,d11      +dy+dy).xyz;
+	half3  I5 = tex2D(decal,d11   +dx+dy+dy).xyz;
+
+	E[0] = E[1] = E[2] = E[3] = E0;
+		
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+	float e = reduce(E0);
+	float f = reduce(F);
+	float g = reduce(G);
+	float h = reduce(H);
+	float i = reduce(I);
+
+	float p00 = reduce(P00);
+	float p04 = reduce(P04);
+	float p40 = reduce(P40);
+	float p44 = reduce(P44);
+	float  a1 = reduce( A1);
+	float  b1 = reduce( B1);
+	float  c1 = reduce( C1);
+	float  a0 = reduce( A0);
+	float  d0 = reduce( D0);
+	float  g0 = reduce( G0);
+	float  c4 = reduce( C4);
+	float  f4 = reduce( F4);
+	float  i4 = reduce( I4);
+	float  g5 = reduce( G5);
+	float  h5 = reduce( H5);
+	float  i5 = reduce( I5);
+
+
+	FILTRO(a,b,c,d,e,f,g,h,i,P00,P04,P40,p44,a1,b1,c1,a0,d0,g0,c4,f4,i4,g5,h5,i5, 3, 2, 1,F,H);
+	FILTRO(g,d,a,h,e,b,i,f,c,P40,P00,P44,p04,g0,d0,a0,g5,h5,i5,a1,b1,c1,i4,f4,c4, 1, 3, 0,B,F);
+	FILTRO(i,h,g,f,e,d,c,b,a,P44,P40,P04,p00,i5,h5,g5,i4,f4,c4,g0,d0,a0,c1,b1,a1, 0, 1, 2,D,B);
+	FILTRO(c,f,i,b,e,h,a,d,g,P04,P44,P00,p40,c4,f4,i4,c1,b1,a1,i5,h5,g5,a0,d0,g0, 2, 0, 3,H,D);
+
+
+	float3 res;
+
+	res = (fp.x < 0.50) ? (fp.y < 0.50 ? E[0] : E[2]) : (fp.y < 0.50 ? E[1]: E[3]);
+	
+	// Product interpolation
+	output OUT;
+	OUT.color = float4(res, 1.0); 
+	return OUT;
+}

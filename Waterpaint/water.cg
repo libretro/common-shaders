@@ -1,0 +1,66 @@
+/*
+   Author: Themaister
+   License: Public domain
+*/
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD,
+
+   uniform input IN
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   oTex = tex;
+}
+
+const float2 src0 = float2(0.6, 0.7);
+const float2 src1 = float2(0.9, 0.9);
+const float2 src2 = float2(-0.6, 0.3);
+const float2 src3 = float2(0.1, 0.4);
+const float2 src4 = float2(0.1, 0.4);
+const float2 src5 = float2(0.5, 0.5);
+const float2 src6 = float2(-1.0, 1.0);
+
+float apply_wave(float2 pos, float2 src, float cnt)
+{
+   float2 diff = pos - src;
+   float dist = 300.0 * sqrt(dot(diff, diff));
+   dist -= 0.15 * cnt;
+   return sin(dist);
+}
+
+float4 main_fragment (uniform input IN, float2 tex : TEXCOORD,
+   uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float4 output = tex2D(s0, tex);
+   float2 scale = tex * IN.texture_size / IN.video_size;
+
+   float cnt = IN.frame_count;
+   float res = apply_wave(scale, src0, cnt);
+   res += apply_wave(scale, src1, cnt);
+   res += apply_wave(scale, src2, cnt);
+   res += apply_wave(scale, src3, cnt);
+   res += apply_wave(scale, src4, cnt);
+   res += apply_wave(scale, src5, cnt);
+   res += apply_wave(scale, src6, cnt);
+
+   return output * (0.9 + 0.012 * res);
+}

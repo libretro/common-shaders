@@ -1,0 +1,133 @@
+/*
+
+   Copyright (C) 2007 guest(r) - guest.r@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+const half     halfpi     = 1.5707963267948966192313216916398;
+const half         pi     = 3.1415926535897932384626433832795;
+
+
+/* Default Vertex shader */
+void main_vertex
+(
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   otexCoord = texCoord;
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+};
+
+float l(float x)
+{ 
+  if (x==0.0) return pi*halfpi;
+  else
+  return sin(x*halfpi)*sin(x*pi)/(x*x);
+}
+
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+{
+   float2 ps = float2(0.999/IN.texture_size.x, 0.999/IN.texture_size.y);
+
+  half2 crd[4][4];  half3 pix[4][4];
+
+  half2 dx = half2(ps.x,0.0); half2 dy = half2(0.0,ps.y);
+  
+  float2 pixcoord  = tex/ps;
+  float2 fract     = frac(pixcoord);
+  float2 coord0    = tex-(fract)*ps;
+
+
+// calculating coordinates for 16 texels
+  
+  crd[0][0]=coord0-ps;    crd[1][0]=crd[0][0]+dx; 
+  crd[2][0]=crd[1][0]+dx; 
+  crd[0][1]=crd[0][0]+dy; crd[1][1]=crd[0][1]+dx; 
+  crd[2][1]=crd[1][1]+dx; crd[3][1]=crd[2][1]+dx;
+  crd[0][2]=crd[0][1]+dy; crd[1][2]=crd[0][2]+dx; 
+  crd[2][2]=crd[1][2]+dx; crd[3][2]=crd[2][2]+dx;
+  crd[0][3]=crd[0][2]+dy; crd[1][3]=crd[0][3]+dx; 
+  crd[2][3]=crd[1][3]+dx; 
+
+
+// calculating texel weights
+
+  float a,b,c,d,p,q,r,s;
+
+  a = l(1+fract.x); 
+  b = l(  fract.x); 
+  c = l(1-fract.x); 
+  d = l(2-fract.x);
+
+  p = l(1+fract.y); 
+  q = l(  fract.y); 
+  r = l(1-fract.y); 
+  s = l(2-fract.y);
+
+
+// reading the texels
+
+ 
+  pix[1][0] = tex2D(s_p,crd[1][0]).xyz;
+  pix[2][0] = tex2D(s_p,crd[2][0]).xyz;
+  pix[0][1] = tex2D(s_p,crd[0][1]).xyz;
+  pix[1][1] = tex2D(s_p,crd[1][1]).xyz;
+  pix[2][1] = tex2D(s_p,crd[2][1]).xyz;
+  pix[3][1] = tex2D(s_p,crd[3][1]).xyz;
+  pix[0][2] = tex2D(s_p,crd[0][2]).xyz;
+  pix[1][2] = tex2D(s_p,crd[1][2]).xyz;
+  pix[2][2] = tex2D(s_p,crd[2][2]).xyz;
+  pix[3][2] = tex2D(s_p,crd[3][2]).xyz;
+  pix[1][3] = tex2D(s_p,crd[1][3]).xyz;
+  pix[2][3] = tex2D(s_p,crd[2][3]).xyz;
+
+
+// applying weights
+
+  pix[1][0] = (pix[1][0]*b+pix[2][0]*c)*p;
+  pix[0][1] = (pix[0][1]*a+pix[1][1]*b+pix[2][1]*c+pix[3][1]*d)*q;
+  pix[0][2] = (pix[0][2]*a+pix[1][2]*b+pix[2][2]*c+pix[3][2]*d)*r;
+  pix[1][3] = (pix[1][3]*b+pix[2][3]*c)*s;
+
+
+// final sum and weight normalization
+   output OUT;
+	OUT.color = float4((pix[1][0]+pix[0][1]+pix[0][2]+pix[1][3])/((a+b+c+d)*(p+q+r+s)-(a+d)*(p+s)),1);
+   return OUT;
+}
+

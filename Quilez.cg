@@ -1,0 +1,64 @@
+/*
+	Fragment shader based on "Improved texture interpolation" by Iñigo Quílez
+	Original description: http://www.iquilezles.org/www/articles/texture/texture.htm
+
+*/
+
+/*
+	VERTEX_SHADER
+*/
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+
+/* 
+	FRAGMENT SHADER
+*/
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+};
+
+
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+{
+	float2 p = tex.xy;
+
+	p = p * IN.texture_size + float2(0.5);
+
+	float2 i = floor(p);
+	float2 f = p - i;
+	f = f * f * f * (f * (f * 6.0 - float2(15.0)) + float2(10.0));
+	p = i + f;
+
+	p = (p - float2(0.5)) / IN.texture_size;
+
+
+// final sum and weight normalization
+   output OUT;
+   OUT.color = tex2D(s_p, p);
+   return OUT;
+}
+
