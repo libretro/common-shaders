@@ -31,7 +31,7 @@ const static half3 dt = half3(1.0, 1.0, 1.0);
 struct input
 {
 	half2 video_size;
-	half2 texture_size;
+	float2 texture_size;
 	half2 output_size;
 };
 
@@ -39,7 +39,7 @@ struct input
 struct out_vertex {
 	half4 position : POSITION;
 	half4 color    : COLOR;
-	half2 texCoord : TEXCOORD0;
+	float2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
 	half4 t3 : TEXCOORD3;
@@ -53,7 +53,7 @@ out_vertex main_vertex
 (
 	half4 position	: POSITION,
 	half4 color	: COLOR,
-	half2 tex      : TEXCOORD0,
+	float2 texCoord  : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
 	uniform input IN
@@ -69,13 +69,13 @@ out_vertex main_vertex
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
 		color,
-		tex,
-		half4(tex,tex) + half4(-dx, -dy, dx, -dy), // outer diag. texels
-		half4(tex,tex) + half4(dx, dy, -dx, dy),
-		half4(tex,tex) + half4(-sx, -sy, sx, -sy), // inner diag. texels
-		half4(tex,tex) + half4(sx, sy, -sx, sy),
-		half4(tex,tex) + half4(-dx, 0, dx, 0), // inner hor/vert texels
-		half4(tex,tex) + half4(0, -dy, 0, dy)
+		texCoord,
+		half4(texCoord,texCoord) + half4(-dx, -dy, dx, -dy), // outer diag. texels
+		half4(texCoord,texCoord) + half4(dx, dy, -dx, dy),
+		half4(texCoord,texCoord) + half4(-sx, -sy, sx, -sy), // inner diag. texels
+		half4(texCoord,texCoord) + half4(sx, sy, -sx, sy),
+		half4(texCoord,texCoord) + half4(-dx, 0, dx, 0), // inner hor/vert texels
+		half4(texCoord,texCoord) + half4(0, -dy, 0, dy)
 	};
 
 
@@ -83,22 +83,22 @@ out_vertex main_vertex
 }
 
 
-half4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 
-  half3 c11 = tex2D(s_p, VAR.texCoord).xyz;
-  half3 c00 = tex2D(s_p, VAR.t1.xy).xyz;
-  half3 c20 = tex2D(s_p, VAR.t1.zw).xyz;
-  half3 c22 = tex2D(s_p, VAR.t2.xy).xyz;
-  half3 c02 = tex2D(s_p, VAR.t2.zw).xyz;
-  half3 s00 = tex2D(s_p, VAR.t3.xy).xyz;
-  half3 s20 = tex2D(s_p, VAR.t3.zw).xyz;
-  half3 s22 = tex2D(s_p, VAR.t4.xy).xyz;
-  half3 s02 = tex2D(s_p, VAR.t4.zw).xyz;
-  half3 c01 = tex2D(s_p, VAR.t5.xy).xyz;
-  half3 c21 = tex2D(s_p, VAR.t5.zw).xyz;
-  half3 c10 = tex2D(s_p, VAR.t6.xy).xyz;
-  half3 c12 = tex2D(s_p, VAR.t6.zw).xyz;
+  half3 c11 = tex2D(decal, VAR.texCoord).xyz;
+  half3 c00 = tex2D(decal, VAR.t1.xy).xyz;
+  half3 c20 = tex2D(decal, VAR.t1.zw).xyz;
+  half3 c22 = tex2D(decal, VAR.t2.xy).xyz;
+  half3 c02 = tex2D(decal, VAR.t2.zw).xyz;
+  half3 s00 = tex2D(decal, VAR.t3.xy).xyz;
+  half3 s20 = tex2D(decal, VAR.t3.zw).xyz;
+  half3 s22 = tex2D(decal, VAR.t4.xy).xyz;
+  half3 s02 = tex2D(decal, VAR.t4.zw).xyz;
+  half3 c01 = tex2D(decal, VAR.t5.xy).xyz;
+  half3 c21 = tex2D(decal, VAR.t5.zw).xyz;
+  half3 c10 = tex2D(decal, VAR.t6.xy).xyz;
+  half3 c12 = tex2D(decal, VAR.t6.zw).xyz;
 
   half d1=dot(abs(c00-c22),dt)+0.0001;
   half d2=dot(abs(c20-c02),dt)+0.0001;
