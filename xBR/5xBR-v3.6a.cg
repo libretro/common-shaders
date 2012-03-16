@@ -1,5 +1,5 @@
 /*
-   Hyllian's 5xBR v3.6b (semi-rounded) Shader
+   Hyllian's 5xBR v3.6a (rounded) Shader
    
    Copyright (C) 2011/2012 Hyllian/Jararaca - sergiogdb@gmail.com
 
@@ -149,7 +149,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 	fx_left = (Ax*fp.y+Bx*fp.x > Cx);
 	fx_up   = (Ay*fp.y+By*fp.x > Cy);
 
-	interp_restriction_lv1      = ((e!=f) && (e!=h) &&  ( f!=b && h!=d || e==i && f!=i4 && h!=i5 || e==g || e==c ) );
+	interp_restriction_lv1      = ((e!=f) && (e!=h) );
 	interp_restriction_lv2_left = ((e!=g) && (d!=g));
 	interp_restriction_lv2_up   = ((e!=c) && (b!=c));
 
