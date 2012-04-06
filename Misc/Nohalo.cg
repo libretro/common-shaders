@@ -1,0 +1,109 @@
+/*
+   Nohalo Shader
+
+   Port from SimoneT implementation - 2012
+
+*/
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t1;
+	float4 t2;
+	float4 t3;
+	float4 t4;
+	float4 t5;
+	float2 t6;
+};
+
+float3 Var(float3 c0, float3 c1, float3 c2)
+{
+	float3 a1 = c0-c1;
+	float3 a2 = c2-c0;
+	float3 a3 = min(abs(a1),abs(a2));
+	float3 a4 = (sign(a1)+sign(a2))*0.5;
+	return a3*a4;
+}
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 tex      : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	//   c0 c1
+	//c2 c3 c4 c5
+	//c6 c7 c8 c9
+	//   ca cb
+
+	out_vertex OUT = { 
+		mul(modelViewProj, position),
+		color,
+		tex,
+		float4(tex,tex) + float4(   0.0,    -dy,     dx,    -dy), 
+		float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0),
+		float4(tex,tex) + float4(2.0*dx,    0.0,    -dx,     dy), 
+		float4(tex,tex) + float4(   0.0,     dy,     dx,     dy),
+		float4(tex,tex) + float4(2.0*dx,     dy,    0.0, 2.0*dy), 
+		tex             + float2(    dx, 2.0*dy)
+	};
+
+
+	return OUT;
+}
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 coord = frac(VAR.texCoord*IN.texture_size);
+
+	//   c0 c1
+	//c2 c3 c4 c5
+	//c6 c7 c8 c9
+	//   ca cb
+
+	float3 c0 = tex2D(s_p, VAR.t1.xy).xyz;
+	float3 c1 = tex2D(s_p, VAR.t1.zw).xyz;
+	float3 c2 = tex2D(s_p, VAR.t2.xy).xyz;
+	float3 c3 = tex2D(s_p, VAR.texCoord).xyz;
+	float3 c4 = tex2D(s_p, VAR.t2.zw).xyz;
+	float3 c5 = tex2D(s_p, VAR.t3.xy).xyz;
+	float3 c6 = tex2D(s_p, VAR.t3.zw).xyz;
+	float3 c7 = tex2D(s_p, VAR.t4.xy).xyz;
+	float3 c8 = tex2D(s_p, VAR.t4.zw).xyz;
+	float3 c9 = tex2D(s_p, VAR.t5.xy).xyz;
+	float3 ca = tex2D(s_p, VAR.t5.zw).xyz;
+	float3 cb = tex2D(s_p, VAR.t6.xy).xyz;
+
+ 
+	float3 Varc3 = c3+Var(c3,c2,c4)* coord.x     +Var(c3,c0,c7)* coord.y     ;
+	float3 Varc4 = c4+Var(c4,c3,c5)*(coord.x-1.0)+Var(c4,c1,c8)* coord.y     ;
+	float3 Varc7 = c7+Var(c7,c6,c8)* coord.x     +Var(c7,c3,ca)*(coord.y-1.0);
+	float3 Varc8 = c8+Var(c8,c7,c9)*(coord.x-1.0)+Var(c8,c4,cb)*(coord.y-1.0);
+
+	float3 Varc34 = lerp(Varc3,Varc4,coord.x);
+	float3 Varc78 = lerp(Varc7,Varc8,coord.x);
+
+	return float4(lerp(Varc34,Varc78,coord.y), 1.0);
+}
+
