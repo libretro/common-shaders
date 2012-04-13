@@ -104,8 +104,8 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform
   half d2=dot(abs(c20-c02),dt)+0.0001;
   half hl=dot(abs(c01-c21),dt)+0.0001;
   half vl=dot(abs(c10-c12),dt)+0.0001;
-  half m1=dot(abs(c00-c22),dt)+0.001;
-  half m2=dot(abs(c02-c20),dt)+0.001;
+  half m1=dot(abs(s00-s22),dt)+0.001;
+  half m2=dot(abs(s02-s20),dt)+0.001;
 
   half3 t1=(hl*(c10+c12)+vl*(c01+c21)+(hl+vl)*c11)/(2.0*(hl+vl));
   half3 t2=(d1*(c20+c02)+d2*(c00+c22)+(d1+d2)*c11)/(2.0*(d1+d2));
