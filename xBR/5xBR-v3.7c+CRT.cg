@@ -41,7 +41,7 @@ const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_
 	#define SPOT_HEIGHT 0.5
 
         // Used to counteract the desaturation effect of weighting.
-        #define COLOR_BOOST 1.45
+        #define COLOR_BOOST 1.54
 
         // Macro for weights computing
         #define WEIGHT(w) \
@@ -86,6 +86,7 @@ struct out_vertex {
 	float4 t5;
 	float4 t6;
 	float4 t7;
+	float2 pos;
 };
 
 /*    VERTEX_SHADER    */
@@ -122,6 +123,7 @@ out_vertex main_vertex
 	OUT.t5 = texCoord.xxxy + half4( -dx, 0, dx, 2.0*dy); // G5 H5 I5
 	OUT.t6 = texCoord.xyyy + half4(-2.0*dx,-dy, 0,  dy); // A0 D0 G0
 	OUT.t7 = texCoord.xyyy + half4( 2.0*dx,-dy, 0,  dy); // C4 F4 I4
+	OUT.pos= texCoord*IN.texture_size;
 
 	return OUT;
 }
@@ -135,7 +137,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	bool4 nc; // new_color
 	bool4 fx, fx_left, fx_up; // inequations of straight lines.
 
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = frac(VAR.pos);
 
 	half3 A1 = tex2D(decal, VAR.t1.xw).rgb;
 	half3 B1 = tex2D(decal, VAR.t1.yw).rgb;
