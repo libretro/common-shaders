@@ -18,7 +18,6 @@ struct input
 
 struct out_vertex {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -34,17 +33,15 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
-	out_vertex OUT;
+	out_vertex OUT = (out_vertex)0;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
 	float dx = ps.x;
