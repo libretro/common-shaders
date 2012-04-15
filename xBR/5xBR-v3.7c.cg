@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers (broken picture quality?)
+   - Cg   compilers
+*/
+
 /*
    Hyllian's 5xBR v3.7c (squared) Shader
    

@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Hyllian's 4xBR v3.5 + CRT-caligari Shader
    
@@ -34,8 +39,8 @@ const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_
         #define InputGamma 2.4
         #define OutputGamma 2.2
 
-        #define GAMMA_IN(color)     pow(color, float3(InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma))
+        #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
 	#define TEX2D(coords)	GAMMA_IN( tex2D(decal, coords).xyz )
 
@@ -85,7 +90,6 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 };
@@ -94,7 +98,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -104,7 +107,6 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
 	half dx = ps.x;
@@ -246,7 +248,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
             float dy = fp.y - 0.5;
             float v_weight_00 = dy / SPOT_HEIGHT;
             WEIGHT(v_weight_00);
-            color *= float3( v_weight_00 );
+            color *= float3( v_weight_00, v_weight_00, v_weight_00 );
 
 	    // get closest vertical neighbour to blend
  	    float2 coords10;
@@ -262,9 +264,9 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
             float v_weight_10 = dy / SPOT_HEIGHT;
             WEIGHT( v_weight_10 );
 
-            color += colorNB * float3( v_weight_10 );
+            color += colorNB * float3( v_weight_10, v_weight_10, v_weight_10 );
 
-            color *= float3( COLOR_BOOST );
+            color *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 
 	return half4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
