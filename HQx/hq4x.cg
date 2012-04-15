@@ -32,7 +32,6 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	half2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
@@ -46,7 +45,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	half2 tex      : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -64,7 +62,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		tex,
 		half4(tex-sd1,tex-ddy),
 		half4(tex-sd2,tex+ddx),
