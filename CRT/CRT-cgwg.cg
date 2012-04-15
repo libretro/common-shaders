@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
     CRT shader
 
@@ -18,6 +23,7 @@
         under the GPL."
     )
 */
+
 
 struct tex_coords
 {

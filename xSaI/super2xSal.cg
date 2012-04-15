@@ -1,6 +1,8 @@
-/*
-	VERTEX_SHADER
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
 */
+
 const static float3 dtt = float3(65536,255,1);
 
 float reduce(half3 color)

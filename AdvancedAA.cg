@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Copyright (C) 2006 guest(r) - guest.r@gmail.com
 

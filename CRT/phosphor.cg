@@ -1,8 +1,14 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
  * (Inaccurate) Phosphor shader
  * Author: Themaister
  * Licesese: Public Domain
  */
+
 
 struct coords
 {

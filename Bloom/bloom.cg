@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 static const half2 BloomSettings = half2(1.0, 0.3);
 
 static const half Luminance    = 0.08f;
