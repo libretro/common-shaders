@@ -46,17 +46,15 @@ void main_vertex
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out tex_coords coords
+   out tex_coords coords : TEXCOORD1
  )
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
 
-   coords = tex_coords (
-      tex + float2(0.0, 0.0),
-      float2(1.0 / IN.texture_size.x, 0.0),
-      float2(0.0, 1.0 / IN.texture_size.y)
-   );
+   coords.texCoord = tex + float2(0.0, 0.0);
+   coords.onex = float2(1.0 / IN.texture_size.x, 0.0);
+   coords.oney = float2(0.0, 1.0 / IN.texture_size.y);
 }
 
         // 0.5 = the spot stays inside the original pixel
@@ -71,8 +69,8 @@ void main_vertex
         #define InputGamma 2.4
         #define OutputGamma 2.2
 
-        #define GAMMA_IN(color)     pow(color, float4(InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma))
+        #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
 	#define TEX2D(coords)	GAMMA_IN( tex2D(s_p, coords) )
 
@@ -83,10 +81,10 @@ void main_vertex
        		w = w * w;
 
 
-float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
+float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
 {
             float2 coords = ( co.texCoord * IN.texture_size );
-            float2 pixel_center = floor( coords ) + float2(0.5);
+            float2 pixel_center = floor( coords ) + float2(0.5, 0.5);
             float2 texture_coords = pixel_center / IN.texture_size;
 
             float4 color = TEX2D( texture_coords );
@@ -96,7 +94,7 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
             float h_weight_00 = dx / SPOT_WIDTH;
             WEIGHT(h_weight_00);
 
-            color *= float4( h_weight_00  );
+            color *= float4( h_weight_00, h_weight_00, h_weight_00, h_weight_00  );
 
             // get closest horizontal neighbour to blend
 			float2 coords01;
@@ -112,17 +110,17 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
             float h_weight_01 = dx / SPOT_WIDTH;
             WEIGHT( h_weight_01 );
 
-            color = color + colorNB * float4( h_weight_01 );
+            color = color + colorNB * float4( h_weight_01, h_weight_01, h_weight_01, h_weight_01 );
 
 			//////////////////////////////////////////////////////
 			// Vertical Blending
             float dy = coords.y - pixel_center.y;
             float v_weight_00 = dy / SPOT_HEIGHT;
             WEIGHT(v_weight_00);
-            color *= float4( v_weight_00 );
+            color *= float4( v_weight_00, v_weight_00, v_weight_00, v_weight_00 );
 
-			// get closest vertical neighbour to blend
-			float2 coords10;
+	    // get closest vertical neighbour to blend
+	    float2 coords10;
             if (dy>0.0) {
             	coords10 = co.oney;
                 dy = 1.0 - dy;
@@ -135,16 +133,16 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
             float v_weight_10 = dy / SPOT_HEIGHT;
             WEIGHT( v_weight_10 );
 
-            color = color + colorNB * float4( v_weight_10 * h_weight_00 );
+            color = color + colorNB * float4( v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00 );
 
             colorNB = TEX2D(  texture_coords + coords01 + coords10 );
 
-            color = color + colorNB * float4( v_weight_10 * h_weight_01 );
+            color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
 
-			color *= float4( COLOR_BOOST );
+	    color *= float4( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 
-	return clamp( GAMMA_OUT(color), 0.0, 1.0 );
+	    return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
 
 
