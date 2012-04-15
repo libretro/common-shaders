@@ -42,7 +42,6 @@ static const half BlurWeights[NUM] =
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	half4 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
@@ -58,7 +57,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	half2 tex      : TEXCOORD0,
 
    	uniform float4x4 modelViewProj
@@ -66,7 +64,6 @@ out_vertex main_vertex
 {
 	out_vertex OUT = {
 		mul(modelViewProj, position),
-		color,
 		half4(tex,0.0,0.0),
 		half4(tex,tex) + half4(PixelOffsets[ 0] * 5.0f, PixelOffsets[ 1] * 5.0f),
 		half4(tex,tex) + half4(PixelOffsets[ 2] * 5.0f, PixelOffsets[ 3] * 5.0f),
