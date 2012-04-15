@@ -106,7 +106,7 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR : TEXCOORD1, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
