@@ -1,10 +1,13 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Nohalo Shader
 
    Port from SimoneT implementation - 2012
-
 */
-
 
 struct input
 {
@@ -16,14 +19,13 @@ struct input
 
 struct out_vertex {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
-	float4 t1;
-	float4 t2;
-	float4 t3;
-	float4 t4;
-	float4 t5;
-	float2 t6;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float2 t6 : TEXCOORD6;
 };
 
 float3 Var(float3 c0, float3 c1, float3 c2)
@@ -40,7 +42,6 @@ float3 Var(float3 c0, float3 c1, float3 c2)
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 tex      : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -58,7 +59,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		tex,
 		float4(tex,tex) + float4(   0.0,    -dy,     dx,    -dy), 
 		float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0),
