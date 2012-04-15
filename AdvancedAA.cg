@@ -100,7 +100,6 @@ struct output
 struct VERTEX_INPUT
 {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 CT : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;

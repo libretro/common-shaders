@@ -20,7 +20,7 @@
 */
 
 const static float coef           = 2.0;
-const static float4 eq_threshold  = float4(15.0);
+const static float4 eq_threshold  = float4(15.0, 15.0, 15.0, 15.0);
 const static half y_weight        = 48.0;
 const static half u_weight        = 7.0;
 const static half v_weight        = 6.0;
@@ -35,7 +35,7 @@ float4 df(float4 A, float4 B)
 
 bool4 eq(float4 A, float4 B)
 {
-	return (df(A, B) < float4(15.0));
+	return (df(A, B) < float4(15.0, 15.0, 15.0, 15.0));
 }
 
 float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4 g, float4 h)
@@ -106,7 +106,7 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+half4 main_fragment(in out_vertex VAR : TEXCOORD1, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
