@@ -1,5 +1,4 @@
 /*
-
    Copyright (C) 2006 guest(r) - guest.r@gmail.com
 
    This program is free software; you can redistribute it and/or
@@ -15,7 +14,6 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
 */
 
 float scaling   : SCALING = 2.0;
@@ -26,20 +24,16 @@ string combineTechique : COMBINETECHNIQUE =  "AdvancedAA";
 half3  dt = half3(1,1,1);
 
 /*
-
    The AdvancedAA shader is well used to:
-   
    - AA 2xscaled gfx. to its 4x absolute size,   
-
    - AA hi-res "screens" (640x480) to their 2x size or,
-
    - AA gfx. back to it's original size (looks nice above 640x480, set scaling to 1.0) 
-
 */
 
 /*
 	VERTEX_SHADER
 */
+
 struct input
 {
   float2 video_size;
@@ -48,7 +42,8 @@ struct input
 };
 
 
-struct VERTEX_OUTPUT {
+struct VERTEX_OUTPUT
+{
   float4 position : POSITION;
   float4 color    : COLOR;
   float2 texCoord : TEXCOORD0;
@@ -95,6 +90,7 @@ VERTEX_OUTPUT main_vertex
 /* 
 	FRAGMENT SHADER
 */
+
 struct output 
 {
   float4 color    : COLOR;
@@ -117,23 +113,23 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
 {
    output OUT;
    half3 c00 = tex2D(decal, VAR.t1.zw).xyz; 
-   half3 c10 = tex2D(decal, VAR.t3.xy).xyz; 
-   half3 c20 = tex2D(decal, VAR.t3.zw).xyz; 
-   half3 c01 = tex2D(decal, VAR.t1.xy).xyz; 
-   half3 c11 = tex2D(decal, VAR.CT).xyz; 
-   half3 c21 = tex2D(decal, VAR.t2.xy).xyz; 
-   half3 c02 = tex2D(decal, VAR.t2.zw).xyz; 
-   half3 c12 = tex2D(decal, VAR.t4.xy).xyz; 
-   half3 c22 = tex2D(decal, VAR.t4.zw).xyz; 
+   half3 c10 = tex2D(decal, VAR.t3.xy).xyz;
+   half3 c20 = tex2D(decal, VAR.t3.zw).xyz;
+   half3 c01 = tex2D(decal, VAR.t1.xy).xyz;
+   half3 c11 = tex2D(decal, VAR.CT).xyz;
+   half3 c21 = tex2D(decal, VAR.t2.xy).xyz;
+   half3 c02 = tex2D(decal, VAR.t2.zw).xyz;
+   half3 c12 = tex2D(decal, VAR.t4.xy).xyz;
+   half3 c22 = tex2D(decal, VAR.t4.zw).xyz;
 
    float d1=dot(abs(c00-c22),dt)+0.0001;
    float d2=dot(abs(c20-c02),dt)+0.0001;
    float hl=dot(abs(c01-c21),dt)+0.0001;
    float vl=dot(abs(c10-c12),dt)+0.0001;
-	
+
    float k1=0.5*(hl+vl);
    float k2=0.5*(d1+d2);
-	
+
    float3 t1=(hl*(c10+c12)+vl*(c01+c21)+k1*c11)/(2.5*(hl+vl));
    float3 t2=(d1*(c20+c02)+d2*(c00+c22)+k2*c11)/(2.5*(d1+d2));
 
@@ -143,4 +139,3 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
    OUT.color = float4((k1*t2+k2*t1)/(k1+k2),1);
    return OUT;
 }
-
