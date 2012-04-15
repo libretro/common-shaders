@@ -32,7 +32,7 @@ void main_vertex
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out tex_coord coords
+   out tex_coord coords : TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
@@ -41,14 +41,12 @@ void main_vertex
    float dx = 1.0 / IN.texture_size.x;
    float dy = 1.0 / IN.texture_size.y;
 
-   coords = tex_coord(
-      float4(tex + float2(-dx, -dy), tex + float2(0, -dy)),
-      float4(tex + float2(dx, -dy), tex + float2(-dx, 0)),
-      float4(tex + float2(dx, 0), tex + float2(-dx, dy)),
-      float4(tex + float2(0, dy), tex + float2(dx, dy)),
-      tex,
-      tex * IN.texture_size
-   );
+   coords.c00_10 = float4(tex + float2(-dx, -dy), tex + float2(0, -dy));
+   coords.c20_01 = float4(tex + float2(dx, -dy), tex + float2(-dx, 0));
+   coords.c21_02 = float4(tex + float2(dx, 0), tex + float2(-dx, dy));
+   coords.c12_22 = float4(tex + float2(0, dy), tex + float2(dx, dy));
+   coords.c11 = tex;
+   coords.pixel_no = tex * IN.texture_size;
 }
 
 const float gamma = 2.4;
@@ -71,16 +69,16 @@ float color_bloom(float3 color)
 float3 lookup(float2 pixel_no, float offset_x, float offset_y, float3 color)
 {
    float2 offset = float2(offset_x, offset_y);
-   float delta = dist(frac(pixel_no), offset + float2(0.5));
+   float delta = dist(frac(pixel_no), offset + float2(0.5, 0.5));
    return color * exp(-gamma * delta * color_bloom(color));
 }
 
 #define TEX(coord) tex2D(s0, co.coord).rgb
 
-float4 main_fragment(in tex_coord co, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(tex_coord co : TEXCOORD1, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float3 mid_color = lookup(co.pixel_no, 0.0, 0.0, TEX(c11));
-   float3 color = float3(0.0);
+   float3 color = float3(0.0, 0.0, 0.0);
    color += lookup(co.pixel_no, -1.0, -1.0, TEX(c00_10.xy));
    color += lookup(co.pixel_no,  0.0, -1.0, TEX(c00_10.zw));
    color += lookup(co.pixel_no,  1.0, -1.0, TEX(c20_01.xy));
