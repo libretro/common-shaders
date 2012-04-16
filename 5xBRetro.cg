@@ -63,16 +63,14 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
-	half4 t1;
+	half4 t1 : TEXCOORD1;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -82,7 +80,6 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
 	half dx = ps.x;
@@ -114,7 +111,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 	bool nc; // new_color
 	bool fx; // inequations of straight lines.
 
-	float2 pos  = frac(VAR.texCoord*IN.texture_size)-float2(0.5); // pos = pixel position
+	float2 pos  = frac(VAR.texCoord*IN.texture_size)-float2(0.5, 0.5); // pos = pixel position
 	float2 dir = sign(pos); // dir = pixel direction
 
 	float2 g1 = dir*VAR.t1.xy;
