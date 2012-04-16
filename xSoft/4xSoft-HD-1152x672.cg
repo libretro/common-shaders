@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
 
    Copyright (C) 2007 guest(r) - guest.r@gmail.com
@@ -38,7 +43,6 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	half2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
@@ -52,7 +56,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	half2 tex      : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -68,7 +71,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		tex,
 		half4(tex,tex) + half4(-dx, -dy, dx, -dy), // outer diag. texels
 		half4(tex,tex) + half4(dx, dy, -dx, dy),
@@ -110,6 +112,6 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform
   half3 t1=(hl*(c10+c12)+vl*(c01+c21)+(hl+vl)*c11)/(3.0*(hl+vl));
   half3 t2=(d1*(c20+c02)+d2*(c00+c22)+(d1+d2)*c11)/(3.0*(d1+d2));
 
-  return half4(0.25*(t1+t2+(m2*(s00+s22)+m1*(s02+s20))/(m1+m2)),0);
+  return half4(0.25*(t1+t2+(m2*(s00+s22)+m1*(s02+s20))/(m1+m2)),1.0);
 }
 

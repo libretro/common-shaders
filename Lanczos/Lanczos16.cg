@@ -130,6 +130,6 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform
 return half4((mul(half4(p,q,r,s), half4x3(mul(half4(a,b,c,d), half4x3(-pix[0][0], pix[1][0], pix[2][0], -pix[3][0])),
 					  mul(half4(a,b,c,d), half4x3( pix[0][1], pix[1][1], pix[2][1],  pix[3][1])),
                                           mul(half4(a,b,c,d), half4x3( pix[0][2], pix[1][2], pix[2][2],  pix[3][2])),
-                                          mul(half4(a,b,c,d), half4x3(-pix[0][3], pix[1][3], pix[2][3], -pix[3][3])))))/((a+b+c+d)*(p+q+r+s)-2*(a+d)*(p+s)),1);
+                                          mul(half4(a,b,c,d), half4x3(-pix[0][3], pix[1][3], pix[2][3], -pix[3][3])))))/((a+b+c+d)*(p+q+r+s)-2*(a+d)*(p+s)),1.0);
 }
 
