@@ -1,5 +1,4 @@
 /* COMPATIBILITY 
-   - HLSL compilers
    - Cg   compilers
 */
 
@@ -190,4 +189,3 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 
 	return half4(res, 1.0);
 }
-
