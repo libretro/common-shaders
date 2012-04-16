@@ -1,0 +1,78 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+static const float BlurFactor = 0.0025; //set between 0.001 and 0.05 
+
+const float2 samples[12]
+=	{
+		-0.326212, -0.405805,
+		-0.840144, -0.073580,
+		-0.695914,  0.457137,
+		-0.203345,  0.620716,
+		 0.962340, -0.194983,
+		 0.473434, -0.480026,
+		 0.519456,  0.767022,
+		 0.185461, -0.893124,
+		 0.507431,  0.064425,
+		 0.896420,  0.412458,
+		-0.321940, -0.932615,
+		-0.791559, -0.597705
+	};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float4 t6 : TEXCOORD6;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 tex      : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj
+)
+{
+	out_vertex OUT = {
+		mul(modelViewProj, position),
+		float4(tex,0.0,0.0),
+		float4(tex,tex) + float4(BlurFactor * samples[ 0], BlurFactor * samples[ 1]),
+		float4(tex,tex) + float4(BlurFactor * samples[ 2], BlurFactor * samples[ 3]),
+		float4(tex,tex) + float4(BlurFactor * samples[ 4], BlurFactor * samples[ 5]),
+		float4(tex,tex) + float4(BlurFactor * samples[ 6], BlurFactor * samples[ 7]),
+		float4(tex,tex) + float4(BlurFactor * samples[ 8], BlurFactor * samples[ 9]),
+		float4(tex,tex) + float4(BlurFactor * samples[10], BlurFactor * samples[11]),
+	};
+
+	return OUT;
+}
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+	float4 color = tex2D( s0, VAR.texCoord.xy);
+
+	color += tex2D(s0, VAR.t1.xy);
+	color += tex2D(s0, VAR.t1.zw);
+	color += tex2D(s0, VAR.t2.xy);
+	color += tex2D(s0, VAR.t2.zw);
+	color += tex2D(s0, VAR.t3.xy);
+	color += tex2D(s0, VAR.t3.zw);
+	color += tex2D(s0, VAR.t4.xy);
+	color += tex2D(s0, VAR.t4.zw);
+	color += tex2D(s0, VAR.t5.xy);
+	color += tex2D(s0, VAR.t5.zw);
+	color += tex2D(s0, VAR.t6.xy);
+	color += tex2D(s0, VAR.t6.zw);
+	
+	return color / 13;
+}
+
