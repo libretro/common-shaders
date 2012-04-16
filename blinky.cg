@@ -1,7 +1,11 @@
+/* COMPATIBILITY 
+   - Cg   compilers
+*/
+
 struct input
 {
-   uniform float2 texture_size;
-   uniform float frame_count;
+   float2 texture_size;
+   float frame_count;
 };
 
 struct vert_out
@@ -21,8 +25,8 @@ void main_vertex
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
    float2 tex : TEXCOORD,
-   input IN,
-   out vert_out verts
+   input IN : TEXCOORD2,
+   out vert_out verts : TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
@@ -34,17 +38,16 @@ void main_vertex
          -sin(angle),   cos(angle)
    );
 
-   verts = vert_out(
-         tex,
-         tex + one * mul(rotate, float2(1.0, 0.0)),
-         tex + one * mul(rotate, float2(0.5, 0.7)),
-         tex + one * mul(rotate, float2(-0.5, 0.7)),
-         tex + one * mul(rotate, float2(-1.0, 0.0)),
-         tex + one * mul(rotate, float2(-0.5, -0.7)),
-         tex + one * mul(rotate, float2(0.5, -0.7)));
+   verts.tex_direct = tex;
+   verts.tex_0 = tex + one * mul(rotate, float2(1.0, 0.0));
+   verts.tex_60 = tex + one * mul(rotate, float2(0.5, 0.7));
+   verts.tex_120 = tex + one * mul(rotate, float2(-0.5, 0.7));
+   verts.tex_180 = tex + one * mul(rotate, float2(-1.0, 0.0));
+   verts.tex_240 = tex + one * mul(rotate, float2(-0.5, -0.7));
+   verts.tex_300 = tex + one * mul(rotate, float2(0.5, -0.7));
 }
 
-float4 main_fragment (in vert_out verts, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment (in vert_out verts : TEXCOORD1, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float4 tex_mid = tex2D(s0, verts.tex_direct);
    float4 tex0 = tex2D(s0, verts.tex_0);

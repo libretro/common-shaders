@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers (broken picture quality?)
+   - Cg   compilers
+*/
+
 /*
    Copyright (C) 2010 Team XBMC
    http://www.xbmc.org
@@ -69,7 +74,7 @@ struct input
         float4 ret = /*2.0 **/ sin(sample) * sin(sample / 2.0) / (sample * sample);
 
         // Normalize
-        return ret / dot(ret, float4(1.0));
+        return ret / dot(ret, float4(1.0, 1.0, 1.0, 1.0));
     }         
 
     float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
@@ -77,7 +82,7 @@ struct input
         return tex2D(s_p, float2(xpos, ypos)).rgb;
     }
 
-    float3 line(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+    float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
     {         
         return mul(linetaps, float4x3(
             pixel(xpos.x, ypos, s_p),
@@ -107,10 +112,10 @@ output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D
 // final sum and weight normalization
    output OUT;
    OUT.color = float4(mul(columntaps, float4x3(
-            line(xystart.y                 , xpos, linetaps, s_p),
-            line(xystart.y + stepxy.y      , xpos, linetaps, s_p),
-            line(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p),
-            line(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p))),1.0);
+            line_run(xystart.y                 , xpos, linetaps, s_p),
+            line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p),
+            line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p),
+            line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p))),1.0);
    return OUT;
 }
 

@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 struct input
 {
    float2 video_size;
