@@ -38,7 +38,6 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
@@ -52,7 +51,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	float2 texCoord  : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -68,7 +66,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		texCoord,
 		half4(texCoord,texCoord) + half4(-dx, -dy, dx, -dy), // outer diag. texels
 		half4(texCoord,texCoord) + half4(dx, dy, -dx, dy),
@@ -112,4 +109,3 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 
   return half4(0.25*(t1+t2+(m2*(s00+s22)+m1*(s02+s20))/(m1+m2)),0);
 }
-
