@@ -40,97 +40,90 @@ void main_vertex
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
 
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out tex_coords coords
+   out tex_coords coords : TEXCOORD1
  )
 {
    oPosition = mul(modelViewProj, position);
-   oColor = color;
 
-   coords = tex_coords (
-      tex + float2(0.0, 0.0),
-      tex.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x,
-      1.0 / IN.texture_size
-   );
+   coords.texCoord = tex + float2(0.0, 0.0);
+   coords.mod_factor = tex.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
+   coords.one = 1.0 / IN.texture_size;
+}
+
+// Comment the next line to disable interpolation in linear gamma (and gain speed).
+#define LINEAR_PROCESSING
+
+// Compensate for 16-235 level range as per Rec. 601.
+// #define REF_LEVELS
+
+// Enable screen curvature.
+#define CURVATURE
+
+// Controls the intensity of the barrel distortion used to emulate the
+// curvature of a CRT. 0.0 is perfectly flat, 1.0 is annoyingly
+// distorted, higher values are increasingly ridiculous.
+#define distortion 0.0
+
+// Simulate a CRT gamma of 2.4.
+#define inputGamma  2
+
+// Compensate for the standard sRGB gamma of 2.2.
+#define outputGamma 1.78
+
+// Macros.
+#define FIX(c) max(abs(c), 1e-5);
+#define PI 3.141592653589
+
+#ifdef REF_LEVELS
+#       define LEVELS(c) max((c - 16.0 / 255.0) * 255.0 / (235.0 - 16.0), 0.0)
+#else
+#       define LEVELS(c) c
+#endif
+
+#ifdef LINEAR_PROCESSING
+#       define TEX2D(c) pow(LEVELS(tex2D(s_p, (c))), float4(inputGamma))
+#else
+#       define TEX2D(c) LEVELS(tex2D(s_p, (c)))
+#endif
+
+// Apply radial distortion to the given coordinate.
+float2 radialDistortion(float2 coord, input ruby) {
+	coord *= ruby.texture_size.x / ruby.video_size.x;
+	float2 cc = coord - 0.5;
+	float dist = dot(cc, cc) * distortion;				
+	return (coord + cc * (1.0 + dist) * dist) * ruby.video_size.x / ruby.texture_size.x;
+}
+
+// Calculate the influence of a scanline on the current pixel.
+//
+// 'distance' is the distance in texture coordinates from the current
+// pixel to the scanline in question.
+// 'color' is the colour of the scanline at the horizontal location of
+// the current pixel.
+float4 scanlineWeights(float distance, float4 color)
+{
+	// The "width" of the scanline beam is set as 2*(1 + x^4) for
+	// each RGB channel.
+	float4 wid = 2.0 + 2.0 * pow(color, float4(4.0, 4.0, 4.0, 4.0));
+
+	// The "weights" lines basically specify the formula that gives
+	// you the profile of the beam, i.e. the intensity as
+	// a function of distance from the vertical center of the
+	// scanline. In this case, it is gaussian if width=2, and
+	// becomes nongaussian for larger widths. Ideally this should
+	// be normalized so that the integral across the beam is
+	// independent of its width. That is, for a narrower beam
+	// "weights" should have a higher peak at the center of the
+	// scanline than for a wider beam.
+	float4 weights = float4(distance / 0.3, distance / 0.3, distance / 0.3, distance / 0.3);
+	return 1.7 * exp(-pow(weights * rsqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
 }
 
 
-        // Comment the next line to disable interpolation in linear gamma (and gain speed).
-        #define LINEAR_PROCESSING
-
-        // Compensate for 16-235 level range as per Rec. 601.
-        // #define REF_LEVELS
-		
-		// Enable screen curvature.
-		#define CURVATURE
-		
-		// Controls the intensity of the barrel distortion used to emulate the
-        // curvature of a CRT. 0.0 is perfectly flat, 1.0 is annoyingly
-        // distorted, higher values are increasingly ridiculous.
-        #define distortion 0.0
-
-        // Simulate a CRT gamma of 2.4.
-        #define inputGamma  2
-
-        // Compensate for the standard sRGB gamma of 2.2.
-        #define outputGamma 1.78
-        
-        // Macros.
-        #define FIX(c) max(abs(c), 1e-5);
-        #define PI 3.141592653589
-
-        #ifdef REF_LEVELS
-        #       define LEVELS(c) max((c - 16.0 / 255.0) * 255.0 / (235.0 - 16.0), 0.0)
-        #else
-        #       define LEVELS(c) c
-        #endif
-
-        #ifdef LINEAR_PROCESSING
-        #       define TEX2D(c) pow(LEVELS(tex2D(s_p, (c))), float4(inputGamma))
-        #else
-        #       define TEX2D(c) LEVELS(tex2D(s_p, (c)))
-        #endif
-
-        // Apply radial distortion to the given coordinate.
-	float2 radialDistortion(float2 coord, input ruby) {
-		coord *= ruby.texture_size.x / ruby.video_size.x;
-                float2 cc = coord - 0.5;
-                float dist = dot(cc, cc) * distortion;				
-                return (coord + cc * (1.0 + dist) * dist) * ruby.video_size.x / ruby.texture_size.x;
-        }
-
-        // Calculate the influence of a scanline on the current pixel.
-        //
-        // 'distance' is the distance in texture coordinates from the current
-        // pixel to the scanline in question.
-        // 'color' is the colour of the scanline at the horizontal location of
-        // the current pixel.
-        float4 scanlineWeights(float distance, float4 color)
-        {
-                // The "width" of the scanline beam is set as 2*(1 + x^4) for
-                // each RGB channel.
-                float4 wid = 2.0 + 2.0 * pow(color, float4(4.0));
-
-                // The "weights" lines basically specify the formula that gives
-                // you the profile of the beam, i.e. the intensity as
-                // a function of distance from the vertical center of the
-                // scanline. In this case, it is gaussian if width=2, and
-                // becomes nongaussian for larger widths. Ideally this should
-                // be normalized so that the integral across the beam is
-                // independent of its width. That is, for a narrower beam
-                // "weights" should have a higher peak at the center of the
-                // scanline than for a wider beam.
-                float4 weights = float4(distance / 0.3);
-                return 1.7 * exp(-pow(weights * rsqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
-        }
-
-
-float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
+float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
 {
                 // Here's a helpful diagram to keep in mind while trying to
                 // understand the code:
@@ -162,11 +155,11 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
 
                 // Of all the pixels that are mapped onto the texel we are
                 // currently rendering, which pixel are we currently rendering?
-                float2 ratio_scale = xy * IN.texture_size - float2(0.5);
+                float2 ratio_scale = xy * IN.texture_size - float2(0.5, 0.5);
                 float2 uv_ratio = frac(ratio_scale);
 
                 // Snap to the center of the underlying texel.
-                xy = (floor(ratio_scale) + float2(0.5)) / IN.texture_size;
+                xy = (floor(ratio_scale) + float2(0.5, 0.5)) / IN.texture_size;
 
                 // Calculate Lanczos scaling coefficients describing the effect
                 // of various neighbour texels in a scanline on the current
@@ -180,7 +173,7 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
                 coeffs = 2.0 * sin(coeffs) * sin(coeffs / 2.0) / (coeffs * coeffs);
 
                 // Normalize.
-                coeffs /= dot(coeffs, float4(1.0));
+                coeffs /= dot(coeffs, float4(1.0, 1.0, 1.0, 1.0));
 
                 // Calculate the effective colour of the current and next
                 // scanlines at the horizontal location of the current pixel,
@@ -199,8 +192,8 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
                         0.0, 1.0);
 
         #ifndef LINEAR_PROCESSING
-                col  = pow(col , float4(inputGamma));
-                col2 = pow(col2, float4(inputGamma));
+                col  = pow(col , float4(inputGamma, inputGamma, inputGamma, inputGamma));
+                col2 = pow(col2, float4(inputGamma, inputGamma, inputGamma, inputGamma));
         #endif
 
                 // Calculate the influence of the current and next scanlines on
@@ -220,7 +213,7 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s_p :
                 mul_res *= dotMaskWeights;
 
                 // Convert the image gamma for display on our output device.
-                mul_res = pow(mul_res, float3(1.0 / outputGamma));
+                mul_res = pow(mul_res, float3(1.0 / outputGamma, 1.0 / outputGamma, 1.0 / outputGamma, 1.0 / outputGamma));
 
 		return float4(mul_res, 1.0);
 }

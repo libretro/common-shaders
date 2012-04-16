@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 static const float BlurFactor = 0.0025; //set between 0.001 and 0.05 
 
 const float2 samples[12]
@@ -18,7 +23,6 @@ const float2 samples[12]
 
 struct out_vertex {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float4 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -33,7 +37,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 tex      : TEXCOORD0,
 
    	uniform float4x4 modelViewProj
@@ -41,7 +44,6 @@ out_vertex main_vertex
 {
 	out_vertex OUT = {
 		mul(modelViewProj, position),
-		color,
 		float4(tex,0.0,0.0),
 		float4(tex,tex) + float4(BlurFactor * samples[ 0], BlurFactor * samples[ 1]),
 		float4(tex,tex) + float4(BlurFactor * samples[ 2], BlurFactor * samples[ 3]),

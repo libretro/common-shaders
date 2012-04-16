@@ -37,7 +37,7 @@ void main_vertex
    oColor = color;
    
    float2 box_scale = floor(IN.output_size / IN.video_size);
-   box_scale = float2(min(box_scale));
+   box_scale = float2(min(box_scale), min(box_scale));
 
 
    float2 scale = (IN.output_size / IN.video_size) / box_scale;

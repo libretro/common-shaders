@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 const float box_scale = 1.0; // 1x scale.
 
 struct input

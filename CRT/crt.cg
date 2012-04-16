@@ -1,4 +1,9 @@
- /*
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
     cgwg's CRT shader
 
     Copyright (C) 2010-2011 cgwg, Themaister
@@ -46,41 +51,35 @@ void main_vertex
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
 
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out tex_coords coords
+   out tex_coords coords : TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
-   oColor = color;
 
    float2 delta = 1.0 / IN.texture_size;
    float dx = delta.x;
    float dy = delta.y;
 
-   coords = tex_coords (
-      tex + float2(-dx, 0.0),
-      tex + float2(0.0, 0.0),
-      tex + float2(dx, 0.0),
-      tex + float2(2.0 * dx, 0.0),
-      tex + float2(-dx, dy),
-      tex + float2(0.0, dy),
-      tex + float2(dx, dy),
-      tex + float2(2.0 * dx, dy),
-      tex.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x,
-      tex * IN.texture_size
-   );
+   coords.c01 = tex + float2(-dx, 0.0);
+   coords.c11 = tex + float2(0.0, 0.0);
+   coords.c21 = tex + float2(dx, 0.0);
+   coords.c31 = tex + float2(2.0 * dx, 0.0);
+   coords.c02 = tex + float2(-dx, dy);
+   coords.c12 = tex + float2(0.0, dy);
+   coords.c22 = tex + float2(dx, dy);
+   coords.c32 = tex + float2(2.0 * dx, dy);
+   coords.mod_factor = tex.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
+   coords.ratio_scale = tex * IN.texture_size;
 }
 
 #define TEX2D(c) tex2D(s0 ,(c))
 #define PI 3.141592653589
 #define gamma 2.7
 
-float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float2 uv_ratio = frac(co.ratio_scale);
    float3 col, col2;
@@ -92,17 +91,17 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : 
    coeffs = sin(PI * coeffs) * sin(0.5 * PI * coeffs) / (coeffs * coeffs);
    coeffs = coeffs / dot(coeffs, float(1.0));
 
-   float3 weights = float3(3.33 * uv_ratio.y);
-   float3 weights2 = float3(uv_ratio.y * -3.33 + 3.33);
+   float3 weights = float3(3.33 * uv_ratio.y, 3.33 * uv_ratio.y, 3.33 * uv_ratio.y);
+   float3 weights2 = float3(uv_ratio.y * -3.33 + 3.33, uv_ratio.y * -3.33 + 3.33, uv_ratio.y * -3.33 + 3.33);
 
    col = saturate(mul(coeffs, texes0));
    col2 = saturate(mul(coeffs, texes1));
 
-   float3 wid = 2.0 * pow(col, float3(4.0)) + 2.0;
-   float3 wid2 = 2.0 * pow(col2, float3(4.0)) + 2.0;
+   float3 wid = 2.0 * pow(col, float3(4.0, 4.0, 4.0)) + 2.0;
+   float3 wid2 = 2.0 * pow(col2, float3(4.0, 4.0, 4.0)) + 2.0;
 
-   col = pow(col, float3(gamma));
-   col2 = pow(col2, float3(gamma));
+   col = pow(col, float3(gamma, gamma, gamma));
+   col2 = pow(col2, float3(gamma, gamma, gamma));
 
    float3 sqrt1 = rsqrt(0.5 * wid);
    float3 sqrt2 = rsqrt(0.5 * wid2);
@@ -122,5 +121,5 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : 
    float3 multi = col * weights + col2 * weights2;
    float3 mcol = lerp(float3(1.0, 0.7, 1.0), float3(0.7, 1.0, 0.7), floor(fmod(co.mod_factor, 2.0)));
 
-   return float4(pow(mcol * multi, float3(0.454545)), 1.0);
+   return float4(pow(mcol * multi, float3(0.454545, 0.454545, 0.454545)), 1.0);
 }
