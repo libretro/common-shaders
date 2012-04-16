@@ -1,4 +1,8 @@
-/* Default Vertex shader */
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 struct input
 {
 	float2 video_size;
@@ -28,7 +32,6 @@ static const float BlurWeights[13] =
 
 struct out_vertex {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -45,7 +48,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 tex      : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -57,7 +59,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		tex,
 		float4(tex,tex) + float4(-offset.x, -offset.y,       0.0, -offset.y),
 		float4(tex,tex) + float4( offset.x, -offset.y, -offset.x,       0.0),
@@ -75,7 +76,7 @@ out_vertex main_vertex
 
 
 
-float edge_detect_sobel(sampler s0, out_vertex TC)
+float edge_detect_sobel(sampler2D s0, out_vertex TC)
 {
     // sobel
     half4 g00 = tex2D(s0,   TC.t1.xy);   // Top Left

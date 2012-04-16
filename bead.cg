@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Author: Themaister
    License: Public domain
@@ -27,29 +32,20 @@ void main_vertex
    float2 tex : TEXCOORD0,
 
    uniform input IN,
-   out tex_coord coords
+   out tex_coord coords : TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
 
-   coords = tex_coord(
-      tex,
-      tex * IN.texture_size
-   );
+   coords.c11 = tex;
+   coords.pixel_no = tex * IN.texture_size;
 }
 
 float dist(float2 coord, float2 source)
 {
    float2 delta = coord - source;
    return sqrt(dot(delta, delta));
-}
-
-float color_bloom(float3 color)
-{
-   const float3 gray_coeff = float3(0.30, 0.59, 0.11);
-   float bright = dot(color, gray_coeff);
-   return lerp(1.0 + shine, 1.0 - shine, bright);
 }
 
 float rolloff(float len)
@@ -62,7 +58,7 @@ const float low = 0.2;
 
 float3 lookup(float2 pixel_no, float3 color)
 {
-   float delta = dist(frac(pixel_no), float2(0.5));
+   float delta = dist(frac(pixel_no), float2(0.5, 0.5));
 
    if (delta > low && delta < high)
       return color;
@@ -71,12 +67,12 @@ float3 lookup(float2 pixel_no, float3 color)
    else if (delta <= low)
       return color * rolloff(low - delta);
    else
-      return float3(0.0);
+      return float3(0.0, 0.0, 0.0);
 }
 
 #define TEX(coord) tex2D(s0, co.coord).rgb
 
-float4 main_fragment(in tex_coord co, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(in tex_coord co : TEXCOORD1, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float3 mid_color = lookup(co.pixel_no, TEX(c11));
    return float4(mid_color, 1.0);
