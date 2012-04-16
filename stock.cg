@@ -1,6 +1,8 @@
-/*
-	VERTEX_SHADER
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
 */
+
 void main_vertex
 (
 	float4 position	: POSITION,
@@ -19,10 +21,6 @@ void main_vertex
 	otexCoord = texCoord;
 }
 
-
-/* 
-	FRAGMENT SHADER
-*/
 struct output 
 {
   float4 color    : COLOR;

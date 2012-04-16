@@ -1,12 +1,15 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
 
-/* Default Vertex shader */
 void main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
-    uniform float4x4 modelViewProj,
+	uniform float4x4 modelViewProj,
 
 	out float4 oPosition : POSITION,
 	out float4 oColor    : COLOR,

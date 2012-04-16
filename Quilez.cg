@@ -1,12 +1,14 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
 	Fragment shader based on "Improved texture interpolation" by Iñigo Quílez
 	Original description: http://www.iquilezles.org/www/articles/texture/texture.htm
 
 */
 
-/*
-	VERTEX_SHADER
-*/
 void main_vertex
 (
 	float4 position	: POSITION,
@@ -25,10 +27,6 @@ void main_vertex
 	otexCoord = texCoord;
 }
 
-
-/* 
-	FRAGMENT SHADER
-*/
 struct output 
 {
   float4 color    : COLOR;
@@ -46,19 +44,17 @@ output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2
 {
 	float2 p = tex.xy;
 
-	p = p * IN.texture_size + float2(0.5);
+	p = p * IN.texture_size + float2(0.5, 0.5);
 
 	float2 i = floor(p);
 	float2 f = p - i;
-	f = f * f * f * (f * (f * 6.0 - float2(15.0)) + float2(10.0));
+	f = f * f * f * (f * (f * 6.0 - float2(15.0, 15.0)) + float2(10.0, 10.0));
 	p = i + f;
 
-	p = (p - float2(0.5)) / IN.texture_size;
+	p = (p - float2(0.5, 0.5)) / IN.texture_size;
 
-
-// final sum and weight normalization
-   output OUT;
-   OUT.color = tex2D(s_p, p);
-   return OUT;
+	// final sum and weight normalization
+	output OUT;
+	OUT.color = tex2D(s_p, p);
+	return OUT;
 }
-

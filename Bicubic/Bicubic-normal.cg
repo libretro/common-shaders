@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Copyright (C) 2010 Team XBMC
    http://www.xbmc.org
@@ -105,7 +110,7 @@ struct input
 	  return tex2D(s_p, float2(xpos, ypos)).rgb;
 	}
 
-	float3 line(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+	float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
 	{
 	  return
 		pixel(xpos.r, ypos, s_p) * linetaps.r +
@@ -134,10 +139,10 @@ output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D
 
 // final sum and weight normalization
    output OUT;
-   OUT.color = float4(line(xystart.y                 , xpos, linetaps, s_p) * columntaps.r +
-                      line(xystart.y + stepxy.y      , xpos, linetaps, s_p) * columntaps.g +
-                      line(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p) * columntaps.b +
-                      line(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p) * columntaps.a,1);
+   OUT.color = float4(line_run(xystart.y                 , xpos, linetaps, s_p) * columntaps.r +
+                      line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p) * columntaps.g +
+                      line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p) * columntaps.b +
+                      line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p) * columntaps.a,1);
    return OUT;
 }
 

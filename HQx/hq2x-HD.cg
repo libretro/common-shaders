@@ -1,4 +1,8 @@
-/* Default Vertex shader */
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 const static half3 dt = half3(1.0, 1.0, 1.0);
 
 struct input
@@ -11,7 +15,6 @@ struct input
 
 struct out_vertex {
 	half4 position : POSITION;
-	half4 color    : COLOR;
 	half2 texCoord : TEXCOORD0;
 	half4 t1 : TEXCOORD1;
 	half4 t2 : TEXCOORD2;
@@ -23,7 +26,6 @@ struct out_vertex {
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	half2 tex      : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -39,7 +41,6 @@ out_vertex main_vertex
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
-		color,
 		tex,
 		half4(tex-dg1,tex-dy),
 		half4(tex-dg2,tex+dx),

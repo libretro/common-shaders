@@ -1,6 +1,8 @@
-/*
-	VERTEX_SHADER
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
 */
+
 const static float3 dtt = float3(65536,255,1);
 
 float reduce(half3 color)
@@ -18,7 +20,6 @@ struct input
 
 struct out_vertex {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -27,14 +28,14 @@ struct out_vertex {
 	float4 t5 : TEXCOORD5;
 	float4 t6 : TEXCOORD6;
 	float4 t7 : TEXCOORD7;
-	float4 t8 : TEXCOORD8;
 };
+
+float4 t8;
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -44,7 +45,6 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	float2 ps = float2(1.0/512.0, 1.0/448.0);
 	float dx = ps.x;
@@ -65,7 +65,7 @@ out_vertex main_vertex
 	OUT.t6.zw = texCoord + half2(-dx,+dy+dy);
 	OUT.t7.xy = texCoord + half2(  0,+dy+dy);
 	OUT.t7.zw = texCoord + half2(+dx,+dy+dy);
-	OUT.t8.xy = texCoord + half2(+dx+dx,+dy+dy);
+	t8.xy = texCoord + half2(+dx+dx,+dy+dy);
 
 	return OUT;
 }
@@ -104,7 +104,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	half3 D0 = tex2D(decal,VAR.t6.zw).xyz;
 	half3 D1 = tex2D(decal,VAR.t7.xy).xyz;
 	half3 D2 = tex2D(decal,VAR.t7.zw).xyz;
-	half3 D6 = tex2D(decal,VAR.t8.xy).xyz;
+	half3 D6 = tex2D(decal,t8.xy).xyz;
 
 	half3 p00,p10,p01,p11;
 

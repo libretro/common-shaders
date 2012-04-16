@@ -1,21 +1,25 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
  * (Inaccurate) Phosphor shader
  * Author: Themaister
  * Licesese: Public Domain
  */
 
+// Constants used with gamma correction.
+#define InputGamma 2.4
+#define OutputGamma 2.2
 
-        // Constants used with gamma correction.
-        #define InputGamma 2.4
-        #define OutputGamma 2.2
+#define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
-        #define GAMMA_IN(color)     pow(color, float3(InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma))
+#define TEX2D(coords)	GAMMA_IN( tex2D(samp, coords).rgb )
 
-	#define TEX2D(coords)	GAMMA_IN( tex2D(samp, coords).rgb )
-
-        // Used to counteract the desaturation effect of weighting.
-        #define COLOR_BOOST 1.45
+// Used to counteract the desaturation effect of weighting.
+#define COLOR_BOOST 1.45
 
 struct coords
 {
@@ -40,18 +44,16 @@ void main_vertex(
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out coords co
+   out coords co : TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
 
    float2 one_x = float2(1.0 / (3.0 * IN.texture_size.x), 0.0);
-   co = coords(
-      tex - 0.0 * one_x,
-      tex - 1.0 * one_x,
-      tex - 2.0 * one_x,
-      tex * IN.texture_size
-   );
+   co.coord = tex - 0.0 * one_x;
+   co.coord_prev = tex - 1.0 * one_x;
+   co.coord_prev_prev = tex - 2.0 * one_x;
+   co.tex_index = tex * IN.texture_size;
 }
 
 float3 to_focus(float pixel)
@@ -65,7 +67,7 @@ float3 to_focus(float pixel)
       return float3(1.0 - pixel, pixel, 0.0);
 }
 
-float4 main_fragment(in coords co, uniform sampler2D samp : TEXUNIT0) : COLOR
+float4 main_fragment(in coords co : TEXCOORD1, uniform sampler2D samp : TEXUNIT0) : COLOR
 {
    float y = fmod(co.tex_index.y, 1.0);
    float intensity = exp(-0.2 * y);
@@ -85,9 +87,9 @@ float4 main_fragment(in coords co, uniform sampler2D samp : TEXUNIT0) : COLOR
       0.6 * color_prev * focus_prev +
       0.3 * color_prev_prev * focus_prev_prev;
 
-   result = 2.3 * pow(result, float3(1.4));
+   result = 2.3 * pow(result, float3(1.4, 1.4, 1.4));
 
-   result *= float3( COLOR_BOOST );
+   result *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
    return float4(clamp( GAMMA_OUT(intensity * result), 0.0, 1.0 ), 1.0);
 }

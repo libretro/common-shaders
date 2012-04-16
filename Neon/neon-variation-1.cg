@@ -1,24 +1,25 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Author: Themaister
    License: Public domain
 */
 
-/* Default Vertex shader */
 void main_vertex
 (
  float4 position	: POSITION,
- float4 color	: COLOR,
  float2 texCoord : TEXCOORD0,
 
  uniform float4x4 modelViewProj,
 
  out float4 oPosition : POSITION,
- out float4 oColor    : COLOR,
  out float2 otexCoord : TEXCOORD
  )
 {
    oPosition = mul(modelViewProj, position);
-   oColor = color;
    otexCoord = texCoord;
 }
 

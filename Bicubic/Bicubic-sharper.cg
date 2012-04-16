@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Copyright (C) 2010 Team XBMC
    http://www.xbmc.org
@@ -56,60 +61,58 @@ struct input
   half2 output_size;
 };
 
-	
-	float weight(float x)
-	{
-		float ax = abs(x);
-		// Sharper version.
-		// May look better in some cases.
-		const float B = 0.0;
-		const float C = 0.75;
+float weight(float x)
+{
+	float ax = abs(x);
+	// Sharper version.
+	// May look better in some cases.
+	const float B = 0.0;
+	const float C = 0.75;
 
-		if (ax < 1.0)
-		{
-			return
-				(
-					pow(x, 2.0) * ((12.0 - 9.0 * B - 6.0 * C) * ax + (-18.0 + 12.0 * B + 6.0 * C)) +
-					(6.0 - 2.0 * B)
-				) / 6.0;
-		}
-		else if ((ax >= 1.0) && (ax < 2.0))
-		{
-			return
-				(
-					pow(x, 2.0) * ((-B - 6.0 * C) * ax + (6.0 * B + 30.0 * C)) +
-					(-12.0 * B - 48.0 * C) * ax + (8.0 * B + 24.0 * C)
-				) / 6.0;
-		}
-		else
-		{
-			return 0.0;
-		}
-	}
-	
-	float4 weight4(float x)
+	if (ax < 1.0)
 	{
-		return float4(
+		return
+			(
+			 pow(x, 2.0) * ((12.0 - 9.0 * B - 6.0 * C) * ax + (-18.0 + 12.0 * B + 6.0 * C)) +
+			 (6.0 - 2.0 * B)
+			) / 6.0;
+	}
+	else if ((ax >= 1.0) && (ax < 2.0))
+	{
+		return
+			(
+			 pow(x, 2.0) * ((-B - 6.0 * C) * ax + (6.0 * B + 30.0 * C)) +
+			 (-12.0 * B - 48.0 * C) * ax + (8.0 * B + 24.0 * C)
+			) / 6.0;
+	}
+	else
+	{
+		return 0.0;
+	}
+}
+	
+float4 weight4(float x)
+{
+	return float4(
 			weight(x - 2.0),
 			weight(x - 1.0),
 			weight(x),
 			weight(x + 1.0));
-	}
+}
 
-	float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
-	{
-	  return tex2D(s_p, float2(xpos, ypos)).rgb;
-	}
+float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
+{
+	return tex2D(s_p, float2(xpos, ypos)).rgb;
+}
 
-	float3 line(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
-	{
-	  return
+float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+{
+	return
 		pixel(xpos.r, ypos, s_p) * linetaps.r +
 		pixel(xpos.g, ypos, s_p) * linetaps.g +
 		pixel(xpos.b, ypos, s_p) * linetaps.b +
 		pixel(xpos.a, ypos, s_p) * linetaps.a;
-	}
-
+}
 
 output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {	
@@ -130,11 +133,9 @@ output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D
 
 // final sum and weight normalization
    output OUT;
-   OUT.color = float4(line(xystart.y                 , xpos, linetaps, s_p) * columntaps.r +
-                      line(xystart.y + stepxy.y      , xpos, linetaps, s_p) * columntaps.g +
-                      line(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p) * columntaps.b +
-                      line(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p) * columntaps.a,1);
+   OUT.color = float4(line_run(xystart.y                 , xpos, linetaps, s_p) * columntaps.r +
+                      line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p) * columntaps.g +
+                      line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p) * columntaps.b +
+                      line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p) * columntaps.a,1);
    return OUT;
 }
-
-
