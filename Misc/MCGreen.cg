@@ -1,5 +1,4 @@
 /*
-
    Copyright (C) 2007 guest(r) - guest.r@gmail.com
 
    This program is free software; you can redistribute it and/or
@@ -19,17 +18,10 @@
 */
 
 /*
-
    This nice shader reads the brightness values of "pixels" and returns an image
+   with only a single color used - to produce the "monochrome" effect, otherwise seen on now very obsolete types of displays.
 
-   with only a single color used - to produce the "monochrome" effect, otherwise seen on
-
-   now very obsolete types of displays.
-
-   The final numbers of colors can be set to produce a final reduced color look while still
-
-   emulating an "advanced" gfx. chipset.
-
+   The final numbers of colors can be set to produce a final reduced color look while still emulating an "advanced" gfx. chipset.
 */
 
 const float colors = 256.0; // number of colors the display can show

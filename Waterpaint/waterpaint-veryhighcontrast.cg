@@ -1,3 +1,8 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
 /*
    Author: Themaister
    License: Public domain
@@ -35,11 +40,12 @@ void main_vertex
 
    float2 tex : TEXCOORD0,
    uniform input IN,
-   out tex_coords coords
+   out tex_coords coords : TEXCOORD1
  )
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
+   coords = (tex_coords)0;
 
    float2 texsize = IN.texture_size;
    const float scale_factor = 1.0;
@@ -47,17 +53,15 @@ void main_vertex
    float dx = delta.x;
    float dy = delta.y;
 
-   coords = tex_coords (
-      tex + float2(-dx, -dy),
-      tex + float2(-dx, 0),
-      tex + float2(-dx, dy),
-      tex + float2(0, -dy),
-      tex + float2(0, 0),
-      tex + float2(0, dy),
-      tex + float2(dx, -dy),
-      tex + float2(dx, 0),
-      tex + float2(dx, dy)
-   );
+   coords.c00 = tex + float2(-dx, -dy);
+   coords.c01 = tex + float2(-dx, 0);
+   coords.c02 = tex + float2(-dx, dy);
+   coords.c10 = tex + float2(0, -dy);
+   coords.c11 = tex + float2(0, 0);
+   coords.c12 = tex + float2(0, dy);
+   coords.c20 = tex + float2(dx, -dy);
+   coords.c21 = tex + float2(dx, 0);
+   coords.c22 = tex + float2(dx, dy);
 }
 
 struct output
@@ -68,12 +72,12 @@ struct output
 
 float4 compress(float4 in_color, float threshold, float ratio)
 {
-   float4 diff = in_color - float4(threshold);
+   float4 diff = in_color - float4(threshold, threshold, threshold, threshold);
    diff = clamp(diff, 0.0, 100.0);
    return in_color - (diff * (1.0 - 1.0/ratio));
 }
 
-float4 main_fragment (in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment (in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float2 texsize = IN.texture_size;
    const float scale_factor = 1.0;

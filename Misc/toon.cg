@@ -1,6 +1,8 @@
-/*
-	VERTEX_SHADER
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
 */
+
 struct input
 {
   float2 video_size;
@@ -11,7 +13,6 @@ struct input
 
 struct VERTEX_OUTPUT {
   float4 position : POSITION;
-  float4 color    : COLOR;
   float2 texCoord : TEXCOORD0;
 };
 
@@ -19,7 +20,6 @@ struct VERTEX_OUTPUT {
 VERTEX_OUTPUT main_vertex
 (
 	float4 position	: POSITION,
-	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -29,46 +29,37 @@ VERTEX_OUTPUT main_vertex
 	VERTEX_OUTPUT OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 	OUT.texCoord = texCoord;
 
 	return OUT;
 }
 
-
-/* 
-	FRAGMENT SHADER
-*/
-
 float4 ToonConfig;
 float threshold = 0.001;
-
 
 struct output 
 {
   float4 color    : COLOR;
 };
 
-
 struct VERTEX_INPUT
 {
 	float4 position : POSITION;
-	float4 color    : COLOR;
 	float2 CT : TEXCOORD0;
 };
 
+#define NUM 9
 
 output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
 	output OUT;
 
 	ToonConfig.xyz = 4; //RGB colours
-
 	float4 Color = tex2D( decal, VAR.CT.xy );
+
 	Color.r = round(Color.r*ToonConfig.r)/ToonConfig.r;
 	Color.g = round(Color.g*ToonConfig.g)/ToonConfig.g;
 	Color.b = round(Color.b*ToonConfig.b)/ToonConfig.b;
-	#define NUM 9
 	const float2 c[NUM] =
 	{
 		float2(-0.0078125, 0.0078125), 
@@ -80,7 +71,7 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
 		float2(-0.0078125,-0.0078125),
 		float2( 0.00 ,    -0.0078125),
 		float2( 0.0078125,-0.0078125),
-	};	
+	};
 
 	int i;
 	float3 col[NUM];
@@ -103,6 +94,3 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
 	OUT.color = Color;
 	return OUT;
 }
-
-
-
