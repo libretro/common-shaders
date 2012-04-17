@@ -24,9 +24,9 @@ void main_vertex
    float4 position : POSITION,
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   input IN : TEXCOORD2,
-   out vert_out verts : TEXCOORD1
+   float2 tex : TEXCOORD0,
+   uniform input IN,
+   out vert_out verts: TEXCOORD1
 )
 {
    oPosition = mul(modelViewProj, position);
