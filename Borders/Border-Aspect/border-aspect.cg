@@ -12,6 +12,8 @@ struct input
    float2 texture_size;
    float2 output_size;
    float frame_count;
+   float frame_direction;
+   float frame_rotation;
 };
 
 const float in_aspect = 16.0 / 9.0;

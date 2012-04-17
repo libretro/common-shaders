@@ -34,12 +34,22 @@ const float2 samples[12]
 		-0.791559, -0.597705
 	};
 
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
 struct output 
 {
   float4 col    : COLOR;
 };
 
-output main_fragment(in float2 Tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0 )
+output main_fragment(in float2 Tex : TEXCOORD0, uniform input IN, uniform sampler2D s0 : TEXUNIT0 )
 {
 	float4 color = tex2D( s0, Tex.xy);
         float BlurFactor = 0.0015; //set between 0.001 and 0.05 

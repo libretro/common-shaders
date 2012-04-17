@@ -11,6 +11,16 @@ static const half fWhiteCutoff = 0.8f;
 
 #define NUM 13
 
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
 half2 PixelOffsets[NUM] =
 {
    { -0.006, -0.006 },
@@ -92,7 +102,7 @@ out_vertex main_vertex
       pixel /= (10.0f + pixel);\
       Color += pixel * BlurWeights[IND];
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    half3 pixel;
    half3 Color = 0;

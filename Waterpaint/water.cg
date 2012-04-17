@@ -14,6 +14,8 @@ struct input
    float2 texture_size;
    float2 output_size;
    float frame_count;
+   float frame_direction;
+   float frame_rotation;
 };
 
 void main_vertex

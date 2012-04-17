@@ -32,6 +32,16 @@ struct out_vertex {
 	float4 t6 : TEXCOORD6;
 };
 
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
@@ -56,7 +66,7 @@ out_vertex main_vertex
 	return OUT;
 }
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
 	float4 color = tex2D( s0, VAR.texCoord.xy);
 

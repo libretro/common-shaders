@@ -29,6 +29,16 @@ struct output
    float4 color : COLOR;
 };
 
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
 
 struct deltas
 {
@@ -44,7 +54,7 @@ float3 quad_inter(float3 x0, float3 x1, float3 x2, float x)
    return poly[2] * x * x + poly[1] * x + poly[0];
 }
 
-output main_fragment (float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0)
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s0 : TEXUNIT0)
 {
    const float2 texsize = float2(768.0, 480.0);
    float sharpness = 2.01;

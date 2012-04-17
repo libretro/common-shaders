@@ -10,6 +10,9 @@ struct input
 	half2 video_size;
 	half2 texture_size;
 	half2 output_size;
+        float frame_count;
+        float frame_direction;
+	float frame_rotation;
 };
 
 
