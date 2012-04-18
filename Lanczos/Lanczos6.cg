@@ -77,7 +77,7 @@ struct input
         return tex2D(s_p, float2(xpos, ypos)).rgb;
     }
 
-    float3 line(float ypos, float3 xpos1, float3 xpos2, float3 linetaps1, float3 linetaps2, uniform sampler2D s_p)
+    float3 line_run(float ypos, float3 xpos1, float3 xpos2, float3 linetaps1, float3 linetaps2, uniform sampler2D s_p)
     {
         return
             pixel(xpos1.r, ypos, s_p) * linetaps1.r +
@@ -120,12 +120,12 @@ output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D
 // final sum and weight normalization
    output OUT;
    OUT.color = float4(
-            line(xystart.y                 , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.r +
-            line(xystart.y + stepxy.y      , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.r +
-            line(xystart.y + stepxy.y * 2.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.g +
-            line(xystart.y + stepxy.y * 3.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.g +
-            line(xystart.y + stepxy.y * 4.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.b +
-            line(xystart.y + stepxy.y * 5.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.b,1.0);
+            line_run(xystart.y                 , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.r +
+            line_run(xystart.y + stepxy.y      , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.r +
+            line_run(xystart.y + stepxy.y * 2.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.g +
+            line_run(xystart.y + stepxy.y * 3.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.g +
+            line_run(xystart.y + stepxy.y * 4.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.b +
+            line_run(xystart.y + stepxy.y * 5.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.b,1.0);
    return OUT;
 }
 
