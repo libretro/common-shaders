@@ -31,7 +31,7 @@ void main_vertex
    oTex = tex;
 }
 
-float scanline(float ypos)
+float scanline(float ypos, float frame_count)
 {
 	float c = mod(float(frame_count * 3.0 + ypos * 5.0), 15.0);
 	return 1.0 - smoothstep(0.0, 1.0, c);
@@ -71,11 +71,11 @@ float4 main_fragment (float2 tex : TEXCOORD,float4 position : POSITION, uniform 
 
    float4 image = texture2D(s0, p);
    image = (image - 16.0/255.0) * (255.0/219.0);
-   float rand = seed_random(p, frame_count);
+   float rand = seed_random(p, IN.frame_count);
    float luminance = dot(image.rgb, float3(0.299, 0.587, 0.114));
    image.rgb = float3(luminance,luminance,luminance);
    float4 distortion = rgbdistort(p,s0);
-   distortion.rgb += scanline(-p.y);
+   distortion.rgb += scanline(-p.y, IN.frame_count);
    return frame * (interference *distortion*rand+ image);
 }
 
