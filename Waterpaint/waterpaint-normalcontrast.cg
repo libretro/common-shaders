@@ -1,8 +1,3 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
 /*
    Author: Themaister
    License: Public domain
@@ -10,100 +5,84 @@
 
 struct tex_coords
 {
-   float2 c00; 
-   float2 c01; 
-   float2 c02;
-   float2 c10;
+   float4 c00_01; 
+   float4 c02_10;
    float2 c11; 
-   float2 c12; 
-   float2 c20;
-   float2 c21; 
-   float2 c22;
+   float4 c12_20; 
+   float4 c21_22; 
 };
 
 struct input
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
   float frame_count;
   float frame_direction;
   float frame_rotation;
 };
 
-/* Default Vertex shader */
 void main_vertex
 (
-   float4 position	: POSITION,
+   float4 position : POSITION,
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
 
-   float4 color	: COLOR,
-   out float4 oColor    : COLOR,
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
 
-   float2 tex : TEXCOORD0,
+   float2 tex : TEXCOORD,
+
    uniform input IN,
-   out tex_coords coords : TEXCOORD1
- )
+   out tex_coords coords
+)
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
 
    float2 texsize = IN.texture_size;
-   const float scale_factor = 1.0;
-   float2 delta = 0.499 / (texsize * scale_factor);
+   float2 delta = 0.5 / texsize;
    float dx = delta.x;
    float dy = delta.y;
 
-   coords.c00 = tex + float2(-dx, -dy);
-   coords.c01 = tex + float2(-dx, 0);
-   coords.c02 = tex + float2(-dx, dy);
-   coords.c10 = tex + float2(0, -dy);
-   coords.c11 = tex + float2(0, 0);
-   coords.c12 = tex + float2(0, dy);
-   coords.c20 = tex + float2(dx, -dy);
-   coords.c21 = tex + float2(dx, 0);
-   coords.c22 = tex + float2(dx, dy);
+   coords = tex_coords (
+      float4(tex + float2(-dx, -dy), tex + float2(-dx, 0)),
+      float4(tex + float2(-dx, dy), tex + float2(0, -dy)),
+      tex + float2(0, 0),
+      float4(tex + float2(0, dy), tex + float2(dx, -dy)),
+      float4(tex + float2(dx, 0), tex + float2(dx, dy))
+   );
 }
 
-struct output
+float3 compress(float3 in_color, float threshold, float ratio)
 {
-   float4 color : COLOR;
-};
-
-
-float4 compress(float4 in_color, float threshold, float ratio)
-{
-   float4 diff = in_color - float4(threshold, threshold, threshold, threshold);
+   float3 diff = in_color - float3(threshold);
    diff = clamp(diff, 0.0, 100.0);
-   return in_color - (diff * (1.0 - 1.0/ratio));
+   return saturate(in_color - (diff * (1.0 - 1.0/ratio)));
 }
 
-float4 main_fragment (in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment (in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float2 texsize = IN.texture_size;
-   const float scale_factor = 1.0;
    float2 tex = co.c11;
 
-   float3 c00 = tex2D(s0, co.c00).xyz;
-   float3 c01 = tex2D(s0, co.c01).xyz;
-   float3 c02 = tex2D(s0, co.c02).xyz;
-   float3 c10 = tex2D(s0, co.c10).xyz;
+   float3 c00 = tex2D(s0, co.c00_01.xy).xyz;
+   float3 c01 = tex2D(s0, co.c00_01.zw).xyz;
+   float3 c02 = tex2D(s0, co.c02_10.xy).xyz;
+   float3 c10 = tex2D(s0, co.c02_10.zw).xyz;
    float3 c11 = tex2D(s0, co.c11).xyz;
-   float3 c12 = tex2D(s0, co.c12).xyz;
-   float3 c20 = tex2D(s0, co.c20).xyz;
-   float3 c21 = tex2D(s0, co.c21).xyz;
-   float3 c22 = tex2D(s0, co.c22).xyz;
+   float3 c12 = tex2D(s0, co.c12_20.xy).xyz;
+   float3 c20 = tex2D(s0, co.c12_20.zw).xyz;
+   float3 c21 = tex2D(s0, co.c21_22.xy).xyz;
+   float3 c22 = tex2D(s0, co.c21_22.zw).xyz;
 
-   float3 first = lerp(c00, c20, frac(scale_factor * tex.x * texsize.x + 0.5));
-   float3 second = lerp(c02, c22, frac(scale_factor * tex.x * texsize.x + 0.5));
+   float3 first = lerp(c00, c20, frac(tex.x * texsize.x + 0.5));
+   float3 second = lerp(c02, c22, frac(tex.x * texsize.x + 0.5));
 
-   float3 mid_horiz = lerp(c01, c21, frac(scale_factor * tex.x * texsize.x + 0.5));
-   float3 mid_vert = lerp(c10, c12, frac(scale_factor * tex.y * texsize.y + 0.5));
+   float3 mid_horiz = lerp(c01, c21, frac(tex.x * texsize.x + 0.5));
+   float3 mid_vert = lerp(c10, c12, frac(tex.y * texsize.y + 0.5));
 
-   float3 res = lerp(first, second, frac(scale_factor * tex.y * texsize.y + 0.5));
-   float4 final = float4(0.26 * (res + mid_horiz + mid_vert) + 3.5 * abs(res - lerp(mid_horiz, mid_vert, 0.5)), 1.0);
-
-   return compress(final, 0.8, 5.0);
+   float3 res = lerp(first, second, frac(tex.y * texsize.y + 0.5));
+   float3 final = 0.26 * (res + mid_horiz + mid_vert) + 3.5 * abs(res - lerp(mid_horiz, mid_vert, 0.5));
+   return float4(compress(final, 0.8, 5.0), 1.0);
 }
-
