@@ -1,76 +1,48 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
+/*
+	VERTEX_SHADER
 */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
 
-const static float3 dtt = float3(65536,255,1);
+    uniform float4x4 modelViewProj,
 
-float reduce(half3 color)
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
 {
-	return dot(color, dtt);
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
 }
+
+
+/* 
+	FRAGMENT SHADER
+*/
+string name : NAME = "SuperEagle";
+string combineTechique : COMBINETECHNIQUE =  "SuperEagle";
+
+const float3 dtt = float3(65536,255,1);
+
+struct output 
+{
+  float4 color    : COLOR;
+};
 
 struct input
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-	float frame_count;
-	float frame_direction;
-	float frame_rotation;
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
 };
 
-
-struct out_vertex {
-	float4 position : POSITION;
-	float2 texCoord : TEXCOORD0;
-	float4 t1 : TEXCOORD1;
-	float4 t2 : TEXCOORD2;
-	float4 t3 : TEXCOORD3;
-	float4 t4 : TEXCOORD4;
-	float4 t5 : TEXCOORD5;
-	float4 t6 : TEXCOORD6;
-	float4 t7 : TEXCOORD7;
-	float4 t8 : TEXCOORD8;
-};
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
-{
-	out_vertex OUT = (out_vertex)0;
-
-	OUT.position = mul(modelViewProj, position);
-
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-	float dx = ps.x;
-	float dy = ps.y;
-
-	OUT.texCoord = texCoord;
-	OUT.t1.xy = texCoord + half2(-dx,-dy);
-	OUT.t1.zw = texCoord + half2(-dx,  0);
-	OUT.t2.xy = texCoord + half2(+dx,-dy);
-	OUT.t2.zw = texCoord + half2(+dx+dx,-dy);
-	OUT.t3.xy = texCoord + half2(-dx,  0);
-	OUT.t3.zw = texCoord + half2(+dx,  0);
-	OUT.t4.xy = texCoord + half2(+dx+dx,  0);
-	OUT.t4.zw = texCoord + half2(-dx,+dy);
-	OUT.t5.xy = texCoord + half2(  0,+dy);
-	OUT.t5.zw = texCoord + half2(+dx,+dy);
-	OUT.t6.xy = texCoord + half2(+dx+dx,+dy);
-	OUT.t6.zw = texCoord + half2(-dx,+dy+dy);
-	OUT.t7.xy = texCoord + half2(  0,+dy+dy);
-	OUT.t7.zw = texCoord + half2(+dx,+dy+dy);
-	OUT.t8.xy = texCoord + half2(+dx+dx,+dy+dy);
-
-	return OUT;
-}
 
 /*  GET_RESULT function                            */
 /*  Copyright (c) 1999-2001 by Derek Liauw Kie Fa  */
@@ -86,30 +58,51 @@ int GET_RESULT(float A, float B, float C, float D)
 } 
 
 
+float reduce(half3 color)
+{ 
+	return dot(color, dtt);
+}
 
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN)
 {
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	output OUT;
+
+	// get texel size   	
+	float2 ps = float2(0.999/IN.texture_size.x, 0.999/IN.texture_size.y);
+  	
+	// calculating offsets, coordinates
+
+	half2 dx = half2( ps.x, 0.0); 
+	half2 dy = half2( 0.0, ps.y);
+	half2 g1 = half2( ps.x,ps.y);
+	half2 g2 = half2(-ps.x,ps.y);	
+	
+	float2 pixcoord  = texCoord/ps;
+	float2 fp        = frac(pixcoord);
+	float2 pC4       = texCoord-fp*ps;
+	float2 pC8       = pC4+g1;
+
+	
 
 	// Reading the texels
 
-	half3 C0 = tex2D(decal,VAR.t1.xy).xyz; 
-	half3 C1 = tex2D(decal,VAR.t1.zw).xyz;
-	half3 C2 = tex2D(decal,VAR.t2.xy).xyz;
-	half3 D3 = tex2D(decal,VAR.t2.zw).xyz;
-	half3 C3 = tex2D(decal,VAR.t3.xy).xyz;
-	half3 C4 = tex2D(decal,VAR.texCoord).xyz;
-	half3 C5 = tex2D(decal,VAR.t3.zw).xyz;
-	half3 D4 = tex2D(decal,VAR.t4.xy).xyz;
-	half3 C6 = tex2D(decal,VAR.t4.zw).xyz;
-	half3 C7 = tex2D(decal,VAR.t5.xy).xyz;
-	half3 C8 = tex2D(decal,VAR.t5.zw).xyz;
-	half3 D5 = tex2D(decal,VAR.t6.xy).xyz;
-	half3 D0 = tex2D(decal,VAR.t6.zw).xyz;
-	half3 D1 = tex2D(decal,VAR.t7.xy).xyz;
-	half3 D2 = tex2D(decal,VAR.t7.zw).xyz;
-	half3 D6 = tex2D(decal,VAR.t8.xy).xyz;
+	half3 C0 = tex2D(decal,pC4-g1).xyz; 
+	half3 C1 = tex2D(decal,pC4-dy).xyz;
+	half3 C2 = tex2D(decal,pC4-g2).xyz;
+	half3 D3 = tex2D(decal,pC4-g2+dx).xyz;
+	half3 C3 = tex2D(decal,pC4-dx).xyz;
+	half3 C4 = tex2D(decal,pC4   ).xyz;
+	half3 C5 = tex2D(decal,pC4+dx).xyz;
+	half3 D4 = tex2D(decal,pC8-g2).xyz;
+	half3 C6 = tex2D(decal,pC4+g2).xyz;
+	half3 C7 = tex2D(decal,pC4+dy).xyz;
+	half3 C8 = tex2D(decal,pC4+g1).xyz;
+	half3 D5 = tex2D(decal,pC8+dx).xyz;
+	half3 D0 = tex2D(decal,pC4+g2+dy).xyz;
+	half3 D1 = tex2D(decal,pC8+g2).xyz;
+	half3 D2 = tex2D(decal,pC8+dy).xyz;
+	half3 D6 = tex2D(decal,pC8+g1).xyz;
 
 	float3 p00,p10,p01,p11;
 
@@ -185,9 +178,15 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 
 	// Distributing the four products
+	
+	if (fp.x < 0.50)
+		{ if (fp.y < 0.50) p10 = p00;}
+	else
+		{ if (fp.y < 0.50) p10 = p01; else p10 = p11;}
 
-	p10 = (fp.x < 0.50) ? (fp.y < 0.50 ? p00 : p10) : (fp.y < 0.50 ? p01: p11);
 
 	// OUTPUT
-	return float4(p10, 1);
+	OUT.color = float4(p10, 1);
+	return OUT;
 }
+
