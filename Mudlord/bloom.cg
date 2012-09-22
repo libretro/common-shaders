@@ -1,27 +1,29 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
+/* Default Vertex shader */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
 
-static const half2 BloomSettings = half2(1.0, 0.3);
+    uniform float4x4 modelViewProj,
 
-static const half Luminance    = 0.08f;
-static const half fMiddleGray  = 0.18f;
-static const half fWhiteCutoff = 0.8f;
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+float Luminance = 0.08f;
+static const float fMiddleGray = 0.18f;
+static const float fWhiteCutoff = 0.8f;
 
 #define NUM 13
 
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
-
-half2 PixelOffsets[NUM] =
+float2 PixelOffsets[NUM] =
 {
    { -0.006, -0.006 },
    { -0.005, -0.005 },
@@ -38,7 +40,7 @@ half2 PixelOffsets[NUM] =
    {  0.006,  0.006 },
 };
 
-static const half BlurWeights[NUM] =
+static const float BlurWeights[NUM] =
 {
    0.002216,
    0.008764,
@@ -55,74 +57,40 @@ static const half BlurWeights[NUM] =
    0.002216,
 };
 
-struct out_vertex {
-	half4 position : POSITION;
-	half4 texCoord : TEXCOORD0;
-	half4 t1 : TEXCOORD1;
-	half4 t2 : TEXCOORD2;
-	half4 t3 : TEXCOORD3;
-	half4 t4 : TEXCOORD4;
-	half4 t5 : TEXCOORD5;
-	half4 t6 : TEXCOORD6;
-	half4 t7 : TEXCOORD7;
+struct output 
+{
+  float4 color    : COLOR;
 };
 
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	half4 position	: POSITION,
-	half2 tex      : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj
-)
+output main_fragment( float2 Tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0 )
 {
-	out_vertex OUT = {
-		mul(modelViewProj, position),
-		half4(tex,0.0,0.0),
-		half4(tex,tex) + half4(PixelOffsets[ 0] * 5.0f, PixelOffsets[ 1] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[ 2] * 5.0f, PixelOffsets[ 3] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[ 4] * 5.0f, PixelOffsets[ 5] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[ 6] * 5.0f, PixelOffsets[ 7] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[ 8] * 5.0f, PixelOffsets[ 9] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[10] * 5.0f, PixelOffsets[11] * 5.0f),
-		half4(tex,tex) + half4(PixelOffsets[12] * 5.0f, half2(0.0, 0.0))
-	};
+   float2 BloomSettings;
+   BloomSettings.x = 1;
+   BloomSettings.y = 0.3;
 
-	return OUT;
-}
+   float3 pixel;
+   float3 Color = 0;
 
+   for(int i = 0; i < NUM; i++)
+   {
+      pixel = tex2D(s0, Tex + PixelOffsets[i] * 5.0f)+BloomSettings.y;
 
-#define BLOOM(TCOORD, IND)\
-      pixel = tex2D(s0, TCOORD)+BloomSettings.y;\
-      pixel *= fMiddleGray / (Luminance + 0.001f);\
-      pixel *= (1.0f + (pixel / (fWhiteCutoff * fWhiteCutoff)));\
-      pixel -= 5.0f;\
-      pixel = max(pixel,0.0f);\
-      pixel /= (10.0f + pixel);\
-      Color += pixel * BlurWeights[IND];
+      pixel *= fMiddleGray / (Luminance + 0.001f);
+      pixel *= (1.0f + (pixel / (fWhiteCutoff * fWhiteCutoff)));
+      pixel -= 5.0f;
 
-float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
-{
-   half3 pixel;
-   half3 Color = 0;
+      pixel = max(pixel,0.0f);
+      pixel /= (10.0f + pixel);
 
-   BLOOM(VAR.t1.xy, 0);
-   BLOOM(VAR.t1.zw, 1);
-   BLOOM(VAR.t2.xy, 2);
-   BLOOM(VAR.t2.zw, 3);
-   BLOOM(VAR.t3.xy, 4);
-   BLOOM(VAR.t3.zw, 5);
-   BLOOM(VAR.t4.xy, 6);
-   BLOOM(VAR.t4.zw, 7);
-   BLOOM(VAR.t5.xy, 8);
-   BLOOM(VAR.t5.zw, 9);
-   BLOOM(VAR.t6.xy,10);
-   BLOOM(VAR.t6.zw,11);
-   BLOOM(VAR.t7.xy,12);
+      Color += pixel * BlurWeights[i];
+   }
 
    Color *= BloomSettings.x;
 
-   return half4(Color,1.0) + tex2D(s0,VAR.texCoord);
+   output OUT;
+   OUT.color = float4(Color,1.0) + tex2D(s0,Tex);
+   return OUT;
 }
+
 
