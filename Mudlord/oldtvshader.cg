@@ -5,31 +5,41 @@
 
 struct input
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-   float frame_direction;
-   float frame_rotation;
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
 };
 
-void main_vertex
+
+struct VERTEX_OUTPUT {
+  float4 position : POSITION;
+  float4 vpos : TEXCOORD1;
+  float2 texCoord : TEXCOORD0;
+};
+
+VERTEX_OUTPUT main_vertex
 (
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+	float4 vpos : TEXCOORD1,
+    uniform input IN,
+   	uniform float4x4 modelViewProj
 )
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-   oTex = tex;
+	VERTEX_OUTPUT OUT;
+	OUT.position = mul(modelViewProj, position);
+    OUT.vpos = OUT.position;
+	OUT.texCoord = texCoord;
+	return OUT;
 }
+
+struct output 
+{
+  float4 color : COLOR;
+};
 
 float scanline(float ypos, float frame_count)
 {
@@ -37,13 +47,13 @@ float scanline(float ypos, float frame_count)
 	return 1.0 - smoothstep(0.0, 1.0, c);
 }
 
-float2 rgbdistort(float2 tc, sampler2D tex)
+float4 rgbdistort(float2 tc, sampler2D tex)
 {
-   float chroma = 9;
+   float chroma = 4;
    float shift = chroma / 256;
-   float red = texture2D(tex, tc+shift).r;
-   float green = texture2D(tex,tc).g;
-   float blue = texture2D(tex,tc-shift).b;
+   float red = tex2D(tex, tc+shift).r;
+   float green = tex2D(tex,tc).g;
+   float blue = tex2D(tex,tc-shift).b;
    return float4(red,green ,blue , 1.0);
 }
 
@@ -56,27 +66,28 @@ float seed_random (float2 coords, float frame_cnt)
    return clamp(frac(sin(dot(coords, constant1)) * constant2) + 0.2, 0.0 ,1.0);
 }
 
-float4 main_fragment (float2 tex : TEXCOORD,float4 position : POSITION, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+output main_fragment(in VERTEX_OUTPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
-   float2 p = tex;
-   float frameLimit = 0.16;
-   float frameShape = 0.44;
-   float frameSharpness = 4.80;
-   float interference = 0.43;
-   const float base_brightness = 0.95;
-   
-   float f = (1.0 - position.x *position.x) * (1.0 - position.y * position.y);
-   float frame = clamp(frameSharpness * (pow(f, frameShape) - frameLimit), 0.0, 1.0);
+    //yes Cg is THIS retarded, passing position as texturecoord
+	output OUT;
+	VAR.vpos /= VAR.vpos.w;
+    float2 p = VAR.texCoord;
+    float frameLimit = 0.16;
+    float frameShape = 0.44;
+    float frameSharpness = 4.80;
+    float interference = 0.43;
+    const float base_brightness = 0.95;
+	
+	float f = (1.0 - VAR.vpos.x *VAR.vpos.x) * (1.0 - VAR.vpos.y * VAR.vpos.y);
+	float frame = clamp(frameSharpness * (pow(f, frameShape) - frameLimit), 0.0, 1.0);
+    float4 image = tex2D(decal, p);
+    image = (image - 16.0/255.0) * (255.0/219.0);
+	float rand = seed_random(p, IN.frame_count);
+    float luminance = dot(image.rgb, float3(0.299, 0.587, 0.114));
+    image.rgb = float3(luminance,luminance,luminance);
+    float4 distortion = rgbdistort(p,decal);
+	distortion.rgb += scanline(-p.y, IN.frame_count);
 
-
-   float4 image = texture2D(s0, p);
-   image = (image - 16.0/255.0) * (255.0/219.0);
-   float rand = seed_random(p, IN.frame_count);
-   float luminance = dot(image.rgb, float3(0.299, 0.587, 0.114));
-   image.rgb = float3(luminance,luminance,luminance);
-   float4 distortion = rgbdistort(p,s0);
-   distortion.rgb += scanline(-p.y, IN.frame_count);
-   return frame * (interference *distortion*rand+ image);
+    OUT.color = frame * (interference *distortion*rand+ image);
+	return OUT;
 }
-
-
