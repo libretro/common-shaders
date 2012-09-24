@@ -1,0 +1,154 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Hyllian's Data Dependent Triangulation Shader
+   
+   Copyright (C) 2011-2012 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+const static float3 dtt = float3(65536,255,1);
+
+float reduce(half3 color)
+{
+	return dot(color, dtt);
+}
+
+float3 bilinear(float p, float q, half3 A, half3 B, half3 C, half3 D)
+{
+	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
+}
+
+struct input
+{
+	half2 video_size;
+	float2 texture_size;
+	half2 output_size;
+        float frame_count;
+        float frame_direction;
+	float frame_rotation;
+};
+
+struct out_vertex {
+	half4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	half4 t1 : TEXCOORD1;
+	half2 loc : TEXCOORD2;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	half4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform half4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	half dx = ps.x;
+	half dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1.xy = half2( dx,  0); // F
+	OUT.t1.zw = half2(  0, dy); // H
+	OUT.loc = texCoord*IN.texture_size;
+
+	return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 pos = frac(VAR.loc)-float2(0.5, 0.5); // pos = pixel position
+	float2 dir = sign(pos); // dir = pixel direction
+
+	float2 g1 = dir*VAR.t1.xy;
+	float2 g2 = dir*VAR.t1.zw;
+
+	half3 A = tex2D(decal, VAR.texCoord       ).xyz;
+	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	half3 C = tex2D(decal, VAR.texCoord    +g2).xyz;
+	half3 D = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+
+	float p = abs(pos.x);
+	float q = abs(pos.y);
+
+	float k = distance(pos,g1);
+	float l = distance(pos,g2);
+
+	if (abs(a-d) < abs(b-c))
+	{
+		if (k < l)
+		{
+			C = A + D - B;
+		}
+		else if (k > l)
+		{
+			B = A + D - C;
+		}
+	}
+	else if (abs(a-d) > abs(b-c))
+	{
+		D = B + C - A;
+	}
+
+	float3 color_old = bilinear(p, q, A, B, C, D);
+
+	float2 texsize = IN.texture_size;
+	const float scale_factor = 1.0;
+	float2 delta = 0.5 / (texsize * scale_factor);
+	float dx = delta.x;
+	float dy = delta.y;
+
+	float3 c00 = tex2D(decal, VAR.texCoord + float2(-dx, -dy)).xyz;
+	float3 c01 = tex2D(decal, VAR.texCoord + float2(-dx, 0)).xyz;
+	float3 c02 = tex2D(decal, VAR.texCoord + float2(-dx, dy)).xyz;
+	float3 c10 = tex2D(decal, VAR.texCoord + float2(0, -dy)).xyz;
+	float3 c11 = tex2D(decal, VAR.texCoord + float2(0, 0)).xyz;
+	float3 c12 = tex2D(decal, VAR.texCoord + float2(0, dy)).xyz;
+	float3 c20 = tex2D(decal, VAR.texCoord + float2(dx, -dy)).xyz;
+	float3 c21 = tex2D(decal, VAR.texCoord + float2(dx, 0)).xyz;
+	float3 c22 = tex2D(decal, VAR.texCoord + float2(dx, dy)).xyz;
+
+	float3 first = lerp(c00, c20, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
+	float3 second = lerp(c02, c22, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
+
+	float3 mid_horiz = lerp(c01, c21, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
+	float3 mid_vert = lerp(c10, c12, frac(scale_factor * VAR.texCoord.y * texsize.y + 0.5));
+
+	float3 res = lerp(first, second, frac(scale_factor * VAR.texCoord.y * texsize.y + 0.5));
+
+	float color =  float4(0.28 * (res + mid_horiz + mid_vert) + 4.7 * abs(res - lerp(mid_horiz, mid_vert, 0.5)), 1.0);
+
+	return float4((color + color_old) / 2.0, 1.0);
+}
+
