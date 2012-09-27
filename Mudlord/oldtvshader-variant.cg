@@ -41,12 +41,6 @@
       float4 color : COLOR;
     };
      
-    float scanline(float ypos, float frame_count)
-    {
-            float c = mod(float(frame_count * 3.0 + ypos * 5.0), 15.0);
-            return 1.0 - smoothstep(0.0, 1.0, c);
-    }
-     
     float4 rgbdistort(float2 tc, sampler2D tex)
     {
        float chroma = 4;
@@ -94,7 +88,6 @@
         float luminance = dot(image.rgb, float3(0.299, 0.587, 0.114));
         image.rgb = float3(luminance,luminance,luminance);
         float4 distortion = rgbdistort(p,decal);
-            distortion.rgb += scanline(-p.y, IN.frame_count);
      
         OUT.color = frame * (interference *distortion*rand);
             return OUT;
