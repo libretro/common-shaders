@@ -16,7 +16,7 @@
      
     struct VERTEX_OUTPUT {
       float4 position : POSITION;
-      float4 vpos : TEXCOORD1;
+      float4 vpos;
       float2 texCoord : TEXCOORD0;
     };
      
@@ -24,7 +24,7 @@
     (
             float4 position : POSITION,
             float2 texCoord : TEXCOORD0,
-            float4 vpos : TEXCOORD1,
+            float4 vpos,
         uniform input IN,
             uniform float4x4 modelViewProj
     )
@@ -40,6 +40,9 @@
     {
       float4 color : COLOR;
     };
+
+    #define BARREL_VAL 0.000
+    #define BARREL_VAL2 0.0
      
     float scanline(float ypos, float frame_count)
     {
@@ -68,8 +71,8 @@
      
     float2 barrelDistortion(float2 coord)
     {
-      float distortion = 0.00;
-      float2 cc = coord - 0.0;
+      float distortion = BARREL_VAL;
+      float2 cc = coord - BARREL_VAL2;
       float dist = cc;
       return coord + cc * (dist + distortion * dist * dist) * distortion;
     }
