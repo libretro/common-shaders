@@ -1,7 +1,3 @@
-/* COMPATIBILITY 
-   - Cg   compilers
-*/
-
 /*
    Hyllian's 5xBR v3.7a (rounded) Shader
    
@@ -37,6 +33,12 @@ float4 df(float4 A, float4 B)
 	return float4(abs(A-B));
 }
 
+half c_df(half3 c1, half3 c2) {
+                        half3 df = abs(c1 - c2);
+                        return df.r + df.g + df.b;
+                }
+
+
 float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4 g, float4 h)
 {
 	return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
@@ -49,9 +51,6 @@ struct input
 	half2 video_size;
 	float2 texture_size;
 	half2 output_size;
-        float frame_count;
-        float frame_direction;
-        float frame_rotation;
 };
 
 
@@ -186,7 +185,11 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 
 	px = (df(e,f) <= df(e,h));
 
-	half3 res = nc.x ? px.x ? F : H : nc.y ? px.y ? B : F : nc.z ? px.z ? D : B : nc.w ? px.w ? H : D : E;
+	half3 res1 = nc.x ? px.x ? F : H : nc.y ? px.y ? B : F : nc.z ? px.z ? D : B : nc.w ? px.w ? H : D : E;
+	half3 res2 = nc.w ? px.w ? H : D : nc.z ? px.z ? D : B : nc.y ? px.y ? B : F : nc.x ? px.x ? F : H : E;
+
+	half3 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
 
 	return half4(res, 1.0);
 }
+
