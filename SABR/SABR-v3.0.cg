@@ -53,7 +53,7 @@ float4 lum_df(float4 A, float4 B) {
 }
 
 bool4 lum_eq(float4 A, float4 B) {
-	return lum_df(A, B) < float4(threshold, treshold, treshold, treshold);
+	return lum_df(A, B) < float4(threshold);
 }
 
 float4 lum_wd(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4 g, float4 h) {
