@@ -40,10 +40,10 @@ const static float4 S60 = S15.yxwz;
 const static float4 M45 = float4(0.4, 0.4, 0.4, 0.4);
 const static float4 M15 = float4(0.2, 0.4, 0.2, 0.4);
 const static float4 M60 = M15.yxwz;
-const static float4 shift = float4(0.2);
+const static float4 shift = float4(0.2, 0.2, 0.2, 0.2);
 
 const static float coef = 2.0;
-const static float4 threshold = float4(20.0 / 48.0);
+const static float4 threshold = float4(20.0 / 48.0, 20.0 / 48.0, 20.0 / 48.0, 20.0 / 48.0);
 const static float3 lum = float3(0.2126, 0.7152, 0.0722);
 
 float4 lum_to(float3 v0, float3 v1, float3 v2, float3 v3) {
@@ -63,7 +63,7 @@ float4 lum_df(float4 A, float4 B) {
 }
 
 bool4 lum_eq(float4 A, float4 B) {
-	return (lum_df(A, B) < float4(threshold));
+	return (lum_df(A, B) < float4(threshold, threshold, threshold, treshold));
 }
 
 float4 lum_wd(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4 g, float4 h) {

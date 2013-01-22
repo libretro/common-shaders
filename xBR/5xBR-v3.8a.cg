@@ -22,7 +22,7 @@
 */
 
 const static float coef           = 2.0;
-const static float4 eq_threshold  = float4(15.0);
+const static float4 eq_threshold  = float4(15.0, 15.0, 15.0, 15.0);
 const static half y_weight        = 48.0;
 const static half u_weight        = 7.0;
 const static half v_weight        = 6.0;
