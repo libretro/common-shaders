@@ -16,7 +16,7 @@
      
     struct VERTEX_OUTPUT {
       float4 position : POSITION;
-      float4 vpos;
+      float4 vpos : TEXCOORD1;
       float2 texCoord : TEXCOORD0;
     };
      
@@ -24,7 +24,7 @@
     (
             float4 position : POSITION,
             float2 texCoord : TEXCOORD0,
-            float4 vpos,
+            float4 vpos : TEXCOORD1,
         uniform input IN,
             uniform float4x4 modelViewProj
     )
