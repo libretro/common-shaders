@@ -47,8 +47,8 @@
         #define InputGamma 2.4
         #define OutputGamma 2.2
 
-        #define GAMMA_IN(color)     pow(color, float3(InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma))
+        #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
         // 0.5 = the spot stays inside the original pixel
         // 1.0 = the spot bleeds up to the center of next pixel

@@ -93,12 +93,15 @@ struct out_vertex {
 };
 
 /* VERTEX SHADER */
-out_vertex main_vertex (
+out_vertex main_vertex
+(
 		half4 position   : POSITION,
 		half4 color : COLOR,
 		float2 texCoord : TEXCOORD0,
 		uniform half4x4 modelViewProj,
-		uniform input IN) {
+		uniform input IN
+)
+{
 	out_vertex OUT;
 	
 	OUT.pos = mul(modelViewProj, position);
@@ -122,7 +125,8 @@ out_vertex main_vertex (
 float4 main_fragment(
 		in out_vertex VAR,
 		uniform sampler2D decal : TEXUNIT0,
-		uniform input IN) : COLOR {
+		uniform input IN) : COLOR
+{
 	
 	/*
 		Mask for algorithm
