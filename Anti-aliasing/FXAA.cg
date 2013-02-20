@@ -1,0 +1,86 @@
+#define FXAA_REDUCE_MIN (1.0/256.0)
+#define FXAA_REDUCE_MUL (1.0/8.0)
+#define FXAA_SPAN_MAX 8.0
+#define FXAA_SUBPIX_SHIFT (1.0/8.0)
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
+struct VERTEX_OUTPUT {
+  float4 position : POSITION;
+  float4 vpos : TEXCOORD1;
+  float2 texCoord : TEXCOORD0;
+};
+
+struct output 
+{
+  float4 color : COLOR;
+};
+
+VERTEX_OUTPUT main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+	float4 vpos : TEXCOORD1,
+    uniform input IN,
+   	uniform float4x4 modelViewProj
+)
+{
+	VERTEX_OUTPUT OUT;
+	OUT.position = mul(modelViewProj, position);
+    OUT.vpos = OUT.position;
+	OUT.texCoord = texCoord;
+	return OUT;
+}
+
+
+output main_fragment(in VERTEX_OUTPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+    //yes Cg is THIS retarded, passing position as texturecoord
+	output OUT;
+	VAR.vpos /= VAR.vpos.w;
+	
+	float2 inverse_resolution=1/IN.video_size.xy;
+	float4 coords;
+	coords.xy = VAR.texCoord;
+	coords.zw = coords.xy - (inverse_resolution.xy * (0.5 + FXAA_SUBPIX_SHIFT));
+    float3 rgbNW = tex2D(decal, (VAR.texCoord + float2(-1.0,-1.0)) * inverse_resolution).xyz;
+    float3 rgbNE = tex2D(decal, (VAR.texCoord + float2(1.0,-1.0)) * inverse_resolution).xyz;
+    float3 rgbSW = tex2D(decal, (VAR.texCoord + float2(-1.0,1.0)) * inverse_resolution).xyz;
+    float3 rgbSE = tex2D(decal, (VAR.texCoord + float2(1.0,1.0)) * inverse_resolution).xyz;
+    float3  rgbM  = tex2D(decal,  VAR.texCoord ).xyz;
+    float3  luma = vec3(0.299, 0.587, 0.114);
+	float lumaNW = dot(rgbNW, luma);
+	float lumaNE = dot(rgbNE, luma);
+	float lumaSW = dot(rgbSW, luma);
+	float lumaSE = dot(rgbSE, luma);
+	float lumaM  = dot(rgbM,  luma);
+	float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+	float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE))); 
+	float2 dir;
+    dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+    dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+	float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * (0.25 * FXAA_REDUCE_MUL),FXAA_REDUCE_MIN);
+	float rcpDirMin = 1.0/(min(abs(dir.x), abs(dir.y)) + dirReduce);
+	dir = min(float2( FXAA_SPAN_MAX,  FXAA_SPAN_MAX),max(float2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),dir * rcpDirMin)) * inverse_resolution;
+	
+	float3 rgbA = 0.5 * (tex2D(decal,   VAR.texCoord + dir * (1.0/3.0 - 0.5)).xyz + 
+	tex2D(decal,   VAR.texCoord  + dir * (2.0/3.0 - 0.5)).xyz);
+    float3 rgbB = rgbA * 0.5 + 0.25 * (tex2D(decal,  VAR.texCoord  * inverse_resolution + dir *  - 0.5).xyz 
+	+ tex2D(decal,  VAR.texCoord + dir * 0.5).xyz);
+	float lumaB = dot(rgbB, luma);
+	if((lumaB < lumaMin) || (lumaB > lumaMax)) {
+      OUT.color = float4(rgbA,1.0);
+	} else {
+      OUT.color = float4(rgbB,1.0);
+	}
+
+	return OUT;
+	
+}

@@ -1,0 +1,85 @@
+#define FXAA_REDUCE_MIN (1.0/128.0)
+#define FXAA_REDUCE_MUL (1.0/8.0)
+#define FXAA_SPAN_MAX 8.0
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
+struct VERTEX_OUTPUT {
+  float4 position : POSITION;
+  float4 vpos : TEXCOORD1;
+  float2 texCoord : TEXCOORD0;
+};
+
+struct output 
+{
+  float4 color : COLOR;
+};
+
+VERTEX_OUTPUT main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+	float4 vpos : TEXCOORD1,
+    uniform input IN,
+   	uniform float4x4 modelViewProj
+)
+{
+	VERTEX_OUTPUT OUT;
+	OUT.position = mul(modelViewProj, position);
+    OUT.vpos = OUT.position;
+	OUT.texCoord = texCoord;
+	return OUT;
+}
+
+struct deltas
+{
+   float2 UL, UR, DL, DR, M;
+};
+
+output main_fragment(in VERTEX_OUTPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+    //yes Cg is THIS retarded, passing position as texturecoord
+	output OUT;
+	VAR.vpos /= VAR.vpos.w;
+	// get texel size   	
+	float2 ps = float2(0.9999/IN.texture_size.x, 0.9999/IN.texture_size.y);
+
+	deltas loc = { 
+      VAR.texCoord + float2(-ps.x, -ps.y),
+      VAR.texCoord + float2(ps.x, -ps.y),
+      VAR.texCoord + float2(-ps.x, ps.y),
+      VAR.texCoord + float2(ps.x, ps.y),
+	  VAR.texCoord
+   };
+   //read locations
+   float3 colUL = tex2D(decal, loc.UL).xyz;
+   float3 colUR= tex2D(decal, loc.UR).xyz;
+   float3 colDL = tex2D(decal, loc.DL).xyz;
+   float3 colDR = tex2D(decal, loc.DR).xyz;
+   float3 colM = tex2D(decal, loc.M).xyz;
+   //get luma vals/edge detection
+   float3 luma = vec3(0.299, 0.587, 0.114);
+   float lumaUL = dot(colUL, luma);
+   float lumaUR = dot(colUR, luma);
+   float lumaDL = dot(colDL, luma);
+   float lumaDR = dot(colDR, luma);
+   float lumaM  = dot(colM,  luma);
+   float lumaMin = min(lumaM, min(min(lumaUL, lumaUR), min(lumaDL, lumaDR)));
+   float lumaMax = max(lumaM, max(max(lumaUL, lumaUR), max(lumaDL, lumaDR))); 
+   float2 dir;
+   dir.x = -((lumaUL + lumaUR) - (lumaDR + lumaDL));
+   dir.y =  ((lumaUR + lumaDR) - (lumaUL + lumaDL));
+   
+   OUT.color = abs(dir.x) +abs(dir.y);
+
+	return OUT;
+	
+}
