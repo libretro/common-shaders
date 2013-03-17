@@ -64,8 +64,8 @@ struct input
 
 
 struct out_vertex {
-	half4 position : POSITION;
-	half4 color    : COLOR;
+	float4 position : POSITION;
+	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1;
 	float4 t2;
@@ -79,8 +79,8 @@ struct out_vertex {
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
-	half4 color	: COLOR,
+	float4 position	: POSITION,
+	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
@@ -116,7 +116,7 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
@@ -226,7 +226,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 
 	half3 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
 
-	return half4(res, 1.0);
+	return float4(res, 1.0);
 }
 
 
