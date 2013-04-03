@@ -1,0 +1,69 @@
+struct data
+{
+   float2 tex;
+   float2 pix_no;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.pix_no = tex * IN.texture_size;
+}
+
+const float filter[9] = float[9](
+      0.0019, 0.0031, -0.0108, 0.0, 0.0407,
+      -0.0445, -0.0807, 0.2913, 0.5982);
+
+#define fetch_offset(offset, one_x) \
+   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+#define PI 3.14159265
+#define CHROMA_MOD_FREQ (0.4 * PI)
+
+#define CHROMA_AMP 1.0
+#define SATURATION 1.0
+#define BRIGHTNESS 1.0
+#define chroma_mod (2.0 * SATURATION / CHROMA_AMP)
+
+   float one_x = 1.0 / IN.texture_size.x;
+   float chroma_phase = PI * 0.6667 * (mod(vertex.pix_no.y, 3.0) + IN.frame_count);
+   float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
+
+   float signal = 0.0;
+   for (int i = 0; i < 8; i++)
+   {
+      float offset = float(i);
+      float sums =
+         dot(fetch_offset(offset - 8.0, one_x), float3(1.0)) +
+         dot(fetch_offset(8.0 - offset, one_x), float3(1.0));
+
+      signal += sums * filter[i];
+   }
+   signal += dot(tex2D(s0, vertex.tex).xyz, float3(1.0)) * filter[8];
+
+   float i_mod = chroma_mod * cos(mod_phase);
+   float q_mod = chroma_mod * sin(mod_phase);
+
+   float3 out_color = float3(signal) * float3(BRIGHTNESS, i_mod, q_mod);
+   return float4(out_color, 1.0);
+}
+

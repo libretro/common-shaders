@@ -1,0 +1,72 @@
+struct data
+{
+   float2 tex;
+   float2 pix_no;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.pix_no = tex * IN.texture_size;
+}
+
+const float luma_filter[9] = float[9](
+      -0.0020, -0.0009, 0.0038, 0.0178, 0.0445,
+      0.0817, 0.1214, 0.1519, 0.1634
+      );
+
+const float chroma_filter[9] = float[9](
+      0.0046, 0.0082, 0.0182, 0.0353, 0.0501,
+      0.0832, 0.1062, 0.1222, 0.1280
+      );
+
+const float3x3 yiq2rgb_mat = float3x3(
+   1.0, 0.956, 0.6210,
+   1.0, -0.2720, -0.6474,
+   1.0, -1.1060, 1.7046);
+
+float3 yiq2rgb(float3 yiq)
+{
+   return mul(yiq2rgb_mat, yiq);
+}
+
+#define fetch_offset(offset, one_x) \
+   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float one_x = 1.0 / IN.texture_size.x;
+   float3 signal = float3(0.0);
+   for (int i = 0; i < 8; i++)
+   {
+      float offset = float(i);
+
+      float3 sums = fetch_offset(offset - 8.0, one_x) +
+         fetch_offset(8.0 - offset, one_x);
+
+      signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
+   }
+   signal += tex2D(s0, vertex.tex).xyz *
+      float3(luma_filter[8], chroma_filter[8], chroma_filter[8]);
+
+   float3 rgb = yiq2rgb(signal);
+   return float4(rgb, 1.0);
+}
+
