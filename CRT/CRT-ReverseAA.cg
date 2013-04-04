@@ -1,15 +1,17 @@
 /* COMPATIBILITY
-   - Cg   compilers
+   - HLSL compilers
+   - Cg compilers
 */
 
 /*
-   CRT-ReverseAA Shader - 2012
+   Reverse Antialiasing Shader
   
-   Programmed by Hyllian/Jararaca - sergiogdb@gmail.com
+   Adapted from the C source (see Copyright below) to shader
+   cg language by Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This shader works best in 2x scale. 
 
 */
-
-
 
 
 
@@ -47,8 +49,8 @@
         #define InputGamma 2.4
         #define OutputGamma 2.2
 
-        #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+        #define GAMMA_IN(color) pow(color, float3(InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color) pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
         // 0.5 = the spot stays inside the original pixel
         // 1.0 = the spot bleeds up to the center of next pixel
@@ -76,8 +78,8 @@ struct input
 
 
 struct out_vertex {
-    half4 position : POSITION;
-    half4 color    : COLOR;
+    float4 position : POSITION;
+    float4 color    : COLOR;
     float2 texCoord : TEXCOORD0;
     float4 t1;
     float4 t2;
@@ -91,9 +93,9 @@ struct out_vertex {
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-    half4 position    : POSITION,
-    half4 color    : COLOR,
-    float2 texCoord : TEXCOORD0,
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
 
        uniform half4x4 modelViewProj,
     uniform input IN
@@ -132,16 +134,32 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 {
     float2 fp = frac(VAR.texCoord*IN.texture_size);
 
+    half3 B1 = tex2D(decal, VAR.t1.yw).rgb;
     half3 B  = tex2D(decal, VAR.t2.yw).rgb;
     half3 D  = tex2D(decal, VAR.t3.xw).rgb;
     half3 E  = tex2D(decal, VAR.t3.yw).rgb;
     half3 F  = tex2D(decal, VAR.t3.zw).rgb;
     half3 H  = tex2D(decal, VAR.t4.yw).rgb;
+    half3 H5 = tex2D(decal, VAR.t5.yw).rgb;
     half3 D0 = tex2D(decal, VAR.t6.xz).rgb;
     half3 F4 = tex2D(decal, VAR.t7.xz).rgb;
 
     float3 n1, n2, n3, n4, s, aa, bb, cc, dd, t, m;
+/*
+    n1 = B1; n2 = B; s = E; n3 = H; n4 = H5;
+    aa = n2-n1; bb = s-n2; cc = n3-s; dd = n4-n3;
 
+    float3 t = (7 * (bb + cc) - 3 * (aa + dd)) / 16;
+
+    float3 m = (s < 0.5) ? 2*s : 2*(1.0-s);
+
+        m = min(m, 2*abs(bb));
+        m = min(m, 2*abs(cc));
+
+    t = clamp(t, -m, m);
+   
+    float3 s1 = (2*fp.y-1)*t + s;
+*/
     n1 = D0; n2 = D; s = E; n3 = F; n4 = F4;
     aa = n2-n1; bb = s-n2; cc = n3-s; dd = n4-n3;
 
@@ -149,8 +167,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
     m = (s < 0.5) ? 2*s : 2*(1.0-s);
 
-        m = min(m, 2*abs(bb)+0.02);
-        m = min(m, 2*abs(cc)+0.02);
+        m = min(m, 2*abs(bb)+0.01);
+        m = min(m, 2*abs(cc)+0.01);
 
     t = clamp(t, -m, m);
 
@@ -164,7 +182,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
             float ddy = fp.y - 0.5;
             float v_weight_00 = ddy / SPOT_HEIGHT;
             WEIGHT(v_weight_00);
-            color *= float3( v_weight_00 );
+            color *= float3( v_weight_00, v_weight_00, v_weight_00 );
 
 	    // get closest vertical neighbour to blend
  	    float3 coords10;
@@ -180,9 +198,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
             float v_weight_10 = ddy / SPOT_HEIGHT;
             WEIGHT( v_weight_10 );
 
-            color += colorNB * float3( v_weight_10 );
+            color += colorNB * float3( v_weight_10, v_weight_10, v_weight_10 );
 
-            color *= float3( COLOR_BOOST );
+            color *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 	return float4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
 }
