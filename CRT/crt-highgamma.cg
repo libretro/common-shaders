@@ -60,7 +60,7 @@ void main_vertex
    float2 tex : TEXCOORD,
 
    uniform input IN,
-   out tex_coords coords : TEXCOORD1
+   out tex_coords coords
 )
 {
    oPosition = mul(modelViewProj, position);
@@ -86,7 +86,7 @@ void main_vertex
 #define PI 3.141592653589
 #define gamma 1.5
 
-float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
    float2 uv_ratio = frac(co.ratio_scale);
    float3 col, col2;

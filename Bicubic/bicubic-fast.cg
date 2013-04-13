@@ -16,7 +16,12 @@ const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
                                        1.0/6.0,  0.0, -1.0/6.0, 0.0);
 
 
-const static float4x4 invY = transpose(invX);
+// Can't init statically from variable, even though it's const ...
+//const static float4x4 invY = transpose(invX);
+const static float4x4 invY = float4x4(-1.0/6.0,  0.5, -0.5,  1.0/6.0,
+                                           0.5, -1.0,  0.5,      0.0,
+                                      -1.0/3.0, -0.5,  1.0, -1.0/6.0,
+                                           0.0,  1.0,  0.0,      0.0);
 
 struct input
 {
@@ -30,22 +35,22 @@ struct input
 
 
 struct out_vertex {
-	float4 position : POSITION;
-	float2 texCoord : TEXCOORD0;
-	float4 t1 : TEXCOORD1;
-	float4 t2 : TEXCOORD2;
-	float4 t3 : TEXCOORD3;
-	float4 t4 : TEXCOORD4;
-	float4 t5 : TEXCOORD5;
-	float4 t6 : TEXCOORD6;
-	float4 t7 : TEXCOORD7;
-	float2 t8 : TEXCOORD8;
+	float2 texCoord;
+	float4 t1;
+	float4 t2;
+	float4 t3;
+	float4 t4;
+	float4 t5;
+	float4 t6;
+	float4 t7;
+	float2 t8;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
 	float4 position	: POSITION,
+   out float4 oPosition : POSITION,
 	float2 tex      : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -56,9 +61,9 @@ out_vertex main_vertex
 	float dx = ps.x;
 	float dy = ps.y;
 
+   oPosition = mul(modelViewProj, position);
 
 	out_vertex OUT = { 
-		mul(modelViewProj, position),
 		tex,
 		float4(tex,tex) + float4(   -dx,    -dy,    0.0,    -dy), 
 		float4(tex,tex) + float4(    dx,    -dy, 2.0*dx,    -dy),
