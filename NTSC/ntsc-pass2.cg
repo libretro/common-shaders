@@ -27,9 +27,12 @@ void main_vertex
    oData.pix_no = tex * IN.texture_size;
 }
 
-const float filter[9] = float[9](
-      0.0019, 0.0031, -0.0108, 0.0, 0.0407,
-      -0.0445, -0.0807, 0.2913, 0.5982);
+#define TAPS 16
+const float filter[TAPS + 1] = float[TAPS + 1](
+      -0.0000, 0.0000, 0.0005, -0.0007, -0.0013, 0.0036, -0.0000,
+      -0.0093, 0.0086, 0.0126, -0.0293, 0.0000,
+      0.0597, -0.0546, -0.0882, 0.2983, 0.6000
+      );
 
 #define fetch_offset(offset, one_x) \
    tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
@@ -37,7 +40,7 @@ const float filter[9] = float[9](
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
 #define PI 3.14159265
-#define CHROMA_MOD_FREQ (0.4 * PI)
+#define CHROMA_MOD_FREQ (0.3333 * PI)
 
 #define CHROMA_AMP 1.0
 #define SATURATION 1.0
@@ -45,20 +48,20 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
 #define chroma_mod (2.0 * SATURATION / CHROMA_AMP)
 
    float one_x = 1.0 / IN.texture_size.x;
-   float chroma_phase = PI * 0.6667 * (mod(vertex.pix_no.y, 3.0) + IN.frame_count);
+   float chroma_phase = PI * (0.6667 * mod(vertex.pix_no.y, 3.0) + IN.frame_count);
    float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
 
    float signal = 0.0;
-   for (int i = 0; i < 8; i++)
+   for (int i = 0; i < TAPS; i++)
    {
       float offset = float(i);
       float sums =
-         dot(fetch_offset(offset - 8.0, one_x), float3(1.0)) +
-         dot(fetch_offset(8.0 - offset, one_x), float3(1.0));
+         dot(fetch_offset(offset - float(TAPS), one_x), float3(1.0)) +
+         dot(fetch_offset(float(TAPS) - offset, one_x), float3(1.0));
 
       signal += sums * filter[i];
    }
-   signal += dot(tex2D(s0, vertex.tex).xyz, float3(1.0)) * filter[8];
+   signal += dot(tex2D(s0, vertex.tex).xyz, float3(1.0)) * filter[TAPS];
 
    float i_mod = chroma_mod * cos(mod_phase);
    float q_mod = chroma_mod * sin(mod_phase);
