@@ -4,8 +4,10 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader
+   Merge Dithering and Pseudo Transparency Shader v1.1 - Pass 2
    by Sp00kyFox, 2013
+
+   Uses the alpha channel tag from pass 1 to merge those pixels with their neighbors.
 
 */
 
@@ -62,15 +64,16 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float2 dir = sign(pos); // dir = pixel direction
 
 	float2 g1 = dir*VAR.t1.xy;
-	float2 g2 = dir*VAR.t1.zw;
+	//float2 g2 = dir*VAR.t1.zw;
 
 	float4 C = tex2D(decal, VAR.texCoord).xyzw;
 	float4 L1 = tex2D(decal, VAR.texCoord - g1).xyzw;
 	float4 R1 = tex2D(decal, VAR.texCoord + g1).xyzw;
-	float4 U1 = tex2D(decal, VAR.texCoord - g2).xyzw;
-	float4 D1 = tex2D(decal, VAR.texCoord + g2).xyzw;
+	//float4 U1 = tex2D(decal, VAR.texCoord - g2).xyzw;
+	//float4 D1 = tex2D(decal, VAR.texCoord + g2).xyzw;
 
-	if (C.w == 1.0 || L1.w == 1.0 || R1.w == 1.0 || U1.w == 1.0 || D1.w == 1.0){
+	//if (C.w == 1.0 || L1.w == 1.0 || R1.w == 1.0 || U1.w == 1.0 || D1.w == 1.0){
+	if (C.w == 1.0 || L1.w == 1.0 || R1.w == 1.0){
 		C = float4(merge(L1.xyz,C.xyz,R1.xyz),1.0);
 	}	
 

@@ -4,11 +4,16 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader
+   Merge Dithering and Pseudo Transparency Shader v1.1 - Pass 1
    by Sp00kyFox, 2013
+
+   Tags the pixels which are detected as dither in the alpha channel.
 
 */
 
+/* Range: [0,3].
+Set lower to avoid false detections,
+higher to detect more pseudo transparencies. */
 const static float thresh = 1.0;
 
 bool eq(float3 A, float3 B)
@@ -91,4 +96,3 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	return float4(C, tag);
 }
-
