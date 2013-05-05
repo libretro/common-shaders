@@ -1,0 +1,161 @@
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// LCD Shader v0.0.1                                                     //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+struct pass_1
+{
+    sampler2D texture	: TEXUNIT1;
+};
+
+struct blur_coords
+{
+    fixed2 tex_coord_1 : TEXCOORD1;
+    fixed2 tex_coord_2 : TEXCOORD2;
+    fixed2 lower_bound : TEXCOORD3;
+    fixed2 upper_bound : TEXCOORD4;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out blur_coords oBlurCoords,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+
+
+    fixed2 texel = 1.0 / IN.texture_size;	//size of one texel
+
+    oBlurCoords = blur_coords 
+    (
+	texCoord + fixed2(0.0, texel.y),	//down
+	texCoord + fixed2(0.0, -texel.y),	//up
+	fixed2(0.0),				//lower texture bounds
+	texel * (IN.output_size - 2.0)		//upper texture bounds
+    );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define LCD_blending		0.25
+#define original_blending	0.25
+
+#define LCD_blending_factor 1.0
+#define original_blending_factor 0.0
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment functions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//a simple blur technique that softens harsh color transitions
+
+fixed4 simple_blur(input IN, pass_1 P1, fixed4 COLOR, blur_coords BLUR_COORDS)
+{
+  //clamp the blur coords to the input texture size so it doesn't attempt to sample off the texture (it'll retrieve float4(0.0) and darken the edges otherwise)
+
+    BLUR_COORDS.tex_coord_1 = clamp(BLUR_COORDS.tex_coord_1, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+    BLUR_COORDS.tex_coord_2 = clamp(BLUR_COORDS.tex_coord_2, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+
+
+  //sample adjacent texels based on the coordinates above
+
+    fixed4 adjacent_texel_1 = tex2D(IN.texture, BLUR_COORDS.tex_coord_1);	//LCD, down
+    fixed4 adjacent_texel_2 = tex2D(IN.texture, BLUR_COORDS.tex_coord_2);	//LCD, up
+
+    fixed4 adjacent_texel_3 = tex2D(P1.texture, BLUR_COORDS.tex_coord_1);	//original, down
+    fixed4 adjacent_texel_4 = tex2D(P1.texture, BLUR_COORDS.tex_coord_2);	//original, up
+
+
+  //sum the color differences between neighboring texels, apply modifiers, then subtract the result from the current fragment color value
+/*
+    COLOR.rgb -= ( (COLOR.rgb - adjacent_texel_1.rgb) + 
+		   (COLOR.rgb - adjacent_texel_2.rgb) ) * 0.4;
+
+    COLOR.rgb -= ( (COLOR.rgb - adjacent_texel_3.rgb) + 
+		   (COLOR.rgb - adjacent_texel_4.rgb) ) * 0.3;
+
+COLOR.a = 1.0;
+*/
+
+fixed3 LCD_color = ( (COLOR.rgb - adjacent_texel_1.rgb) + 
+			  (COLOR.rgb - adjacent_texel_2.rgb) ) * LCD_blending;
+
+fixed3 original_color = ( (COLOR.rgb - adjacent_texel_3.rgb) + 
+		     (COLOR.rgb - adjacent_texel_4.rgb) ) * original_blending;
+
+
+COLOR.rgb -= original_color + LCD_color;
+
+//fixed3 LCD_color = (adjacent_texel_1.rgb + adjacent_texel_2.rgb) / 2.0;
+//fixed3 original_color = (adjacent_texel_3.rgb + adjacent_texel_4.rgb) / 2.0;
+
+//fixed mix_ratio = 0.0;
+//COLOR.rgb -= (LCD_color * mix_ratio) + (original_color * (1.0 - mix_ratio));
+
+//COLOR.rgb -= (original_color * original_blending_factor) + (LCD_color * LCD_blending_factor);
+
+COLOR.a = 1.0;
+
+  //return new alpha value
+
+    return COLOR;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in blur_coords blur_coords,
+		      uniform pass_1 PASS1,
+		      uniform input IN ) : COLOR
+{
+    fixed4 out_color = tex2D(IN.texture, texCoord);	//IN = w/cells, PASS1 = w/o cells
+
+    if ( (out_color.a > 0.0) && (out_color.a < 1.0) ) { out_color = simple_blur(IN, PASS1, out_color, blur_coords); }
+
+    return out_color;
+}

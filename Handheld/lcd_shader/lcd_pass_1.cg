@@ -1,0 +1,117 @@
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// LCD Shader v0.0.1                                                     //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define cell_scale 1.0		//scales LCD cell width by an integer value, recommend leaving at 1.0 at normal viewing distance or color separation will be severe
+				//if increased it should be at 1/3 the output scale which itself should be a multiple of 3 (ex. cell_scale = 2.0 when output is at 6x scale, 3.0 at 9x, etc...)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+struct texture_data
+{
+    float dX		: TEXCOORD1;
+    float two_dX	: TEXCOORD2;
+    float three_dX	: TEXCOORD3;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out texture_data oTexData,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+
+
+    float texel_width = 1.0 / IN.texture_size.x;
+
+    oTexData = texture_data(
+	texel_width,
+	2.0 * texel_width,
+	3.0 * texel_width
+    );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define triad_color_0 fixed3(1.0, 0.0, 1.0)	//magenta
+#define triad_color_1 fixed3(1.0, 1.0, 0.0)	//yellow
+#define triad_color_2 fixed3(0.0, 1.0, 1.0)	//cyan
+
+//#define triad_color_0 fixed3(0.0, 0.0, 1.0)	//blue
+//#define triad_color_1 fixed3(1.0, 0.0, 0.0)	//red
+//#define triad_color_2 fixed3(0.0, 1.0, 0.0)	//green
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in texture_data texData,
+		      uniform input IN ) : COLOR
+{
+  //use modulo to deterimine the current subcell location and apply proper color
+
+    float modX = mod(texCoord.x, cell_scale * texData.three_dX);
+
+    fixed3 subpixel_color = (modX < cell_scale * texData.dX)		? triad_color_0 : 
+			    (modX < cell_scale * texData.two_dX)	? triad_color_1 : triad_color_2;
+
+
+  //use color darkening with input texture to determine the final color of the subpixel
+  //color darkening: the minimum value for each color component between the LCD cell and the input image is selected
+  //ex. LCD cell subpixel is magenta (1.0, 1.0, 0.0) and the current video texel is red (1.0, 0.0, 0.0)...
+  //...the result will be the minimum of each component: result.rgb = min(1.0, 1.0), min(1.0, 0.0), min(0.0, 0.0) = (1.0, 0.0, 0.0) = red
+
+    fixed4 out_color = tex2D(IN.texture, texCoord);
+
+    out_color.rgb = fixed3( min(out_color.r, subpixel_color.r), 
+			    min(out_color.g, subpixel_color.g), 
+			    min(out_color.b, subpixel_color.b) );
+
+
+  //return
+
+    return out_color;
+}

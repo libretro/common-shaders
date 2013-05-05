@@ -1,0 +1,49 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+struct pass_2
+{
+    sampler2D texture	: TEXUNIT1;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      uniform pass_2 PASS2,
+		      uniform input IN ) : COLOR
+{
+float4 out_color = tex2D(PASS2.texture, texCoord);		//colored pixels
+float4 scene_color = tex2D(IN.texture, texCoord);	//lined scene
+out_color.a *= 0.5;
+
+out_color.rgb = (out_color.rgb * out_color.a) + (scene_color.rgb * (1.0 - out_color.a));
+
+return out_color;
+}

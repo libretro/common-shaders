@@ -1,0 +1,102 @@
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// LCD Shader v0.0.1                                                     //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define LCD_to_input_ratio 	0.9			//the ratio of blending between the LCD pixels and the input image, higher values result in stronger LCD magenta/yellow/cyan bands - [0, 1]
+#define bg_tint 		fixed3(0.0, 0.0, 0.0)	//color to tint the background image in RGB format - each color component ranges from 0.0 (none) to 1.0 (fully saturated)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+struct pass_1
+{
+    sampler2D texture	: TEXUNIT1;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define is_border_texel fixed(out_color.a == 0.0)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      uniform pass_1 PASS1,
+		      uniform input IN,
+		      uniform sampler2D BACKGROUND	: TEXUNIT2 ) : COLOR
+{
+  //sample all relevant textures
+
+    fixed4 lcd_color   = tex2D(IN.texture, texCoord);		//color darkened pixels from the previous pass
+    fixed4 input_color = tex2D(PASS1.texture, texCoord);	//scaled input video with vertical lines from first pass
+    fixed4 bg_color    = tex2D(BACKGROUND, texCoord);		//background image
+
+
+  //overlay the LCD image onto the input image to brighten the output and dampen the LCD cell colors
+
+    fixed4 out_color = fixed4( (lcd_color.rgb * LCD_to_input_ratio) + (input_color.rgb * (1.0 - LCD_to_input_ratio)), input_color.a);
+
+
+  //tint the background image and apply it to the output color if the current fragment is located in the border region
+
+    bg_color.rgb = saturate( fixed3( 				//allows for highlights, bg_color = bg_tint when the background image color is 0.5 gray
+	bg_tint.r + lerp(-1.0, 1.0, bg_color.r), 
+	bg_tint.g + lerp(-1.0, 1.0, bg_color.g), 
+	bg_tint.b + lerp(-1.0, 1.0, bg_color.b) ) );
+
+    out_color.rgb = (bg_color.rgb * is_border_texel) + (out_color.rgb * !is_border_texel);
+
+
+  //return
+
+    return out_color;
+}

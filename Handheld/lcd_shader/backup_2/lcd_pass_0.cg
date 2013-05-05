@@ -1,0 +1,159 @@
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// LCD Shader v0.0.1                                                     //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define baseline_alpha 0.10	//the alpha value of dots in their "off" state, does not affect the border region of the screen - [0, 1]
+#define response_time 0.333	//simulate response time, higher values result in longer color transition periods - [0, 1]
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+struct prev_0
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+struct prev_1
+{
+    sampler2D texture : TEXUNIT2;
+};
+
+struct prev_2
+{
+    sampler2D texture : TEXUNIT3;
+};
+
+struct prev_3
+{
+    sampler2D texture : TEXUNIT4;
+};
+
+struct prev_4
+{
+    sampler2D texture : TEXUNIT5;
+};
+
+struct prev_5
+{
+    sampler2D texture : TEXUNIT6;
+};
+
+struct prev_6
+{
+    sampler2D texture : TEXUNIT7;
+};
+
+struct line_data
+{
+    fixed cell_height	: TEXCOORD1;
+    fixed texel_height	: TEXCOORD2;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex definitions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define video_scale 		floor(IN.output_size.y / IN.video_size.y)		//largest integer scale of input video that will fit in the current output (y axis would typically be limiting on widescreens)
+#define scaled_video_out	(IN.video_size * video_scale)				//size of the scaled video
+#define half_pixel		(0.5 / IN.output_size)					//it's... half a pixel
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out line_data oLineData,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position) / float4( float2(IN.output_size / scaled_video_out), 1.0, 1.0 );	//remaps position to integer scaled output
+    oTexCoord = texCoord + half_pixel;
+
+    oLineData = line_data( 
+	1.0 / IN.texture_size.y,
+	1.0 / (IN.texture_size.y * video_scale)
+    );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define curr_rgb  tex2D(IN.texture, texCoord).rgb
+#define prev0_rgb tex2D(PREV.texture, texCoord).rgb
+#define prev1_rgb tex2D(PREV1.texture, texCoord).rgb
+#define prev2_rgb tex2D(PREV2.texture, texCoord).rgb
+#define prev3_rgb tex2D(PREV3.texture, texCoord).rgb
+#define prev4_rgb tex2D(PREV4.texture, texCoord).rgb
+#define prev5_rgb tex2D(PREV5.texture, texCoord).rgb
+#define prev6_rgb tex2D(PREV6.texture, texCoord).rgb
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in line_data lineData,
+		      uniform input IN,
+		      uniform prev_0 PREV, 
+		      uniform prev_1 PREV1, 
+		      uniform prev_2 PREV2, 
+		      uniform prev_3 PREV3, 
+		      uniform prev_4 PREV4, 
+		      uniform prev_5 PREV5, 
+		      uniform prev_6 PREV6 ) : COLOR
+{
+    fixed3 input_rgb = curr_rgb;
+    input_rgb += (prev0_rgb - input_rgb) * response_time;
+    input_rgb += (prev1_rgb - input_rgb) * pow(response_time, 2.0);
+    input_rgb += (prev2_rgb - input_rgb) * pow(response_time, 3.0);
+    input_rgb += (prev3_rgb - input_rgb) * pow(response_time, 4.0);
+    input_rgb += (prev4_rgb - input_rgb) * pow(response_time, 5.0);
+    input_rgb += (prev5_rgb - input_rgb) * pow(response_time, 6.0);
+    input_rgb += (prev6_rgb - input_rgb) * pow(response_time, 7.0);
+
+
+    fixed4 out_color = fixed4(input_rgb, 1.0);
+
+
+    fixed is_on_line = int(mod(texCoord.y, lineData.cell_height) > lineData.texel_height);
+    //out_color *= is_on_line;
+    out_color = fixed4( (out_color.rgb * is_on_line), (out_color.a - (0.5 * fixed(!is_on_line))) );	//arbitrary 0<a<1 value
+
+
+    return out_color;
+}

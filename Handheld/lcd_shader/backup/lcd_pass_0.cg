@@ -1,0 +1,45 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;		//always 160x144 regardless of scale
+    float2 texture_size;	//256x256
+    float2 output_size;		//if scale_type == viewport, then size of output
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      uniform input IN ) : COLOR
+{
+float4 out_color = float4(tex2D(IN.texture, texCoord).rgb, 1.0);
+
+float scale = IN.output_size.y / IN.video_size.y;
+float dY = ddy(texCoord.y);
+float modY = mod(texCoord.y, scale * dY);
+
+if (modY < dY) {  out_color = float4(0.0); }
+
+return out_color;
+}

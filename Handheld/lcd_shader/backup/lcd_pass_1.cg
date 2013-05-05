@@ -1,0 +1,53 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture	: TEXUNIT0;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      uniform input IN ) : COLOR
+{
+float4 out_color = tex2D(IN.texture, texCoord);
+
+float dX = ddx(texCoord.x);
+float modX = mod(texCoord.x, 3.0 * dX);
+
+if (out_color.a > 0.0)
+{
+float4 tmp_color = float4(0.0);
+
+if (modX < dX) { tmp_color = float4(1.0, 0.0, 1.0, 1.0); }
+else if (modX < 2.0 * dX) { tmp_color = float4(1.0, 1.0, 0.0, 1.0); }
+else { tmp_color = float4(0.0, 1.0, 1.0, 1.0); }
+
+out_color.rgb = float4(min(out_color.r, tmp_color.r), min(out_color.g, tmp_color.g), min(out_color.b, tmp_color.b), 1.0);
+}
+
+return out_color;
+}
