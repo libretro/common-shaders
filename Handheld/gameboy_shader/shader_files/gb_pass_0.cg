@@ -146,8 +146,8 @@ float4 main_fragment( float2 texCoord        		: TEXCOORD0,
 {
   //determine if the corrent texel lies on a dot or in the space between dots
 
-    int is_on_dot = all( int2( mod(texCoord.x, matrixData.dot_size.x) > matrixData.one_texel.x, 		//returns 1 if fragment lies on a dot, 0 otherwise
-			       mod(texCoord.y, matrixData.dot_size.y) > matrixData.one_texel.y ) );
+    int is_on_dot = all( int2( fmod(texCoord.x, matrixData.dot_size.x) > matrixData.one_texel.x, 		//returns 1 if fragment lies on a dot, 0 otherwise
+			       fmod(texCoord.y, matrixData.dot_size.y) > matrixData.one_texel.y ) );
 
 
   //sample color from the current and previous frames, apply response time modifier
