@@ -1,0 +1,122 @@
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// Gameboy Classic Shader v0.2.2                                         //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define contrast 0.95		//analogous to the contrast slider on the original Gameboy, higher values darken the image - [0, 1]
+#define bg_smoothing 0.75	//higher values suppress changes in background color directly beneath the foreground to improve image clarity - [0, 1]
+#define shadow_opacity 0.55	//how strongly shadows affect the background, higher values darken the shadows - [0, 1]
+#define shadow_offset_x 1.0	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity]
+#define shadow_offset_y 1.0	//how far the shadow should be shifted to down in pixels - [-infinity, infinity]
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture : TEXUNIT0;
+};
+
+struct pass_2
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex definitions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out float2 oTexel			: TEXCOORD1,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+
+    oTexel = 1.0 / IN.texture_size;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define bg_color tex2D(COLOR_PALETTE, fixed2(0.25, 0.5))				//sample the background color from the palette
+#define shadow_alpha (contrast * shadow_opacity)					//blending factor used when overlaying shadows on the background
+#define shadow_offset float2(shadow_offset_x * texel.x, shadow_offset_y * texel.y)	//offset for the shadow
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in float2 texel			: TEXCOORD1,
+		      uniform input IN,
+		      uniform pass_2 PASS2,
+		      uniform sampler2D COLOR_PALETTE	: TEXUNIT2,
+		      uniform sampler2D BACKGROUND	: TEXUNIT3 ) 		: COLOR
+{
+  //sample all the relevant textures	
+
+    fixed4 foreground = tex2D(PASS2.texture, texCoord);
+    fixed4 background = tex2D(BACKGROUND, texCoord);
+    fixed4 shadows    = tex2D(IN.texture, texCoord - shadow_offset);
+    fixed4 background_color = bg_color;
+
+
+  //foreground and background are blended with the background color
+
+    foreground *= bg_color;
+    background -= (background - 0.5) * bg_smoothing * fixed(foreground.a > 0.0);	//suppress drastic background color changes under the foreground to improve clarity
+
+    background.rgb = saturate(fixed3( 				//allows for highlights, background = bg_color when the background color is 0.5 gray
+	bg_color.r + lerp(-1.0, 1.0, background.r), 
+	bg_color.g + lerp(-1.0, 1.0, background.g), 
+	bg_color.b + lerp(-1.0, 1.0, background.b) ));
+
+  //shadows are alpha blended with the background
+
+    fixed4 out_color = (shadows * shadows.a * shadow_alpha) + (background * (1 - shadows.a * shadow_alpha));
+
+
+  //foreground is alpha blended with the shadowed background
+
+    out_color = (foreground * foreground.a * contrast) + (out_color * (1 - foreground.a * contrast));
+
+
+  //return fragment
+
+    return out_color; 
+}
