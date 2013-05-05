@@ -4,14 +4,19 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v1.1 - Pass 2
+   Merge Dithering and Pseudo Transparency Shader v1.2 - Pass 2
    by Sp00kyFox, 2013
 
    Uses the alpha channel tag from pass 1 to merge those pixels with their neighbors.
 
 */
 
-float3 merge(float3 L, float3 C, float3 R)
+float3 merge2(float3 A, float3 B)
+{
+	return 0.5*(A+B);
+}
+
+float3 merge3(float3 L, float3 C, float3 R)
 {
 	return 0.25*(L+R) + 0.5*C;
 }
@@ -68,14 +73,25 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	float4 C = tex2D(decal, VAR.texCoord).xyzw;
 	float4 L1 = tex2D(decal, VAR.texCoord - g1).xyzw;
+	float4 L2 = tex2D(decal, VAR.texCoord - (2*g1)).xyzw;
 	float4 R1 = tex2D(decal, VAR.texCoord + g1).xyzw;
+	float4 R2 = tex2D(decal, VAR.texCoord + (2*g1)).xyzw;
+	
 	//float4 U1 = tex2D(decal, VAR.texCoord - g2).xyzw;
 	//float4 D1 = tex2D(decal, VAR.texCoord + g2).xyzw;
 
 	//if (C.w == 1.0 || L1.w == 1.0 || R1.w == 1.0 || U1.w == 1.0 || D1.w == 1.0){
 	if (C.w == 1.0 || L1.w == 1.0 || R1.w == 1.0){
-		C = float4(merge(L1.xyz,C.xyz,R1.xyz),1.0);
-	}	
+		C = float4(merge3(L1.xyz,C.xyz,R1.xyz),1.0);
+	}
+	else if (L2.w == 1.0)
+	{
+		C = float4(merge2(L1.xyz,C.xyz),1.0);	
+	}
+	else if (R2.w == 1.0)
+	{
+		C = float4(merge2(C.xyz,R1.xyz),1.0);	
+	}
 
 	return C;
 }

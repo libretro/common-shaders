@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v1.1 - Pass 1
+   Merge Dithering and Pseudo Transparency Shader v1.2 - Pass 1
    by Sp00kyFox, 2013
 
    Tags the pixels which are detected as dither in the alpha channel.
