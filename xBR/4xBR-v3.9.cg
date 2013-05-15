@@ -181,7 +181,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 h5 = mul( half4x3(H5, F4, B1, D0), yuv_weighted[0] );
 	float4 f4 = h5.yzwx;
 
-	float4 c1 = i4.xyzw;
+	float4 c1 = i4.yzwx;
 	float4 g0 = i5.wxyz;
 
 	float4 Ao = float4( 1.0, -1.0, -1.0, 1.0 );
