@@ -1,9 +1,9 @@
 shaders = 5
-shader0 = shader_files/gb_pass_0.cg
-shader1 = shader_files/gb_pass_1.cg
-shader2 = shader_files/gb_pass_2.cg
-shader3 = shader_files/gb_pass_3.cg
-shader4 = shader_files/gb_pass_4.cg
+shader0 = shader-files/gb-pass-0.cg
+shader1 = shader-files/gb-pass-1.cg
+shader2 = shader-files/gb-pass-2.cg
+shader3 = shader-files/gb-pass-3.cg
+shader4 = shader-files/gb-pass-4.cg
 
 scale_type0 = viewport
 scale0 = 1

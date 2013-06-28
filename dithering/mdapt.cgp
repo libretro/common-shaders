@@ -1,6 +1,6 @@
 shaders = 2
-shader0 = mdapt_pass1.cg
-shader1 = mdapt_pass2.cg
+shader0 = mdapt-pass1.cg
+shader1 = mdapt-pass2.cg
 
 filter_linear0 = false
 scale_type0 = source
