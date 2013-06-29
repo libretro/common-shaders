@@ -1,6 +1,6 @@
 shaders = 2
-shader0 = ../CRT/CRT-ReverseAA.cg
-shader1 = ../ddt.cg
+shader0 = ../xbr/2xbr-v3.7c-dark.cg
+shader1 = ../xbr/2xbr-v3.7c-light.cg
 
 filter_linear0 = false
 filter_linear1 = false
