@@ -1,0 +1,205 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v1.5 - Pass 1
+   by Sp00kyFox, 2013
+
+   Finds specific patterns and tags their central pixel.
+
+*/
+
+// Set the following flags to acticate one line dither detection (e.g. horizontal one in "Lion King" for Genesis).
+// Otherwise it'll be only checkerboard patterns.
+
+//#define HORI
+//#define VERT
+
+
+bool eq(float3 A, float3 B)
+{
+	return (A.x == B.x && A.y == B.y && A.z == B.z);
+}
+
+float remapTo01(float v, float low, float high)
+{
+	return saturate((v - low)/(high-low));
+}
+
+
+struct input
+{
+	float2 video_size;
+      float2 texture_size;
+      float2 output_size;
+};
+
+struct out_vertex {
+	half4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	half4 t1 : TEXCOORD1;
+	half2 loc : TEXCOORD2;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	half4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform half4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	half dx = ps.x;
+	half dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1.xy = half2( dx,  0); // F
+	OUT.t1.zw = half2(  0, dy); // H
+	OUT.loc = texCoord*IN.texture_size;
+
+	return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 pos = VAR.loc;	// pos = pixel position
+	float2 dir = sign(pos);	// dir = pixel direction
+
+	float2 g1 = dir*VAR.t1.xy;
+	float2 g2 = dir*VAR.t1.zw;
+	
+	/*
+				U3
+			  UUL U2 UUR
+		    ULL UL  U1 UR  URR
+		L3  L2  L1  C  R1  R2  R3
+		    DLL DL  D1 DR  DRR	
+			  DDL D2 DDR
+				D3
+	*/
+
+	float3 C = tex2D(decal, VAR.texCoord).xyz;
+	float3 L1 = tex2D(decal, VAR.texCoord - g1).xyz;
+	float3 L2 = tex2D(decal, VAR.texCoord - 2*g1).xyz;
+	float3 R1 = tex2D(decal, VAR.texCoord + g1).xyz;
+	float3 R2 = tex2D(decal, VAR.texCoord + 2*g1).xyz;
+	float3 U1 = tex2D(decal, VAR.texCoord - g2).xyz;
+	float3 U2 = tex2D(decal, VAR.texCoord - 2*g2).xyz;
+	float3 D1 = tex2D(decal, VAR.texCoord + g2).xyz;
+	float3 D2 = tex2D(decal, VAR.texCoord + 2*g2).xyz;
+	float3 UL = tex2D(decal, VAR.texCoord - g1 - g2).xyz;
+	float3 UR = tex2D(decal, VAR.texCoord + g1 - g2).xyz;
+	float3 DL = tex2D(decal, VAR.texCoord - g1 + g2).xyz;
+	float3 DR = tex2D(decal, VAR.texCoord + g1 + g2).xyz;
+
+	float3 ULL = tex2D(decal, VAR.texCoord - 2*g1 - g2).xyz;
+	float3 UUL = tex2D(decal, VAR.texCoord - g1 - 2*g2).xyz;
+	float3 UUR = tex2D(decal, VAR.texCoord + g1 - 2*g2).xyz;
+	float3 URR = tex2D(decal, VAR.texCoord + 2*g1 - g2).xyz;
+	float3 DRR = tex2D(decal, VAR.texCoord + 2*g1 + g2).xyz;
+	float3 DDR = tex2D(decal, VAR.texCoord + g1 + 2*g2).xyz;
+	float3 DDL = tex2D(decal, VAR.texCoord - g1 + 2*g2).xyz;
+	float3 DLL = tex2D(decal, VAR.texCoord - 2*g1 + g2).xyz;
+
+	float3 L3 = tex2D(decal, VAR.texCoord - 3*g1).xyz;
+	float3 R3 = tex2D(decal, VAR.texCoord + 3*g1).xyz;
+	float3 U3 = tex2D(decal, VAR.texCoord - 3*g2).xyz;
+	float3 D3 = tex2D(decal, VAR.texCoord + 3*g2).xyz;
+	
+	/*
+	tag values:
+		0	nothing	
+		
+			checkerboard pattern
+		9	DL
+		8	DR
+		7	UR
+		6	UL
+		5	full
+		
+			horizontal two-line checkerboard
+		4	bottom line
+		3	upper line
+
+			vertical two-line checkerboard
+		2	left line
+		1	right line
+
+			one line dither
+		-1	horizontal
+		-2	vertical
+	*/
+
+	float type=0;
+
+	// checkerboard pattern
+	if(!eq(C,D1) && !eq(C,U1) && !eq(C,L1) && !eq(C,R1))
+	{
+		if(eq(C,UL))
+		{
+			if(eq(C,UR))
+			{
+				if(eq(C,DR))
+				{
+					if(eq(C,DL))
+						type = 5;
+					else if(!eq(D1,L1) || eq(D1,DL))
+						type = 9;							
+				}
+				else
+				{
+					if(eq(C,DL) && (!eq(D1,R1) || eq(D1,DR)))
+						type = 8;
+				}	
+			}
+			else
+			{
+				if(eq(C,DR) && eq(C,DL) && (!eq(U1,R1) || eq(U1,UR)))
+					type = 7;							
+			}
+		}
+		else if(eq(C,UR) && eq(C,DR) && eq(C,DL) && (!eq(U1,L1) || eq(U1,UL)))
+			type = 6;	
+	}
+	// horizontal two-line checkerboard
+	else if(eq(C,L2) && eq(C,R2) && eq(C,UL) && eq(C,UR) && !eq(C,L1) && !eq(C,R1) && !eq(C,ULL) && !eq(C,U1) && !eq(C,URR))
+	{
+		type = 4;
+	}
+	else if(eq(C,L2) && eq(C,R2) && eq(C,DL) && eq(C,DR) && !eq(C,L1) && !eq(C,R1) && !eq(C,DLL) && !eq(C,D1) && !eq(C,DRR))
+	{
+		type = 3;
+	}
+	// vertical two-line checkerboard
+	else if(eq(C,U2) && eq(C,D2) && eq(C,UR) && eq(C,DR) && !eq(C,U1) && !eq(C,D1) && !eq(C,R1) && !eq(C,UUR) && !eq(C,DDR))				
+	{
+		type = 2;
+	}
+	else if(eq(C,U2) && eq(C,D2) && eq(C,UL) && eq(C,DL) && !eq(C,U1) && !eq(C,D1) && !eq(C,L1) && !eq(C,UUL) && !eq(C,DDL))				
+	{
+		type = 1;
+	}	
+#ifdef HORI
+	// horizontal one line dither
+	else if(eq(C,L2) && eq(C,R2) && eq(L1,R1) && !eq(C,L1) && !eq(C,L3) && !eq(C,R3))
+		type = -1;
+#endif
+#ifdef VERT
+	// vertical one line dither
+	else if(eq(C,U2) && eq(C,D2) && eq(U1,D1) && !eq(C,U1) && !eq(C,U3) && !eq(C,D3))
+		type = -2;
+#endif	
+
+	return float4(remapTo01(type+2, 0, 15), C.y, C.z, 0);
+}
