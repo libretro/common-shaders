@@ -100,12 +100,6 @@ float3 merge9(float4 C, float4 UL, float4 UR, float4 DL, float4 DR, float4 U1, f
 		return 0.25*C.xyz + (1/(cntB*4))*B + (1/(cntW*2))*W;	
 }
 
-struct orig
-{
-    float2 tex_coord;
-    uniform float2 texture_size;
-    uniform sampler2D texture;
-};
 
 
 struct input
@@ -120,7 +114,6 @@ struct out_vertex {
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float2 loc : TEXCOORD2;
-        float2 orig_tex;
 };
 
 
@@ -131,7 +124,6 @@ out_vertex main_vertex
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
-        orig ORIG,
 	uniform input IN
 )
 {
@@ -144,7 +136,6 @@ out_vertex main_vertex
 	float dy = ps.y;
 
 	OUT.texCoord = texCoord;
-	OUT.orig_tex = ORIG.tex_coord;
 	OUT.t1.xy = float2( dx,  0); // F
 	OUT.t1.zw = float2(  0, dy); // H
 	OUT.loc = texCoord*IN.texture_size;
@@ -153,7 +144,7 @@ out_vertex main_vertex
 }
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig ORIG, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	float2 pos = VAR.loc; // pos = pixel position
 	float2 dir = sign(pos); // dir = pixel direction
@@ -167,26 +158,26 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig
 		DL D1 DR	
 	*/
 
-	float4 C   = tex2D(ORIG.texture, VAR.orig_tex).xyzw;
-	float4 L1  = tex2D(ORIG.texture, VAR.orig_tex - g1).xyzw;	
-	float4 R1  = tex2D(ORIG.texture, VAR.orig_tex + g1).xyzw;
-	float4 U1  = tex2D(ORIG.texture, VAR.orig_tex - g2).xyzw;
-	float4 D1  = tex2D(ORIG.texture, VAR.orig_tex + g2).xyzw;
-	float4 UL  = tex2D(ORIG.texture, VAR.orig_tex - g1 - g2).xyzw;
-	float4 UR  = tex2D(ORIG.texture, VAR.orig_tex + g1 - g2).xyzw;
-	float4 DL  = tex2D(ORIG.texture, VAR.orig_tex - g1 + g2).xyzw;
-	float4 DR  = tex2D(ORIG.texture, VAR.orig_tex + g1 + g2).xyzw;
+	float4 C   = tex2D(decal, VAR.texCoord).xyzw;
+	float4 L1  = tex2D(decal, VAR.texCoord - g1).xyzw;	
+	float4 R1  = tex2D(decal, VAR.texCoord + g1).xyzw;
+	float4 U1  = tex2D(decal, VAR.texCoord - g2).xyzw;
+	float4 D1  = tex2D(decal, VAR.texCoord + g2).xyzw;
+	float4 UL  = tex2D(decal, VAR.texCoord - g1 - g2).xyzw;
+	float4 UR  = tex2D(decal, VAR.texCoord + g1 - g2).xyzw;
+	float4 DL  = tex2D(decal, VAR.texCoord - g1 + g2).xyzw;
+	float4 DR  = tex2D(decal, VAR.texCoord + g1 + g2).xyzw;
 
 
-	C.w   = remapFrom01(tex2D(decal, VAR.texCoord).x, 0, 15) - 2;
-	L1.w  = remapFrom01(tex2D(decal, VAR.texCoord - g1).x, 0, 15) - 2;	
-	R1.w  = remapFrom01(tex2D(decal, VAR.texCoord + g1).x, 0, 15) - 2;
-	U1.w  = remapFrom01(tex2D(decal, VAR.texCoord - g2).x, 0, 15) - 2;
-	D1.w  = remapFrom01(tex2D(decal, VAR.texCoord + g2).x, 0, 15) - 2;
-	UL.w  = remapFrom01(tex2D(decal, VAR.texCoord - g1 - g2).x, 0, 15) - 2;
-	UR.w  = remapFrom01(tex2D(decal, VAR.texCoord + g1 - g2).x, 0, 15) - 2;
-	DL.w  = remapFrom01(tex2D(decal, VAR.texCoord - g1 + g2).x, 0, 15) - 2;
-	DR.w  = remapFrom01(tex2D(decal, VAR.texCoord + g1 + g2).x, 0, 15) - 2;
+	C.w   = remapFrom01(C.w, 0, 15) - 2;
+	L1.w  = remapFrom01(L1.w, 0, 15) - 2;	
+	R1.w  = remapFrom01(R1.w, 0, 15) - 2;
+	U1.w  = remapFrom01(U1.w, 0, 15) - 2;
+	D1.w  = remapFrom01(D1.w, 0, 15) - 2;
+	UL.w  = remapFrom01(UL.w, 0, 15) - 2;
+	UR.w  = remapFrom01(UR.w, 0, 15) - 2;
+	DL.w  = remapFrom01(DL.w, 0, 15) - 2;
+	DR.w  = remapFrom01(DR.w, 0, 15) - 2;
 	
 	/*
 	tag values:
@@ -225,5 +216,5 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig
 	if(C.w == -2)
 		return float4(merge3(C,U1,D1,-2),0);
 	
-	return float4(C.xyz, 0);
+	return float4(C.xyz, 1.0);
 }
