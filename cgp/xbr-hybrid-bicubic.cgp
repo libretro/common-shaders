@@ -1,6 +1,6 @@
 shaders = 2
 shader0 = ../xbr-hybrid/2xbr-hybrid.cg
-shader1 = ../bicubic/bicubic-normal.cg
+shader1 = ../bicubic/bicubic-fast.cg
 
 filter_linear0 = false
 filter_linear1 = false

@@ -1,3 +1,9 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+
 /*
    Hyllian's 4xBR v3.8c (squared) Shader
    
@@ -22,13 +28,13 @@
 */
 
 const static float coef           = 2.0;
-const static float4 eq_threshold  = float4(15.0);
+const static float4 eq_threshold  = float4(15.0, 15.0, 15.0, 15.0);
 const static half y_weight        = 48.0;
 const static half u_weight        = 7.0;
 const static half v_weight        = 6.0;
 const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
 const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
-const static float4 delta       = float4(0.35);
+const static float4 delta       = float4(0.35, 0.35, 0.35, 0.35);
 
 float4 df(float4 A, float4 B)
 {
@@ -120,10 +126,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 {
 	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
-	bool4 nc, nc30, nc60, nc45; // new_color
 	float4 fx, fx_left, fx_up, final_fx; // inequations of straight lines.
 	half3 res1, res2, pix1, pix2;
-	float blend1, blend2;
 
 	float2 fp = frac(VAR.texCoord*IN.texture_size);
 
@@ -194,37 +198,30 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 
 	edr      = (weighted_distance( e, c, g, i, h5, f4, h, f) < weighted_distance( h, d, i5, f, i4, b, e, i)) && interp_restriction_lv1;
-	edr_left = ((coef*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left;
-	edr_up   = (df(f,g) >= (coef*df(h,c))) && interp_restriction_lv2_up;
+	edr_left = ((coef*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;
+	edr_up   = (df(f,g) >= (coef*df(h,c))) && interp_restriction_lv2_up && edr;
 
-	nc45 = ( edr &&             bool4(fx45));
-	nc30 = ( edr && edr_left && bool4(fx30));
-	nc60 = ( edr && edr_up   && bool4(fx60));
+
+	fx45 = edr*fx45;
+	fx30 = edr_left*fx30;
+	fx60 = edr_up*fx60;
 
 	px = (df(e,f) <= df(e,h));
 
-	nc = (nc30 || nc60 || nc45);
+	float4 maximo = max(max(fx30, fx60), fx45);
 
-	float4 final45 = nc45*fx45;
-	float4 final30 = nc30*fx30;
-	float4 final60 = nc60*fx60;
+        half4x3 pix = half4x3(lerp(E, lerp(H, F, px.x), maximo.x), lerp(E, lerp(F, B, px.y), maximo.y), lerp(E, lerp(B, D, px.z), maximo.z), lerp(E, lerp(D, H, px.w), maximo.w));
+	float4 pixel = mul( pix, yuv_weighted[0] );
+	
 
-	float4 maximo = max(max(final30, final60), final45);
+	float4 diff = df(pixel,e);
 
-	     if (nc.x) {pix1 = px.x ? F : H; blend1 = maximo.x;}
-	else if (nc.y) {pix1 = px.y ? B : F; blend1 = maximo.y;}
-	else if (nc.z) {pix1 = px.z ? D : B; blend1 = maximo.z;}
-	else if (nc.w) {pix1 = px.w ? H : D; blend1 = maximo.w;}
+	half3 res = pix[0];
+	float mx = diff.x;
 
-	     if (nc.w) {pix2 = px.w ? H : D; blend2 = maximo.w;}
-	else if (nc.z) {pix2 = px.z ? D : B; blend2 = maximo.z;}
-	else if (nc.y) {pix2 = px.y ? B : F; blend2 = maximo.y;}
-	else if (nc.x) {pix2 = px.x ? F : H; blend2 = maximo.x;}
-
-	res1 = lerp(E, pix1, blend1);
-	res2 = lerp(E, pix2, blend2);
-
-	half3 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
+        if (diff.y > mx) {res = pix[1]; mx = diff.y;}
+        if (diff.z > mx) {res = pix[2]; mx = diff.z;}
+        if (diff.w > mx) {res = pix[3];}
 
 	return float4(res, 1.0);
 }
