@@ -5,7 +5,7 @@
 
 
 /*
-   Hyllian's 5xBR v3.8a (rounded) Shader
+   Hyllian's 5xBR v3.8d (squared) Shader
    
    Copyright (C) 2011/2013 Hyllian/Jararaca - sergiogdb@gmail.com
 
@@ -176,6 +176,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 h5 = mul( half4x3(H5, F4, B1, D0), yuv_weighted[0] );
 	float4 f4 = h5.yzwx;
 
+	float4 c1 = i4.yzwx;
+	float4 g0 = i5.wxyz;
+
 	float4 Ao = float4( 1.0, -1.0, -1.0, 1.0 );
 	float4 Bo = float4( 1.0,  1.0, -1.0,-1.0 );
 	float4 Co = float4( 1.5,  0.5, -0.5, 0.5 );
@@ -191,7 +194,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	fx_left = (Ax*fp.y+Bx*fp.x);
 	fx_up   = (Ay*fp.y+By*fp.x);
 
-	interp_restriction_lv1      = ((e!=f) && (e!=h));
+	interp_restriction_lv1      = ((e!=f) && (e!=h)  &&  ( !eq(f,b) && !eq(h,d) || eq(e,i) && !eq(f,i4) && !eq(h,i5) || eq(e,g) || eq(e,c) ) && (f!=f4 && f!=i || h!=h5 && h!=i || h!=g || f!=c || eq(b,c1) && eq(d,g0)));
 	interp_restriction_lv2_left = ((e!=g) && (d!=g));
 	interp_restriction_lv2_up   = ((e!=c) && (b!=c));
 

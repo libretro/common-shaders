@@ -5,7 +5,7 @@
 
 
 /*
-   Hyllian's 4xBR v3.8c (squared) Shader
+   Hyllian's 5xBR v3.8c (squared) Shader
    
    Copyright (C) 2011/2012 Hyllian/Jararaca - sergiogdb@gmail.com
 
@@ -34,7 +34,10 @@ const static half u_weight        = 7.0;
 const static half v_weight        = 6.0;
 const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
 const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
-const static float4 delta       = float4(0.25, 0.25, 0.25, 0.25);
+const static float scale          = 5.0;
+const static float4 delta         = float4(1.0/scale, 1.0/scale, 1.0/scale, 1.0/scale);
+const static float4 deltaL        = float4(0.5/scale, 1.0/scale, 0.5/scale, 1.0/scale);
+const static float4 deltaU        = deltaL.yxwz;
 
 float4 df(float4 A, float4 B)
 {
@@ -192,10 +195,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	interp_restriction_lv2_left = ((e!=g) && (d!=g));
 	interp_restriction_lv2_up   = ((e!=c) && (b!=c));
 
-	float4 fx45 = smoothstep(Co - delta, Co + delta, fx);
-	float4 fx30 = smoothstep(Cx - delta, Cx + delta, fx_left);
-	float4 fx60 = smoothstep(Cy - delta, Cy + delta, fx_up);
-
+	float4 fx45 = saturate((fx      + delta  -Co)/(2*delta ));
+	float4 fx30 = saturate((fx_left + deltaL -Cx)/(2*deltaL));
+	float4 fx60 = saturate((fx_up   + deltaU -Cy)/(2*deltaU));
 
 	edr      = (weighted_distance( e, c, g, i, h5, f4, h, f) < weighted_distance( h, d, i5, f, i4, b, e, i)) && interp_restriction_lv1;
 	edr_left = ((coef*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;

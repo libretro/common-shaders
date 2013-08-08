@@ -28,9 +28,6 @@ const static float u_weight        = 7.0;
 const static float v_weight        = 6.0;
 const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
 const static float3x3 yuv_weighted = float3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
-const static float4 delta       = float4(0.4, 0.4, 0.4, 0.4);
-const static float4 deltaL      = float4(0.2, 0.4, 0.2, 0.4);
-const static float4 deltaU      = float4(0.4, 0.2, 0.4, 0.2);
 
 
 float4 df(float4 A, float4 B)
@@ -173,9 +170,11 @@ float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, orig 
 	fx_left = (Ax*fp.y+Bx*fp.x);
 	fx_up   = (Ay*fp.y+By*fp.x);
 
-	float4 fx45 = smoothstep(Co - delta, Co + delta, fx);
-	float4 fx30 = smoothstep(Cx - deltaL, Cx + deltaL, fx_left);
-	float4 fx60 = smoothstep(Cy - deltaU, Cy + deltaU, fx_up);
+        float2 delta = float2(IN.video_size.x/IN.output_size.x, 0.5*IN.video_size.x/IN.output_size.x);
+
+	float4 fx45 = saturate((fx      + delta.xxxx -Co)/(2*delta.xxxx));
+	float4 fx30 = saturate((fx_left + delta.yxyx -Cx)/(2*delta.yxyx));
+	float4 fx60 = saturate((fx_up   + delta.xyxy -Cy)/(2*delta.xyxy));
 
 	float4 info  = tex2D(decal, co.texCoord);
 
