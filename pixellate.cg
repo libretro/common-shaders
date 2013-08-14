@@ -26,7 +26,8 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
 {
    float2 texelSize = 1.0 / IN.texture_size;
 
-   float2 range = 0.5 / IN.output_size;
+   float2 range = float2(abs(dFdx(coords.x)), abs(dFdy(coords.y)));
+   range = range / 2.0 * 0.999;
 
    float left   = coords.x - range.x;
    float top    = coords.y + range.y;
