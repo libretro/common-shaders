@@ -1,0 +1,104 @@
+/*
+CMYK Halftone Dot Shader
+
+Adapted from Stefan Gustavson's GLSL shader demo for WebGL:
+http://webstaff.itn.liu.se/~stegu/OpenGLinsights/shadertutorial.html
+
+Ported to Cg shader language by hunterk
+
+This shader is licensed in the public domain, as per S. Gustavson's original license.
+Note: the MIT-licensed noise functions have been purposely removed.
+*/
+
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+#define frequency 400.0 //controls the density of the dot pattern
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	otexCoord = texCoord;
+}
+
+struct input
+{
+  float2 video_size;
+  float2 texCoord_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+  float texture_size;
+  sampler2D texture : TEXUNIT0;
+};
+
+struct output 
+{
+  float4 col    : COLOR;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment(in float2 texCoord : TEXCOORD0,
+uniform input IN,
+uniform sampler2D texture : TEXUNIT0
+)
+{
+    // Distance to nearest point in a grid of
+	// (frequency x frequency) points over the unit square
+	float2x2 rotation_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
+	float2 st2 = mul(rotation_matrix , texCoord);
+    float2 nearest = 2.0 * fract(frequency * st2) - 1.0;
+    float dist = length(nearest);
+    float3 texcolor = tex2D(IN.texture, texCoord).rgb; // Unrotated coords
+    float3 black = float3(0.0, 0.0, 0.0);
+	
+	// Perform a rough RGB-to-CMYK conversion
+    float4 cmyk;
+    cmyk.xyz = 1.0 - texcolor;
+    cmyk.w = min(cmyk.x, min(cmyk.y, cmyk.z)); // Create K
+    cmyk.xyz -= cmyk.w; // Subtract K equivalent from CMY
+	
+	float2x2 k_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
+	float2 Kst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(k_matrix , texCoord);
+    float2 Kuv = 2.0 * fract(Kst) - 1.0;
+    float k = step(0.0, sqrt(cmyk.w) - length(Kuv));
+	float2x2 c_matrix = float2x2(0.966, 0.259, -0.259, 0.966);
+    float2 Cst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(c_matrix , texCoord);
+    float2 Cuv = 2.0 * fract(Cst) - 1.0;
+    float c = step(0.0, sqrt(cmyk.x) - length(Cuv));
+	float2x2 m_matrix = float2x2(0.966, -0.259, 0.259, 0.966);
+    float2 Mst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(m_matrix , texCoord);
+    float2 Muv = 2.0 * fract(Mst) - 1.0;
+    float m = step(0.0, sqrt(cmyk.y) - length(Muv));
+    float2 Yst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * texCoord; // 0 deg
+    float2 Yuv = 2.0 * fract(Yst) - 1.0;
+    float y = step(0.0, sqrt(cmyk.z) - length(Yuv));
+	
+	float3 rgbscreen = 1.0 - 0.9 * float3(c,m,y);
+	rgbscreen = mix(rgbscreen, black, 0.85 * k);
+	
+	float afwidth = 2.0 * frequency * max(length(IN.video_size / (IN.output_size * IN.texture_size)), length(IN.video_size / (IN.output_size * IN.texture_size)));
+	float blend = smoothstep(0.7, 1.4, afwidth);
+	
+    float4 color = float4(mix(rgbscreen , texcolor, blend), 1.0);
+
+   output OUT;
+   OUT.col = color;
+   return OUT;
+}
