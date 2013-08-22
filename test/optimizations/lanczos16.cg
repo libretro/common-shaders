@@ -1,0 +1,128 @@
+	
+
+    /*
+     
+       Copyright (C) 2007 guest(r) - guest.r@gmail.com
+     
+       This program is free software; you can redistribute it and/or
+       modify it under the terms of the GNU General Public License
+       as published by the Free Software Foundation; either version 2
+       of the License, or (at your option) any later version.
+     
+       This program is distributed in the hope that it will be useful,
+       but WITHOUT ANY WARRANTY; without even the implied warranty of
+       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+       GNU General Public License for more details.
+     
+       You should have received a copy of the GNU General Public License
+       along with this program; if not, write to the Free Software
+       Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+     
+    */
+     
+    const static float     floatpi     = 1.5707963267948966192313216916398;
+    const static float         pi     = 3.1415926535897932384626433832795;
+     
+     
+     
+    struct input
+    {
+        float2 video_size;
+        float2 texture_size;
+        float2 output_size;
+            float  frame_count;
+            float  frame_direction;
+        float frame_rotation;
+    };
+     
+     
+    struct out_vertex {
+        float4 position : POSITION;
+        float4 color    : COLOR;
+        float2 texCoord : TEXCOORD0;
+        float4 t1;
+        float4 t2;
+        float4 t3;
+        float4 t4;
+    };
+     
+    /*    VERTEX_SHADER    */
+    out_vertex main_vertex
+    (
+        float4 position    : POSITION,
+        float4 color    : COLOR,
+        float2 tex      : TEXCOORD0,
+     
+           uniform float4x4 modelViewProj,
+        uniform input IN
+    )
+    {
+        float2 ps = 1.0/IN.texture_size;
+        float dx = ps.x;
+        float dy = ps.y;
+     
+        out_vertex OUT = {
+            mul(modelViewProj, position),
+            color,
+            tex,
+            tex.xxyy + float4(   -dx,    0.0,    -dy,    0.0),
+            tex.xxyy + float4(    dx, 2.0*dx,    -dy,    0.0),
+            tex.xxyy + float4(   -dx,    0.0,     dy, 2.0*dy),
+            tex.xxyy + float4(    dx, 2.0*dx,     dy, 2.0*dy)
+        };
+     
+        return OUT;
+    }
+     
+     
+    float4 l(float4 x)
+    {
+      float4 res;
+     
+      res = (x==float4(0.0, 0.0, 0.0, 0.0)) ?  float4(pi*floatpi)  :  sin(x*floatpi)*sin(x*pi)/(x*x);
+     
+      return res;
+    }
+     
+    float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+    {
+      float4x3 pix;
+      float2 fract = frac(VAR.texCoord*IN.texture_size);
+     
+    // calculating texel weights
+     
+      float4 abcd, pqrs;
+     
+      abcd = l(float4(1+fract.x, fract.x, 1-fract.x, 2-fract.x));
+      pqrs = l(float4(1+fract.y, fract.y, 1-fract.y, 2-fract.y));
+     
+    // reading the texels
+     
+      float3 c00 = tex2D(s_p, VAR.t1.xz).xyz;
+      float3 c10 = tex2D(s_p, VAR.t1.yz).xyz;
+      float3 c20 = tex2D(s_p, VAR.t2.xz).xyz;
+      float3 c30 = tex2D(s_p, VAR.t2.yz).xyz;
+      float3 c01 = tex2D(s_p, VAR.t1.xw).xyz;
+      float3 c11 = tex2D(s_p, VAR.texCoord).xyz;
+      float3 c21 = tex2D(s_p, VAR.t2.xw).xyz;
+      float3 c31 = tex2D(s_p, VAR.t2.yw).xyz;
+      float3 c02 = tex2D(s_p, VAR.t3.xz).xyz;
+      float3 c12 = tex2D(s_p, VAR.t3.yz).xyz;
+      float3 c22 = tex2D(s_p, VAR.t4.xz).xyz;
+      float3 c32 = tex2D(s_p, VAR.t4.yz).xyz;
+      float3 c03 = tex2D(s_p, VAR.t3.xw).xyz;
+      float3 c13 = tex2D(s_p, VAR.t3.yw).xyz;
+      float3 c23 = tex2D(s_p, VAR.t4.xw).xyz;
+      float3 c33 = tex2D(s_p, VAR.t4.yw).xyz;
+     
+      pix[0] = mul(abcd, float4x3(-c00, c10, c20, -c30));
+      pix[1] = mul(abcd, float4x3( c01, c11, c21,  c31));
+      pix[2] = mul(abcd, float4x3( c02, c12, c22,  c32));
+      pix[3] = mul(abcd, float4x3(-c03, c13, c23, -c33));
+     
+    // final sum and weight normalization
+    return float4((mul(pqrs, pix))/((dot(abcd, 1)*dot(pqrs, 1))-2*(abcd.x+abcd.w)*(pqrs.x+pqrs.w)),1);
+     
+    }
+
+
