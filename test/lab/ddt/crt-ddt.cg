@@ -1,0 +1,177 @@
+/*
+   Hyllian's Data Dependent Triangulation Shader
+   
+   Copyright (C) 2011-2012 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+const static float3 dtt = float3(65536,255,1);
+
+float reduce(half3 color)
+{
+	return dot(color, dtt);
+}
+
+
+float3 bilinear(float p, float q, half3 A, half3 B, half3 C, half3 D)
+{
+	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
+}
+
+        // Constants used with gamma correction.
+        #define InputGamma 2.4
+        #define OutputGamma 2.2
+
+        #define GAMMA_IN(color)     pow(color, float3(InputGamma))
+        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma))
+
+        // 0.5 = the spot stays inside the original pixel
+        // 1.0 = the spot bleeds up to the center of next pixel
+	#define SPOT_HEIGHT 0.65
+
+        // Used to counteract the desaturation effect of weighting.
+        #define COLOR_BOOST 1.56
+
+        // Macro for weights computing
+        #define WEIGHT(w) \
+       		if(w>1.0) w=1.0; \
+       		w = 1.0 - w * w; \
+       		w = w * w;\
+
+
+
+struct input
+{
+	half2 video_size;
+	float2 texture_size;
+	half2 output_size;
+};
+
+
+struct out_vertex {
+	half4 position : POSITION;
+	half4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	half4 t1;
+	half2 loc;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	half4 position	: POSITION,
+	half4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform half4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+
+	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	half dx = ps.x;
+	half dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1.xy = half2( dx,  0); // F
+	OUT.t1.zw = half2(  0, dy); // H
+	OUT.loc = texCoord*IN.texture_size;
+
+	return OUT;
+}
+
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 pos = frac(VAR.loc)-float2(0.5); // pos = pixel position
+	float2 dir = sign(pos); // dir = pixel direction
+
+	float2 g1 = dir*VAR.t1.xy;
+	float2 g2 = dir*VAR.t1.zw;
+
+	half3 A = tex2D(decal, VAR.texCoord       ).xyz;
+	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	half3 C = tex2D(decal, VAR.texCoord    +g2).xyz;
+	half3 D = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+
+	float p = abs(pos.x);
+	float q = abs(pos.y);
+
+	float k = distance(pos,g1);
+	float l = distance(pos,g2);
+
+	if (abs(a-d) < abs(b-c))
+	{
+		if (k < l)
+		{
+			C = A + D - B;
+		}
+		else if (k > l)
+		{
+			B = A + D - C;
+		}
+	}
+	else if (abs(a-d) > abs(b-c))
+	{
+		D = B + C - A;
+	}
+
+	float3 res = bilinear(p, q, A, B, C, D);
+
+// CRT-caligari - only vertical blend
+
+            float3 color = GAMMA_IN(res);
+
+            float ddy = pos.y;
+            float v_weight_00 = ddy / SPOT_HEIGHT;
+            WEIGHT(v_weight_00);
+            color *= float3( v_weight_00 );
+
+	    // get closest vertical neighbour to blend
+ 	    float3 coords10;
+            if (ddy>0.0) {
+            	coords10 = tex2D(decal, VAR.texCoord + VAR.t1.zw).xyz;
+                ddy = 1.0 - ddy;
+            } else {
+                coords10 = tex2D(decal, VAR.texCoord - VAR.t1.zw).xyz;
+                ddy = 1.0 + ddy;
+            }
+	    float3 colorNB = GAMMA_IN(coords10);
+
+            float v_weight_10 = ddy / SPOT_HEIGHT;
+            WEIGHT( v_weight_10 );
+
+            color += colorNB * float3( v_weight_10 );
+
+            color *= float3( COLOR_BOOST );
+
+	return float4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
+
+}
+

@@ -1,0 +1,96 @@
+/*
+   RGB to CAM02-UCS shader
+
+   Based on the hlsl version made by Ver Greeneyes
+   in this thread:
+
+      http://board.byuu.org/viewtopic.php?f=10&t=3744&hilit=cielab
+
+   This shader implement the forward transform of the perceptually
+   uniform color appearance model CAM02-UCS. The forward transform
+   takes an sRGB color triplet as input (with each channel in the
+   range 0-1) and outputs a perceptually uniform J'a'b' triplet.
+
+   Note: this implementation hardcode the sRGB viewing conditions
+   (LA = 64 lux, Yb = 20, RGBw = {1, 1, 1}) in order to take a lot
+   of shortcuts.
+
+*/
+
+static const float3x3 RGBtoHPE =
+{ 0.29858407 , 0.60894739, 0.044442436,
+  0.153912626, 0.74994218, 0.086057295,
+  0.0193     , 0.1192    , 0.9505     };
+
+static const float3x3 pconsts =
+{ 1.0        , -1.09090909, 0.0909090909,
+  0.111111111, 0.111111111, -0.222222222,
+  2.00060801 , 1.00030400 , 0.0500152002};
+
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	out out_vertex co
+)
+{
+	co.position = mul(modelViewProj, position);
+	co.color = color;
+
+	co.texCoord = texCoord;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+  float3 c0 = tex2D(decal, co.texCoord).rgb;
+  c0 = saturate(c0); // The input values may be out of range
+
+  c0 = (c0 <= 0.04045 ? 7.73993808 * c0 : 87.941546 * pow(c0 + 0.055, 2.4)); // convert to linear gamma
+
+  c0 = mul(RGBtoHPE, c0);
+  c0 = 0.1 + sign(c0) * (400.0 - 1.0 / (1.21279671e-5 * pow(abs(c0), 0.42) + 0.0025)); // apply dynamic range compression
+
+  c0 = mul(pconsts, c0); // c0.x = a (red-greenness) and c0.y = b (yellow-blueness)
+
+  float A = c0.z - 0.305092721; // achromatic response
+  float h = atan2(c0.y, c0.x); // hue angle
+  float l = length(c0.xy); // preliminary colorfulness
+
+  float t = 1608.88057 * l * (cos(h + 2.0) + 3.8) / (2.09027364 * A - l * (cos(h) + 9.81818182 * sin(h)) + 0.637727273);
+  float J = 2.45046722 * pow(A, 1.01178714); // lightness
+  float M = 0.0846644803 * sqrt(J) * pow(t, 0.9); // colorfulness
+  float Mp = 188.679245 * log(0.0053 * M + 1.0); // perceptually uniform colorfulness
+ 
+  c0.x = 242.857143 * J / (142.857143 + J); // c0.x = J' (perceptually uniform lightness)
+  c0.y = Mp * cos(h); // c0.y = a' (perceptually uniform red-greenness)
+  c0.z = Mp * sin(h); // c0.z = b' (perceptually uniform yellow-blueness)
+
+  c0 = (c0 + 69.95) / 170.0; // Limit range uniformly to between 0 and 1
+
+  return float4(c0, 1.0);
+}
+

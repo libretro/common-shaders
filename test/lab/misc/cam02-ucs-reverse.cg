@@ -1,0 +1,101 @@
+/*
+   CAM02-UCS to RGB shader
+
+   Based on the hlsl version made by Ver Greeneyes
+   in this thread:
+
+      http://board.byuu.org/viewtopic.php?f=10&t=3744&hilit=cielab
+
+   This shader implement the reverse transform of the perceptually
+   uniform color appearance model CAM02-UCS. The reverse transform
+   takes a perceptually uniform J'a'b' triplet as input (with each
+   channel in the range 0-1) and outputs an sRGB color triplet.
+
+   Note: this implementation hardcode the sRGB viewing conditions
+   (LA = 64 lux, Yb = 20, RGBw = {1, 1, 1}) in order to take a lot
+   of shortcuts.
+
+*/
+
+static const float3x3 pconsts =
+{ 0.32776921, 0.321454027 , 0.205274412 ,
+  0.32776921, -0.635067712, -0.186029936,
+  0.32776921, -0.156806842, -4.4903778  };
+
+static const float3x3 HPEtoRGB =
+{ 5.7647528  , -4.7058135 , 0.15651754 ,
+  -1.18676178, 2.32166855 , -0.15471218,
+  0.031775146, -0.19560304, 1.0683018  };
+
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	out out_vertex co
+)
+{
+	co.position = mul(modelViewProj, position);
+	co.color = color;
+
+	co.texCoord = texCoord;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+  float3 c0 = tex2D(decal, co.texCoord).rgb;
+  c0 = (170.0 * c0) - 69.95; // Extend range back to CAM02-UCS original
+
+  float Mp = length(c0.yz); // perceptually uniform colorfulness
+  float h = atan2(c0.z, c0.y); // hue angle
+  float J = 142.857143 * c0.x / (242.857143 - c0.x); // lightness
+  float C0 = 199.504012 * (exp(0.0053 * Mp) - 1); // chroma
+  float t = 14.6057415 * pow(C0 * rsqrt(J), 1.11111111);
+
+  c0.x = 0.412368783 * pow(J, 0.988350180); // c0.x = A (achromatic response)
+
+  float l = (0.637727273 + 2.09027364 * c0.x) * t / (6113.74615 + t * (cos(h) + 9.81818182 * sin(h)) + 1608.88057 * cos(h + 2.0));
+  l = clamp(l, 0.0, 1.1177212); // We can get some pretty wacky values here when the brightness is low, so clamp it to the sRGB range
+
+  c0.y = l * cos(h); // c0.y = a (red-greenness)
+  c0.z = l * sin(h); // c0.z = b (yellow-blueness)
+
+  c0 = mul(pconsts, c0);
+  //c0 += 0.1;
+
+  //c0 -= 0.1;
+  c0 = sign(c0) * pow(206.13512 * abs(c0) / (400.0 - abs(c0)), 2.3809524); // undo dynamic range compression
+
+  c0 = mul(HPEtoRGB, c0);
+
+  c0 /= 100.0;
+  c0 = saturate(c0);
+  c0 = (c0 <= 0.003130805 ? 12.92 * c0 : 1.055 * pow(c0, 0.41666667) - 0.055); // convert to sRGB gamma
+
+  return float4(c0, 1.0);
+}
+
+
