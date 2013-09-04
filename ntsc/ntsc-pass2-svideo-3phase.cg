@@ -40,7 +40,7 @@ const float filter[TAPS + 1] = float[TAPS + 1](
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
 #define PI 3.14159265
-#define CHROMA_MOD_FREQ (0.3333 * PI)
+#define CHROMA_MOD_FREQ (PI / 3.0)
 
 #define CHROMA_AMP 1.0
 #define SATURATION 1.0
@@ -51,22 +51,22 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    float chroma_phase = PI * (0.6667 * mod(vertex.pix_no.y, 3.0) + IN.frame_count);
    float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
 
-   float signal = 0.0;
+   float3 signal = float3(0.0);
    for (int i = 0; i < TAPS; i++)
    {
       float offset = float(i);
-      float sums =
-         dot(fetch_offset(offset - float(TAPS), one_x), float3(1.0)) +
-         dot(fetch_offset(float(TAPS) - offset, one_x), float3(1.0));
+      float3 sums =
+         fetch_offset(offset - float(TAPS), one_x) +
+         fetch_offset(float(TAPS) - offset, one_x);
 
       signal += sums * filter[i];
    }
-   signal += dot(tex2D(s0, vertex.tex).xyz, float3(1.0)) * filter[TAPS];
+   signal += tex2D(s0, vertex.tex).xyz * filter[TAPS];
 
    float i_mod = chroma_mod * cos(mod_phase);
    float q_mod = chroma_mod * sin(mod_phase);
 
-   float3 out_color = float3(signal) * float3(BRIGHTNESS, i_mod, q_mod);
+   float3 out_color = signal * float3(BRIGHTNESS, i_mod, q_mod);
    return float4(out_color, 1.0);
 }
 
