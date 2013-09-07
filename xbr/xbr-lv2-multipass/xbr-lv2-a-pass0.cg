@@ -186,5 +186,5 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	info.y = dot(float4(edr_left), float4(8.0f, 4.0f, 2.0f, 1.0f));
 	info.z = dot(float4(edr_up  ), float4(8.0f, 4.0f, 2.0f, 1.0f));
 
-	return float4(remapTo01(info, float3(0.0f, 0.0f, 0.0f), float3(15.0f, 15.0f, 15.0f)), 1.0);
+	return float4(remapTo01(info, float3(0.0f, 0.0f, 0.0f), float3(255.0f, 255.0f, 255.0f)), 1.0);
 }

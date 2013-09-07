@@ -178,7 +178,7 @@ float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, orig 
 
 	float4 info  = tex2D(decal, co.texCoord);
 
-	float3 i = remapFrom01(info.xyz, float3(0.0f, 0.0f, 0.0f), float3(15.0f, 15.0f, 15.0f));
+	float3 i = remapFrom01(info.xyz, float3(0.0f, 0.0f, 0.0f), float3(255.0f, 255.0f, 255.0f));
 
 	edr      = unpack_info(i.x);
 	edr_left = unpack_info(i.y);
