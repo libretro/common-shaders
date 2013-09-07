@@ -1,7 +1,7 @@
 shaders = 3
 shader0 = ntsc-pass1-2phase.cg
 shader1 = ntsc-pass2-svideo-2phase.cg
-shader2 = ntsc-pass3-gamma.cg
+shader2 = ntsc-pass3-2phase-gamma.cg
 
 filter_linear0 = false
 filter_linear1 = false

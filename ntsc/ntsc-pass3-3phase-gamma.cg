@@ -1,0 +1,77 @@
+struct data
+{
+   float2 tex;
+   float2 pix_no;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.pix_no = tex * IN.texture_size;
+}
+
+#define TAPS 16
+const float luma_filter[TAPS + 1] = float[TAPS + 1](
+      0.0019, -0.0000, -0.0015, -0.0034, -0.0028, 0.0013, 0.0065, 0.0079, 0.0016, -0.0105, -0.0194,
+      -0.0124, 0.0196, 0.0750, 0.1395, 0.1914, 0.2112
+);
+
+// conv(conv(fir1(28, 0.08), [1 -1 1]), [1 1 1]) [1 -1 1] => Zero at wn = 1/3, [1 1 1] => Zero at wn = 2/3 (modulate => demodulate creates a frequency here.)
+const float chroma_filter[TAPS + 1] = float[TAPS + 1](
+      -0.0002, -0.0001, -0.0001, 0.0006, 0.0017, 0.0041, 0.0078, 0.0132,
+      0.0203, 0.0292, 0.0393, 0.0501, 0.0608, 0.0703, 0.0779, 0.0828,
+      0.0845
+);
+
+const float3x3 yiq2rgb_mat = float3x3(
+   1.0, 0.956, 0.6210,
+   1.0, -0.2720, -0.6474,
+   1.0, -1.1060, 1.7046);
+
+float3 yiq2rgb(float3 yiq)
+{
+   return mul(yiq2rgb_mat, yiq);
+}
+
+#define fetch_offset(offset, one_x) \
+   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+
+#define GAMMA 1.25 // Screen and later shaders can also apply gamma. Tweak suitably
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float one_x = 1.0 / IN.texture_size.x;
+   float3 signal = float3(0.0);
+   for (int i = 0; i < TAPS; i++)
+   {
+      float offset = float(i);
+
+      float3 sums = fetch_offset(offset - float(TAPS), one_x) +
+         fetch_offset(float(TAPS) - offset, one_x);
+
+      signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
+   }
+   signal += tex2D(s0, vertex.tex).xyz *
+      float3(luma_filter[TAPS], chroma_filter[TAPS], chroma_filter[TAPS]);
+
+   float3 rgb = yiq2rgb(signal);
+   return float4(pow(rgb, GAMMA), 1.0);
+}
+

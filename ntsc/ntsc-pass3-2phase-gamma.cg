@@ -1,0 +1,75 @@
+struct data
+{
+   float2 tex;
+   float2 pix_no;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.pix_no = tex * IN.texture_size;
+}
+
+#define TAPS 16
+const float luma_filter[TAPS + 1] = float[TAPS + 1](
+      -0.0020, -0.0021, -0.0008, 0.0022, 0.0054, 0.0062, 0.0025, -0.0053, -0.0135, -0.0164,
+      -0.0080, 0.0146, 0.0499, 0.0918, 0.1313, 0.1595, 0.1697
+);
+
+const float chroma_filter[TAPS + 1] = float[TAPS + 1](
+      0.0065, 0.0019, 0.0128, 0.0099, 0.0177, 0.0218, 0.0259, 0.0299, 0.0337, 0.0373,
+      0.0406, 0.0435, 0.0459, 0.0479, 0.0493, 0.0502, 0.0505
+);
+
+const float3x3 yiq2rgb_mat = float3x3(
+   1.0, 0.956, 0.6210,
+   1.0, -0.2720, -0.6474,
+   1.0, -1.1060, 1.7046);
+
+float3 yiq2rgb(float3 yiq)
+{
+   return mul(yiq2rgb_mat, yiq);
+}
+
+#define fetch_offset(offset, one_x) \
+   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+
+#define GAMMA 1.25 // Screen and later shaders can also apply gamma. Tweak suitably
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float one_x = 1.0 / IN.texture_size.x;
+   float3 signal = float3(0.0);
+   for (int i = 0; i < TAPS; i++)
+   {
+      float offset = float(i);
+
+      float3 sums = fetch_offset(offset - float(TAPS), one_x) +
+         fetch_offset(float(TAPS) - offset, one_x);
+
+      signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
+   }
+   signal += tex2D(s0, vertex.tex).xyz *
+      float3(luma_filter[TAPS], chroma_filter[TAPS], chroma_filter[TAPS]);
+
+   float3 rgb = yiq2rgb(signal);
+   return float4(pow(rgb, GAMMA), 1.0);
+}
+

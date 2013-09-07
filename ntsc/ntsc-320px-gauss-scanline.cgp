@@ -1,7 +1,7 @@
 shaders = 5
 shader0 = ntsc-pass1-2phase.cg
 shader1 = ntsc-pass2-2phase.cg
-shader2 = ntsc-pass3.cg
+shader2 = ntsc-pass3-2phase.cg
 shader3 = ntsc-gauss-pass.cg
 shader4 = ntsc-stock.cg
 
