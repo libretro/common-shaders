@@ -38,22 +38,21 @@ float3 rgb2yiq(float3 col)
    return mul(yiq_mat, col);
 }
 
-float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
-{
 #define PI 3.14159265
 #define CHROMA_MOD_FREQ (PI / 3.0)
-#define CHROMA_AMP 1.0
 
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
    float3 col = tex2D(s0, vertex.tex).rgb;
    float3 yiq = rgb2yiq(col);
 
-   float chroma_phase = 0.6667 * PI * (mod(vertex.pix_no.y, 3.0) + IN.frame_count); 
+   float chroma_phase = 0.6667 * PI * (mod(vertex.pix_no.y, 3.0) + IN.frame_count);
    float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
 
-   float i_mod = CHROMA_AMP * cos(mod_phase);
-   float q_mod = CHROMA_AMP * sin(mod_phase);
+   float i_mod = cos(mod_phase);
+   float q_mod = sin(mod_phase);
 
-   yiq = float3(yiq.x, yiq.y * i_mod, yiq.z * q_mod);
+   yiq.yz *= float2(i_mod, q_mod);
    return float4(yiq, 1.0);
 }
 
