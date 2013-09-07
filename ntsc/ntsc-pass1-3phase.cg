@@ -47,7 +47,7 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    float3 col = tex2D(s0, vertex.tex).rgb;
    float3 yiq = rgb2yiq(col);
 
-   float chroma_phase = PI * (0.6667 * mod(vertex.pix_no.y, 3.0) + IN.frame_count); 
+   float chroma_phase = 0.6667 * PI * (mod(vertex.pix_no.y, 3.0) + IN.frame_count); 
    float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
 
    float i_mod = CHROMA_AMP * cos(mod_phase);
