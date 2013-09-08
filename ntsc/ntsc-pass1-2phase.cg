@@ -1,58 +1,10 @@
-struct data
-{
-   float2 tex;
-   float2 pix_no;
-};
-
-struct input
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-};
-
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   uniform input IN,
-   out data oData
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oData.tex = tex;
-   oData.pix_no = tex * IN.texture_size * (IN.output_size / IN.video_size);
-}
-
-const float3x3 yiq_mat = float3x3(
-      0.2989, 0.5870, 0.1140,
-      0.5959, -0.2744, -0.3216,
-      0.2115, -0.5229, 0.3114
-);
-
-float3 rgb2yiq(float3 col)
-{
-   return mul(yiq_mat, col);
-}
-
-#define PI 3.14159265
-#define CHROMA_MOD_FREQ (4.0 * PI / 15.0)
+#include "ntsc-pass1-vertex.cg"
+#define TWO_PHASE
+#include "ntsc-param.inc"
+#include "ntsc-rgbyuv.inc"
 
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-   float3 col = tex2D(s0, vertex.tex).rgb;
-   float3 yiq = rgb2yiq(col);
-
-   float chroma_phase = PI * (mod(vertex.pix_no.y, 2.0) + IN.frame_count);
-   float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
-
-   float i_mod = cos(mod_phase);
-   float q_mod = sin(mod_phase);
-
-   yiq.yz *= float2(i_mod, q_mod);
-   return float4(yiq, 1.0);
+#include "ntsc-pass1-encode.cg"
 }
 

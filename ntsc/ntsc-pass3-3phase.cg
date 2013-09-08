@@ -1,72 +1,13 @@
-struct data
-{
-   float2 tex;
-   float2 pix_no;
-};
-
-struct input
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-};
-
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   uniform input IN,
-   out data oData
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oData.tex = tex;
-   oData.pix_no = tex * IN.texture_size;
-}
-
-#define TAPS 16
-const float luma_filter[TAPS + 1] = float[TAPS + 1](
-      0.0019, -0.0000, -0.0015, -0.0034, -0.0028, 0.0013, 0.0065, 0.0079, 0.0016, -0.0105, -0.0194,
-      -0.0124, 0.0196, 0.0750, 0.1395, 0.1914, 0.2112
-);
-
-const float chroma_filter[TAPS + 1] = float[TAPS + 1](
-      -0.0024, -0.0009, -0.0015, 0.0022, 0.0039, 0.0100, 0.0167, 0.0238, 0.0310, 0.0382, 0.0450, 0.0513, 0.0567, 0.0612, 0.0645,
-      0.0666, 0.0672
-);
-
-const float3x3 yiq2rgb_mat = float3x3(
-   1.0, 0.956, 0.6210,
-   1.0, -0.2720, -0.6474,
-   1.0, -1.1060, 1.7046);
-
-float3 yiq2rgb(float3 yiq)
-{
-   return mul(yiq2rgb_mat, yiq);
-}
+#include "ntsc-pass3-vertex.cg"
+#include "ntsc-decode-filter-3phase.inc"
+#include "ntsc-rgbyuv.inc"
 
 #define fetch_offset(offset, one_x) \
    tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
 
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-   float one_x = 1.0 / IN.texture_size.x;
-   float3 signal = float3(0.0);
-   for (int i = 0; i < TAPS; i++)
-   {
-      float offset = float(i);
-
-      float3 sums = fetch_offset(offset - float(TAPS), one_x) +
-         fetch_offset(float(TAPS) - offset, one_x);
-
-      signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
-   }
-   signal += tex2D(s0, vertex.tex).xyz *
-      float3(luma_filter[TAPS], chroma_filter[TAPS], chroma_filter[TAPS]);
-
+#include "ntsc-pass3-decode.inc"
    float3 rgb = yiq2rgb(signal);
    return float4(rgb, 1.0);
 }
