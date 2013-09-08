@@ -1,7 +1,6 @@
 struct data
 {
    float2 tex;
-   float2 pix_no;
 };
 
 struct input
@@ -23,8 +22,7 @@ void main_vertex
 )
 {
    oPosition = mul(modelViewProj, position);
-   oData.tex = tex;
-   oData.pix_no = tex * IN.texture_size;
+   oData.tex = tex - float2(0.5 / IN.texture_size.x, 0.0); // Compensate for decimate-by-2.
 }
 
 
