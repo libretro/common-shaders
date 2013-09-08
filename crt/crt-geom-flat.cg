@@ -71,7 +71,7 @@ struct input      // These are things that can attach to 'IN' to achieve similar
   float frame_count;
   float frame_direction;
   float frame_rotation;
-  float texture_size;
+  float2 texture_size;
   sampler2D texture : TEXUNIT0;
 };
 
