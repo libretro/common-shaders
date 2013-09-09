@@ -1,0 +1,5 @@
+shaders = 3
+shader0 = beam4_1.cg
+shader1 = beam4_2.cg
+shader2 = beam4_3.cg
+scale_type0 = "viewport"
