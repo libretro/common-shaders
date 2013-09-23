@@ -1,0 +1,30 @@
+void main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+   uniform float4x4 modelViewProj,
+	out float4 oPosition : POSITION,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	otexCoord = texCoord;
+}
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+float4 main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform float saturation, uniform float brightness) : COLOR
+{
+   float3 col = tex2D(decal, texCoord).rgb;
+   float gray = dot(float3(0.29, 0.60, 0.11), col);
+   return float4(mix(float3(gray), col, saturation) * brightness, 1.0);
+}
+
