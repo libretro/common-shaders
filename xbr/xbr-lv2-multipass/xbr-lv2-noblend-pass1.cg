@@ -19,6 +19,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 const static float y_weight        = 48.0;
 const static float u_weight        = 7.0;
 const static float v_weight        = 6.0;

@@ -11,6 +11,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 bool eq(float4 A, float4 B)
 {
 	return (A.x == B.x && A.y == B.y && A.z == B.z);

@@ -11,6 +11,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 // Radius of the area where the algorithm looks for other detected pixels.
 const static int rad = 2;
 

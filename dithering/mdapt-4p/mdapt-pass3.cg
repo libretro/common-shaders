@@ -11,6 +11,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 float remapTo01(float v, float low, float high)
 {
 	return saturate((v - low)/(high-low));

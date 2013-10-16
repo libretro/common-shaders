@@ -24,6 +24,8 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#define round(X) floor((X)+0.5)
+
 const static float2x4 sym_vectors  = float2x4(1,  1,   -1, -1,    1, -1,   -1,  1);
 
 const float3 lines[12] = {

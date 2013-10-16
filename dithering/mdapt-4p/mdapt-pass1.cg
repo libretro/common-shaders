@@ -11,6 +11,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 // Set the following flags to acticate one line dither detection (e.g. horizontal one in "Lion King" for Genesis).
 // Otherwise it'll be only checkerboard patterns.
 
