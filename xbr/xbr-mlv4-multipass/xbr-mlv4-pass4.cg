@@ -25,6 +25,8 @@
 
 */
 
+#define round(X) floor((X)+0.5)
+
 const static float3 bin            = float3( 4.0f,  2.0f,  1.0f);
 const static float4 low            = float4(-64.0f, -64.0f, -64.0f, -64.0f);
 const static float4 high           = float4( 64.0f,  64.0f,  64.0f,  64.0f);
