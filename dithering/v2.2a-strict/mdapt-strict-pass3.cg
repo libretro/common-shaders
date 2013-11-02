@@ -1,0 +1,146 @@
+/*xCOMPATIBILITY 
+   - HLSL compilers
+   -xCg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.2a [STRICT EDITION] - Pass 3
+   by Sp00kyFox, 2013
+
+   Tags the rest of the detected pattern from pass 1.
+
+*/
+
+#define round(X) floor((X)+0.5)
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+
+/*
+output tag values:
+	0	nothing	
+
+	1	vertical lines
+
+	2	checkerboard
+*/
+
+const static float outVL  = 1./2.;
+const static float outCB  = 1;
+
+
+float getw(float4 color)
+{
+	return round(2. * color.w);
+}
+
+bool eq(float4 A, float4 B)
+{
+	return A.x == B.x && A.y == B.y && A.z == B.z;
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+        float dx  = ps.x;
+        float dy  = ps.y;
+
+        OUT.texCoord = texCoord;
+        OUT.t1       = float2(dx, dy); // F H
+
+        return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	/*
+	reverse POV, xC is the tagged pixel from pass1
+
+		UUL U2  UUR NE
+		UL  U1  UR  URR
+		L1  xC  R1  R2
+    		DL  D1  DR  DRR	
+
+
+	input tag values:
+		0	nothing	
+		
+		1	vertical lines 2x1
+
+		2	checkerboard 2x2
+	*/
+
+
+	float4 c  = TEX( 0, 0);		float C  = getw(c );
+	float4 l2 = TEX(-2, 0);		float L2 = getw(l2);
+	float4 r2 = TEX( 2, 0);
+	float4 d2 = TEX( 0, 2);		float D2 = getw(d2);
+	float4 u2 = TEX( 0,-2);
+	float4 dl = TEX(-1, 1);		float DL = getw(dl);
+	float4 dr = TEX( 1, 1);		float DR = getw(dr);
+	float4 ul = TEX(-1,-1);		float UL = getw(ul);
+	float4 ur = TEX( 1,-1);		float UR = getw(ur);
+
+	float L1  = getw(TEX(-1, 0));
+	float R1  = getw(TEX( 1, 0));
+	float D1  = getw(TEX( 0, 1));
+	float U1  = getw(TEX( 0,-1));
+	float DDL = getw(TEX(-1, 2));
+	float DLL = getw(TEX(-2, 1));
+	float DDR = getw(TEX( 1, 2));
+	float ULL = getw(TEX(-2,-1));
+	float SW  = getw(TEX(-2, 2));
+
+
+	bool VL  = C == 1;
+	bool CB  = C == 2;
+	
+	// pattern completion
+	VL  = VL  || (!CB && L1 == 1);
+	CB  = CB  || (!VL && (L1 == 2 || D1 == 2 || DL == 2));
+
+	// vertical lines 2x1 extra rules		
+	VL = VL || ( !CB && ( (R1 == 1 && eq(c,r2)) || (L2 == 1 && eq(c,l2)) ) );
+
+
+	// checkerboard 2x2 extra rules
+
+	bool CBx = ( (D2  == 2 || DDL == 2) && eq(c,d2) ) || ( (DLL == 2 || L2  == 2) && eq(c,l2) ) || ( (UL  == 2 || U1  == 2) && eq(c,u2) ) || ( (R1  == 2 || DR  == 2) && eq(c,r2) );
+	
+	CBx = CBx || ( (DDR == 2 && eq(c,dr)) || (SW == 2 && eq(c,dl)) || (ULL == 2 && eq(c,ul)) || (UR == 2 && eq(c,ur)) );
+	
+	CB = CB || (!VL && CBx);
+
+
+	// output
+	c.w = VL * outVL + CB * outCB;
+
+	return c;
+}

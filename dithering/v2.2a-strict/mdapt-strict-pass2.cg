@@ -1,0 +1,123 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.2a [STRICT EDITION] - Pass 2
+   by Sp00kyFox, 2013
+
+   Terminates isolated detections.
+
+*/
+
+#define round(X) floor((X)+0.5)
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+
+// Minimum number of tagged connected pixels in 5x5 area.
+const static int minCB = 3;	// checkerboard
+const static int minVL = 4;	// vertical lines
+
+
+bool cmp(float4 color, float mode)
+{
+	return (mode == round(2. * color.w));
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+        float dx  = ps.x;
+        float dy  = ps.y;
+
+        OUT.texCoord = texCoord;
+        OUT.t1       = float2(dx, dy); // F H
+
+        return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	/*
+		        NW  UUL U2 UUR NE
+		        ULL UL  U1 UR  URR
+		        L2  L1  C  R1  R2
+		        DLL DL  D1 DR  DRR	
+			SW  DDL D2 DDR SE
+	*/
+
+
+	float4 c = TEX( 0, 0);
+	float  C = round(2. * c.w);
+
+	int hits = 0;
+	
+	//phase 1
+	bool L1 = cmp(TEX(-1, 0), C);
+	bool R1 = cmp(TEX( 1, 0), C);
+	bool U1 = cmp(TEX( 0,-1), C);
+	bool D1 = cmp(TEX( 0, 1), C);
+	bool UL = cmp(TEX(-1,-1), C);
+	bool UR = cmp(TEX( 1,-1), C);
+	bool DL = cmp(TEX(-1, 1), C);
+	bool DR = cmp(TEX( 1, 1), C);
+
+	//phase 2
+	bool L2 = cmp(TEX(-2, 0), C) && (L1 || UL || DL);
+	bool R2 = cmp(TEX( 2, 0), C) && (R1 || UR || DR);
+	bool U2 = cmp(TEX( 0,-2), C) && (U1 || UL || UR);
+	bool D2 = cmp(TEX( 0, 2), C) && (D1 || DL || DR);
+
+	//phase 3
+	bool ULL = cmp(TEX(-2,-1), C) && (L1 || L2 || UL);
+	bool URR = cmp(TEX( 2,-1), C) && (R1 || R2 || UR);
+	bool DRR = cmp(TEX( 2, 1), C) && (R1 || R2 || DR);
+	bool DLL = cmp(TEX(-2, 1), C) && (L1 || L2 || DL);
+	bool UUL = cmp(TEX(-1,-2), C) && (U1 || U2 || UL);
+	bool UUR = cmp(TEX( 1,-2), C) && (U1 || U2 || UR);
+	bool DDR = cmp(TEX( 1, 2), C) && (D1 || D2 || DR);
+	bool DDL = cmp(TEX(-1, 2), C) && (D1 || D2 || DL);
+
+	//phase 4
+	hits += cmp(TEX(-2,-2), C) && (UL || UUL || ULL);	// NW corner
+	hits += cmp(TEX( 2,-2), C) && (UR || UUR || URR);	// NE corner
+	hits += cmp(TEX(-2, 2), C) && (DL || DDL || DLL);	// SW corner
+	hits += cmp(TEX( 2, 2), C) && (DR || DDR || DRR);	// SE corner
+
+	bool isVL = C == 1;
+
+	hits += (ULL + URR + DRR + DLL + L2 + R2) + !isVL * (L1 + R1 + U1 + D1 + UL + UR + DL + DR + U2 + D2 + UUL + UUR + DDR + DDL); 
+
+	c.w *= isVL * (hits >= minVL) + !isVL * (hits >= minCB);
+
+	return c;
+}
