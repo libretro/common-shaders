@@ -1,0 +1,90 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 0
+   by Sp00kyFox, 2013
+
+   Neighbor anaylsis via dot product of the difference vectors.
+
+*/
+
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
+
+// Uncomment the following line to activate strict pattern behavior. In other words, it only allows 2 colors.
+//#define strict
+
+
+bool eq(float3 A, float3 B)
+{
+	return A.x == B.x && A.y == B.y && A.z == B.z;
+}
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+        float dx  = ps.x;
+        float dy  = ps.y;
+
+        OUT.texCoord = texCoord;
+        OUT.t1       = float2(dx, dy); // F H
+
+        return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	/*
+		  U
+		L C R
+		  D	
+	*/
+
+
+	float3 C = TEX( 0, 0);
+	float3 R = TEX( 1, 0);
+	float3 L = TEX(-1, 0);
+	float3 D = TEX( 0, 1);
+	float3 U = TEX( 0,-1);
+
+	bool r = dot(C-L, C-R) > 0;
+	bool g = dot(C-D, C-U) > 0;
+
+#ifdef strict
+
+	r = r && eq(L,R);
+	g = g && eq(D,U);
+
+#endif
+
+	return float4(r, g, r && g, r || g);
+}

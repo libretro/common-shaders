@@ -1,0 +1,101 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 1
+   by Sp00kyFox, 2013
+
+   Preparing patterns and marking them.
+
+*/
+
+#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1)
+#define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
+
+
+bool eq(float3 A, float3 B)
+{
+	return A.x == B.x && A.y == B.y && A.z == B.z;
+}
+
+struct previous
+{
+	uniform sampler2D texture;
+	float2 tex_coord;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	sampler2D texture : TEXUNIT0;
+};
+
+struct tex_coords
+{
+	float2 tex;
+	float2 or;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float2 tex : TEXCOORD,	
+	float4 position : POSITION,
+	uniform float4x4 modelViewProj,
+
+	previous ORIG,
+
+	out float4 oPosition : POSITION,
+	out tex_coords coords
+)
+{
+	oPosition = mul(modelViewProj, position);
+
+	coords = tex_coords(tex, ORIG.tex_coord);
+}
+
+/*    FRAGMENT SHADER    */
+float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous ORIG) : COLOR
+{
+
+        float2 t1 = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+
+	/*
+		UL  U1 UR
+		L1  C  R1
+		DL  D1 DR
+	*/
+
+
+	float4 C = TEX( 0, 0);
+	float4 L = TEX(-1, 0);
+	float4 R = TEX( 1, 0);
+	float4 D = TEX( 0, 1);
+	float4 U = TEX( 0,-1);
+	float UL = TEX(-1,-1).w;
+	float UR = TEX( 1,-1).w;
+	float DL = TEX(-1, 1).w;
+	float DR = TEX( 1, 1).w;	
+
+	float3 c = TEXt0( 0, 0);
+	float3 l = TEXt0(-1, 0);
+	float3 r = TEXt0( 1, 0);
+	float3 d = TEXt0( 0, 1);
+	float3 u = TEXt0( 0,-1);
+	
+	// Vertical Lines
+	bool bVL = C.x && L.x && R.x;
+
+	// Checkerboard
+	bool eqLxU = eq(l,u),	eqRxD = eq(r,d);
+
+	bool bCB = (C.z && ((U.w && ((UL && L.w) || (UR && R.w))) || (D.w && ((L.w && DL) || (R.w && DR)))))
+		|| (C.x && L.z && R.z && eq(l,r) && ((U.x && eqLxU) || (D.x && eqRxD)))
+		|| (C.y && U.z && D.z && eq(u,d) && ((L.y && eqLxU) || (R.y && eqRxD)));
+
+	return float2(bVL, bCB);
+}

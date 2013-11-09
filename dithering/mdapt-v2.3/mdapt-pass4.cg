@@ -1,0 +1,146 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 4
+   by Sp00kyFox, 2013
+
+   Blends pixels from dithering patterns.
+
+*/
+
+#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xy
+#define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
+
+
+// (De)activate detection of checkerboard (CB) and vertical line (VL) patterns.
+#define CB
+//#define VL
+
+
+bool eq(float3 A, float3 B)
+{
+	return A.x == B.x && A.y == B.y && A.z == B.z;
+}
+
+
+struct previous
+{
+	uniform sampler2D texture;
+	float2 tex_coord;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	sampler2D texture : TEXUNIT0;
+};
+
+struct tex_coords
+{
+	float2 tex;
+	float2 org;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float2 tex : TEXCOORD,	
+	float4 position : POSITION,
+	uniform float4x4 modelViewProj,
+
+	previous ORIG,
+
+	out float4 oPosition : POSITION,
+	out tex_coords coords
+)
+{
+	oPosition = mul(modelViewProj, position);
+
+	coords = tex_coords(tex, ORIG.tex_coord);
+}
+
+/*    FRAGMENT SHADER    */
+float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous ORIG) : COLOR
+{
+
+        float2 t1 = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y); // F H
+
+	/*
+		UL U1 UR
+		L1 C  R1
+		DL D1 DR	
+	*/
+
+
+	float2 C  = TEX( 0, 0);	float3 c  = TEXt0( 0, 0);
+	float2 L  = TEX(-1, 0);	float3 l  = TEXt0(-1, 0);
+	float2 R  = TEX( 1, 0);	float3 r  = TEXt0( 1, 0);
+
+	bool   bCB = false,		bVL = false;
+	float3 fCB = float3(0,0,0),	fVL = float3(0,0,0);
+
+
+#ifdef CB
+	float2 U  = TEX( 0,-1);	float3 u  = TEXt0( 0,-1);
+	float2 D  = TEX( 0, 1);	float3 d  = TEXt0( 0, 1);
+	float2 UL = TEX(-1,-1);	float3 ul = TEXt0(-1,-1);
+	float2 UR = TEX( 1,-1);	float3 ur = TEXt0( 1,-1);
+	float2 DL = TEX(-1, 1);	float3 dl = TEXt0(-1, 1);
+	float2 DR = TEX( 1, 1);	float3 dr = TEXt0( 1, 1);
+
+	bool eqCxL  = eq(c,l);
+	bool eqCxR  = eq(c,r);
+	bool eqCxU  = eq(c,u);
+	bool eqCxD  = eq(c,d);
+	bool eqCxUL = eq(c,ul);
+	bool eqCxUR = eq(c,ur);
+	bool eqCxDL = eq(c,dl);
+	bool eqCxDR = eq(c,dr);
+	
+	bool eqUxD  = eq(u,d);
+	bool eqLxR  = eq(l,r);
+
+	//----------------------------------------------------------------------------------------------------------------
+
+	//standard formula: C/4 + (UL + UR + DR + DL)/16 + (L + R + D + U)/8
+
+	bool bUL = UL.y || eqCxUL || (D.y && eq(ul,d)) || (R.y && eq(ul,r));
+	bool bUR = UR.y || eqCxUR || (D.y && eq(ur,d)) || (L.y && eq(ur,l));
+	bool bDL = DL.y || eqCxDL || (U.y && eq(dl,u)) || (R.y && eq(dl,r));
+	bool bDR = DR.y || eqCxDR || (U.y && eq(dr,u)) || (L.y && eq(dr,l));
+
+	bool bU = U.y || eqCxU || (D.y && eqUxD);
+	bool bD = D.y || eqCxD || (U.y && eqUxD);
+	bool bL = L.y || eqCxL || (R.y && eqLxR);
+	bool bR = R.y || eqCxR || (L.y && eqLxR);
+
+	float3 B = bUL * ul + bUR * ur + bDL * dl + bDR * dr;
+	float3 W = bU  * u  + bD  * d  + bL  * l  + bR  * r;
+	
+	float cntB = bUL + bUR + bDL + bDR;
+	float cntW = bU  + bD  + bL  + bR;	
+
+	bool bB = cntB != 0;
+	bool bW = cntW != 0;
+
+	fCB = c / (2 * bB + 2 * bW + (!bB && !bW)) + B / (cntB * (2 + 2 * bW) + !bB) + W / (cntW * 2 + !bW);	
+
+	//----------------------------------------------------------------------------------------------------------------	
+
+	bCB = C.y || (L.y && eqCxL) || (R.y && eqCxR) || (U.y && eqCxU) || (D.y && eqCxD) || (UL.y && eqCxUL) || (UR.y && eqCxUR) || (DL.y && eqCxDL) || (DR.y && eqCxDR);
+#endif	
+
+
+#ifdef VL
+	fVL = c / (1 + 1*(L.x || R.x)) + (L.x * l + R.x * r) / (2 + 2*(L.x * R.x));
+
+	bVL = (C.x || (L.x && R.x)) && !bCB;
+#endif
+
+	return c * (!bCB && !bVL) + bVL * fVL + bCB * fCB;
+}
