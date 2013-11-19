@@ -1,9 +1,9 @@
 float one_x = 1.0 / IN.texture_size.x;
 
 #if defined(TWO_PHASE)
-float chroma_phase = PI * (mod(vertex.pix_no.y, 2.0) + IN.frame_count);
+float chroma_phase = PI * (fmod(vertex.pix_no.y, 2.0) + IN.frame_count);
 #elif defined(THREE_PHASE)
-float chroma_phase = 0.6667 * PI * (mod(vertex.pix_no.y, 3.0) + IN.frame_count);
+float chroma_phase = 0.6667 * PI * (fmod(vertex.pix_no.y, 3.0) + IN.frame_count);
 #endif
 
 float mod_phase = chroma_phase + vertex.pix_no.x * CHROMA_MOD_FREQ;
