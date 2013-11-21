@@ -1,0 +1,42 @@
+/*
+   Author: Themaister
+   License: Public domain
+*/
+
+// Shader that replicates gamma-ramp of bSNES/Higan.
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oTex = tex;
+}
+
+// Tweakables.
+const float saturation = 1.0;
+const float Display_gamma = 2.2;
+const float CRT_gamma = 2.5;
+const float luminance = 1.0;
+
+float3 grayscale(float3 col)
+{
+   // Non-conventional way to do grayscale,
+   // but bSNES uses this as grayscale value.
+   return float3(dot(col, float3(0.2126, 0.7152, 0.0722)));
+}
+
+float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+   float3 gamma = float3(CRT_gamma / Display_gamma);
+   float3 res = tex2D(s0, tex).xyz;
+   res = lerp(grayscale(res), res, saturation); // Apply saturation
+   res = pow(res, gamma.rgb); // Apply gamma
+   return float4(saturate(res * luminance), 1.0);
+}

@@ -1,0 +1,66 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+#define PHOSPHOR_SCALE 1.0
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD0
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   otexCoord = texCoord;
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+  sampler2D texture : TEXUNIT0;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment (
+	float2 texCoord : TEXCOORD0,
+	uniform input IN,
+	uniform sampler2D texture : TEXUNIT0,
+	uniform sampler2D PHOSPHOR_LUT : TEXUNIT1,
+	uniform sampler2D BIGGER_LUT : TEXUNIT2
+)
+{
+	output OUT;
+
+	float4 screen = float4(0.0);
+	float2 LUTeffectiveCoord = float2(frac(texCoord.x * IN.texture_size.x / PHOSPHOR_SCALE), frac(texCoord.y * IN.texture_size.y / PHOSPHOR_SCALE));
+	float4 image = tex2D(IN.texture, texCoord);
+if(IN.video_size.x > 400.0) screen += tex2D(BIGGER_LUT, LUTeffectiveCoord / 1.65) * 1.2;
+else screen += tex2D(PHOSPHOR_LUT, LUTeffectiveCoord);
+	
+    OUT.color = screen * image;
+
+	return OUT;
+}
+	

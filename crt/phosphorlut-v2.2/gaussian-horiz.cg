@@ -1,0 +1,67 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	otexCoord = texCoord;
+}
+
+struct input
+{
+  float2 video_size;
+  float2 texCoord_size;
+  float2 output_size;
+  float2 texture_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+  sampler2D texture : TEXUNIT0;
+};
+
+struct output 
+{
+  float4 col    : COLOR;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment(in float2 texCoord : TEXCOORD0,
+uniform input IN,
+uniform sampler2D texture : TEXUNIT0
+)
+{
+float4 sum = vec4(0.0);
+
+float SHARPNESS = (0.0);
+
+if(IN.video_size.x > 800.0) SHARPNESS += (1.0 * (IN.texture_size.x / 96.0));
+else SHARPNESS += (2.0 * (IN.texture_size.x / 256.0));
+  
+   sum += tex2D(IN.texture, float2(texCoord.x - 4.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.05;
+   sum += tex2D(IN.texture, float2(texCoord.x - 3.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.09;
+   sum += tex2D(IN.texture, float2(texCoord.x - 2.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.12;
+   sum += tex2D(IN.texture, float2(texCoord.x - 1.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.15;
+   sum += tex2D(IN.texture, float2(texCoord.x, texCoord.y)) * 0.16;
+   sum += tex2D(IN.texture, float2(texCoord.x + 1.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.15;
+   sum += tex2D(IN.texture, float2(texCoord.x + 2.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.12;
+   sum += tex2D(IN.texture, float2(texCoord.x + 3.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.09;
+   sum += tex2D(IN.texture, float2(texCoord.x + 4.0 / (SHARPNESS * 128.0), texCoord.y)) * 0.05;
+
+   output OUT;
+   OUT.col = sum;
+   return OUT;
+}
