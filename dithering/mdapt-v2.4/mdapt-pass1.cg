@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 1
+   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 1
    by Sp00kyFox, 2013
 
    Preparing patterns and marking them.
@@ -14,10 +14,30 @@
 #define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1)
 #define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
 
+const static float sq3 = sqrt(3.);
 
-bool eq(float3 A, float3 B)
-{
-	return A.x == B.x && A.y == B.y && A.z == B.z;
+float eq(float3 A, float3 B){
+	return (sq3 - length(A-B))/sq3;
+}
+
+float and(float a, float b, float c){
+	return min(a, min(b,c));
+}
+
+float and(float a, float b, float c, float d, float e){
+	return min(a, min(b, min(c, min(d,e))));
+}
+
+float or(float a, float b){
+	return max(a,b);
+}
+
+float or(float a, float b, float c){
+	return max(a, max(b,c));
+}
+
+float or(float a, float b, float c, float d, float e){
+	return max(a, max(b, max(c, max(d,e))));
 }
 
 struct previous
@@ -65,9 +85,9 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
         float2 t1 = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
 
 	/*
-		UL  U1 UR
-		L1  C  R1
-		DL  D1 DR
+		UL  U  UR
+		L   C  R
+		DL  D  DR
 	*/
 
 
@@ -76,10 +96,11 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float4 R = TEX( 1, 0);
 	float4 D = TEX( 0, 1);
 	float4 U = TEX( 0,-1);
-	float UL = TEX(-1,-1).w;
-	float UR = TEX( 1,-1).w;
-	float DL = TEX(-1, 1).w;
-	float DR = TEX( 1, 1).w;	
+	
+	float UL = TEX(-1,-1).z;
+	float UR = TEX( 1,-1).z;
+	float DL = TEX(-1, 1).z;
+	float DR = TEX( 1, 1).z;
 
 	float3 c = TEXt0( 0, 0);
 	float3 l = TEXt0(-1, 0);
@@ -88,14 +109,16 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float3 u = TEXt0( 0,-1);
 	
 	// Vertical Lines
-	bool bVL = C.x && L.x && R.x;
+	float fVL = and(C.x, L.x, R.x);
 
 	// Checkerboard
-	bool eqLxU = eq(l,u),	eqRxD = eq(r,d);
+	float eqLxU = eq(l,u), eqRxU = eq(r,u), eqLxD = eq(l,d), eqRxD = eq(r,d), eqLxR = eq(l,r), eqUxD = eq(u,d);
+	
+	float fCB = or(C.z,
+			and(C.x, L.z, R.z, eqLxR, or(and(U.x, eqLxU, eqRxU), and(D.x, eqLxD, eqRxD))),
+			and(C.y, U.z, D.z, eqUxD, or(and(L.y, eqLxU, eqLxD), and(R.y, eqRxU, eqRxD))),
+			and(C.x, L.x, R.x, eqLxR, or(and(UL, U.z, UR, eqLxU, eqRxU), and(DL, D.z, DR, eqLxD, eqRxD))),
+			and(C.y, U.y, D.y, eqUxD, or(and(UL, L.z, DL, eqLxU, eqLxD), and(UR, R.z, DR, eqRxU, eqRxD))));
 
-	bool bCB = (C.z && ((U.w && ((UL && L.w) || (UR && R.w))) || (D.w && ((L.w && DL) || (R.w && DR)))))
-		|| (C.x && L.z && R.z && eq(l,r) && ((U.x && eqLxU) || (D.x && eqRxD)))
-		|| (C.y && U.z && D.z && eq(u,d) && ((L.y && eqLxU) || (R.y && eqRxD)));
-
-	return float2(bVL, bCB);
+	return float2(fVL, fCB);
 }

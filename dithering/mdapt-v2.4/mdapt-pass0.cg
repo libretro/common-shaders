@@ -4,23 +4,20 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 0
+   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 0
    by Sp00kyFox, 2013
 
    Neighbor anaylsis via dot product of the difference vectors.
 
 */
 
-#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
-
-// Uncomment the following line to activate strict pattern behavior. In other words, it only allows 2 colors.
+// Uncomment the following line to activate strict pattern behavior (only allows 2 different colors).
 //#define strict
 
 
-bool eq(float3 A, float3 B)
-{
-	return A.x == B.x && A.y == B.y && A.z == B.z;
-}
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
+
+const static float sq3 = sqrt(3.);
 
 struct input
 {
@@ -76,15 +73,18 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float3 D = TEX( 0, 1);
 	float3 U = TEX( 0,-1);
 
-	bool r = dot(C-L, C-R) > 0;
-	bool g = dot(C-D, C-U) > 0;
+	float3 CsL = C-L, CsR = C-R, CsD = C-D, CsU = C-U;
+	float  lLsR = length(L-R), lUsD = length(U-D);
+
+	float r = dot(CsL, CsR) * (sq3 - lLsR) / (length(CsL)*length(CsR)*sq3);
+	float g = dot(CsU, CsD) * (sq3 - lUsD) / (length(CsU)*length(CsD)*sq3);
 
 #ifdef strict
 
-	r = r && eq(L,R);
-	g = g && eq(D,U);
+	r *= lLsR == 0;
+	g *= lUsD == 0;
 
 #endif
 
-	return float4(r, g, r && g, r || g);
+	return float4(r, g, min(r,g), max(r,g));
 }

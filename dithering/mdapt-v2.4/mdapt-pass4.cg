@@ -4,27 +4,44 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 4
+   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 4
    by Sp00kyFox, 2013
 
-   Blends pixels from dithering patterns.
+   Blends pixels based on detected dithering patterns.
 
 */
-
-#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xy
-#define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
-
 
 // (De)activate detection of checkerboard (CB) and vertical line (VL) patterns.
 #define CB
 //#define VL
 
 
-bool eq(float3 A, float3 B)
-{
-	return A.x == B.x && A.y == B.y && A.z == B.z;
+#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xy
+#define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
+
+bool eq(float3 A, float3 B){
+	return all(A == B);
 }
 
+float and(float a, float b){
+	return min(a,b);
+}
+
+float or(float a, float b){
+	return max(a,b);
+}
+
+float or(float a, float b, float c){
+	return max(a, max(b,c));
+}
+
+float or(float a, float b, float c, float d){
+	return max(a, max(b, max(c,d)));
+}
+
+float or(float a, float b, float c, float d, float e, float f, float g, float h, float i){
+	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h,i))))))));
+}
 
 struct previous
 {
@@ -81,7 +98,7 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float2 L  = TEX(-1, 0);	float3 l  = TEXt0(-1, 0);
 	float2 R  = TEX( 1, 0);	float3 r  = TEXt0( 1, 0);
 
-	bool   bCB = false,		bVL = false;
+	float  bCB = 0,			bVL = 0;
 	float3 fCB = float3(0,0,0),	fVL = float3(0,0,0);
 
 
@@ -109,15 +126,15 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 
 	//standard formula: C/4 + (UL + UR + DR + DL)/16 + (L + R + D + U)/8
 
-	bool bUL = UL.y || eqCxUL || (D.y && eq(ul,d)) || (R.y && eq(ul,r));
-	bool bUR = UR.y || eqCxUR || (D.y && eq(ur,d)) || (L.y && eq(ur,l));
-	bool bDL = DL.y || eqCxDL || (U.y && eq(dl,u)) || (R.y && eq(dl,r));
-	bool bDR = DR.y || eqCxDR || (U.y && eq(dr,u)) || (L.y && eq(dr,l));
+	float bUL = or(UL.y, eqCxUL, and(D.y, eq(ul,d)), and(R.y, eq(ul,r)));
+	float bUR = or(UR.y, eqCxUR, and(D.y, eq(ur,d)), and(L.y, eq(ur,l)));
+	float bDL = or(DL.y, eqCxDL, and(U.y, eq(dl,u)), and(R.y, eq(dl,r)));
+	float bDR = or(DR.y, eqCxDR, and(U.y, eq(dr,u)), and(L.y, eq(dr,l)));
 
-	bool bU = U.y || eqCxU || (D.y && eqUxD);
-	bool bD = D.y || eqCxD || (U.y && eqUxD);
-	bool bL = L.y || eqCxL || (R.y && eqLxR);
-	bool bR = R.y || eqCxR || (L.y && eqLxR);
+	float bU = or(U.y, eqCxU, and(D.y, eqUxD));
+	float bD = or(D.y, eqCxD, and(U.y, eqUxD));
+	float bL = or(L.y, eqCxL, and(R.y, eqLxR));
+	float bR = or(R.y, eqCxR, and(L.y, eqLxR));
 
 	float3 B = bUL * ul + bUR * ur + bDL * dl + bDR * dr;
 	float3 W = bU  * u  + bD  * d  + bL  * l  + bR  * r;
@@ -125,22 +142,18 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float cntB = bUL + bUR + bDL + bDR;
 	float cntW = bU  + bD  + bL  + bR;	
 
-	bool bB = cntB != 0;
-	bool bW = cntW != 0;
-
-	fCB = c / (2 * bB + 2 * bW + (!bB && !bW)) + B / (cntB * (2 + 2 * bW) + !bB) + W / (cntW * 2 + !bW);	
+	fCB = (4*c + B + 2*W)/(4 + cntB + 2*cntW);
 
 	//----------------------------------------------------------------------------------------------------------------	
 
-	bCB = C.y || (L.y && eqCxL) || (R.y && eqCxR) || (U.y && eqCxU) || (D.y && eqCxD) || (UL.y && eqCxUL) || (UR.y && eqCxUR) || (DL.y && eqCxDL) || (DR.y && eqCxDR);
+	bCB = or(C.y, and(L.y, eqCxL), and(R.y, eqCxR), and(U.y, eqCxU), and(D.y, eqCxD), and(UL.y, eqCxUL), and(UR.y, eqCxUR), and(DL.y, eqCxDL), and(DR.y, eqCxDR));
 #endif	
 
 
 #ifdef VL
-	fVL = c / (1 + 1*(L.x || R.x)) + (L.x * l + R.x * r) / (2 + 2*(L.x * R.x));
-
-	bVL = (C.x || (L.x && R.x)) && !bCB;
+	fVL = (2*c + L.x * l + R.x * r)/(2 + L.x + R.x);
+	bVL = C.x;
 #endif
 
-	return c * (!bCB && !bVL) + bVL * fVL + bCB * fCB;
+	return (bCB >= bVL) ? bCB ? fCB : c : fVL;
 }

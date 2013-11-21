@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.3 - Pass 3
+   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 3
    by Sp00kyFox, 2013
 
    Refines the remaining pattern from pass 1 and 2.
@@ -14,10 +14,24 @@
 #define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xy
 #define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
 
+bool eq(float3 A, float3 B){
+	return all(A == B);
+}
 
-bool eq(float3 A, float3 B)
-{
-	return A.x == B.x && A.y == B.y && A.z == B.z;
+float and(float a, float b){
+	return min(a,b);
+}
+
+float or(float a, float b, float c){
+	return max(a, max(b,c));
+}
+
+float or(float a, float b, float c, float d, float e){
+	return max(a, max(b, max(c, max(d,e))));
+}
+
+float or(float a, float b, float c, float d, float e, float f, float g, float h, float i){
+	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h,i))))))));
 }
 
 struct previous
@@ -29,7 +43,7 @@ struct previous
 struct input
 {
 	float2 video_size;
-	float2 texture_size;
+	float2 texture_size;  
 	float2 output_size;
 	sampler2D texture : TEXUNIT0;
 };
@@ -76,8 +90,8 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float2 DL = TEX(-1, 1);	float3 dl = TEXt0(-1, 1);
 	float2 DR = TEX( 1, 1);	float3 dr = TEXt0( 1, 1);
 
-	C.x = C.x || L1.x || R1.x || (L2.x && eq(c,l2)) || (R2.x && eq(c,r2));
-	C.y = C.y || (U1.y && eq(c,u1)) || (D1.y && eq(c,d1)) || (L1.y && eq(c,l1)) || (R1.y && eq(c,r1)) || (UL.y && eq(c,ul)) || (UR.y && eq(c,ur)) || (DL.y && eq(c,dl)) || (DR.y && eq(c,dr));
+	C.x = or(C.x, L1.x, R1.x, and(L2.x, eq(c,l2)), and(R2.x, eq(c,r2)));
+	C.y = or(C.y, and(U1.y, eq(c,u1)), and(D1.y, eq(c,d1)), and(L1.y, eq(c,l1)), and(R1.y, eq(c,r1)), and(UL.y, eq(c,ul)), and(UR.y, eq(c,ur)), and(DL.y, eq(c,dl)), and(DR.y, eq(c,dr)));
 
 	return C;
 }
