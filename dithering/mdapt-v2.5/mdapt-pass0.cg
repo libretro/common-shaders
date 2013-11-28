@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 0
+   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 0
    by Sp00kyFox, 2013
 
    Neighbor anaylsis via dot product of the difference vectors.
@@ -58,7 +58,7 @@ out_vertex main_vertex
 }
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	/*
 		  U
@@ -86,5 +86,5 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 #endif
 
-	return float4(r, g, min(r,g), max(r,g));
+	return float3(r, g, min(r,g));
 }

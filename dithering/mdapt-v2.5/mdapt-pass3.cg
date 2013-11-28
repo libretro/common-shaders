@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.4 - Pass 3
+   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 3
    by Sp00kyFox, 2013
 
    Refines the remaining pattern from pass 1 and 2.
@@ -20,10 +20,6 @@ bool eq(float3 A, float3 B){
 
 float and(float a, float b){
 	return min(a,b);
-}
-
-float or(float a, float b, float c){
-	return max(a, max(b,c));
 }
 
 float or(float a, float b, float c, float d, float e){
