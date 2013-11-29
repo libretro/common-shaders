@@ -1,0 +1,129 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+// TWEAKABLES //
+#define response_time 0.4 // This controls how fast the luminance falls off. The default value is 4, higher values exaggerate the effect.
+#define THRESHOLD 0.1     // This controls how dark a pixel needs to be before it will show trails
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+  sampler2D texture;
+};
+
+struct previous
+{
+   uniform sampler2D texture;
+   float2 tex_coord;
+};
+
+struct tex_coords
+{
+   float2 tex;
+   float2 prev;
+   float2 prev1;
+   float2 prev2;
+   float2 prev3;
+   float2 prev4;
+   float2 prev5;
+   float2 prev6;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   previous PREV,
+   previous PREV1,
+   previous PREV2,
+   previous PREV3,
+   previous PREV4,
+   previous PREV5,
+   previous PREV6,
+   out tex_coords coords
+)
+{
+   oPosition = mul(modelViewProj, position);
+   coords = tex_coords(tex, PREV.tex_coord,
+      PREV1.tex_coord,
+      PREV2.tex_coord,
+      PREV3.tex_coord,
+      PREV4.tex_coord,
+      PREV5.tex_coord,
+      PREV6.tex_coord);
+}
+
+float3x3 RGB_to_YIQ = float3x3(
+         0.299,0.587,0.114, 
+		 0.595716,-0.274453,-0.321263,
+		 0.211456,-0.522591, 0.311135);
+
+struct output 
+{
+  float4 col    : COLOR;
+};
+
+output main_fragment(in float2 texCoord : TEXCOORD0,
+uniform input IN,
+      previous PREV,
+      previous PREV1,
+      previous PREV2,
+      previous PREV3,
+      previous PREV4,
+      previous PREV5,
+      previous PREV6
+)
+{
+// Sample our textures
+float3 curr = tex2D(IN.texture, texCoord).rgb;
+float3 prev0 = tex2D(PREV.texture, texCoord).rgb;
+float3 prev1 = tex2D(PREV1.texture, texCoord).rgb;
+float3 prev2 = tex2D(PREV2.texture, texCoord).rgb;
+float3 prev3 = tex2D(PREV3.texture, texCoord).rgb;
+float3 prev4 = tex2D(PREV4.texture, texCoord).rgb;
+float3 prev5 = tex2D(PREV5.texture, texCoord).rgb;
+float3 prev6 = tex2D(PREV6.texture, texCoord).rgb;
+
+// Convert each previous frame to a grayscale image based on luminance value (i.e., convert from RGB to YIQ colorspace, where Y=luma)
+float3 luma0 = float3(mul(prev0, RGB_to_YIQ).r);
+float3 luma1 = float3(mul(prev1, RGB_to_YIQ).r);
+float3 luma2 = float3(mul(prev2, RGB_to_YIQ).r);
+float3 luma3 = float3(mul(prev3, RGB_to_YIQ).r);
+float3 luma4 = float3(mul(prev4, RGB_to_YIQ).r);
+float3 luma5 = float3(mul(prev5, RGB_to_YIQ).r);
+float3 luma6 = float3(mul(prev6, RGB_to_YIQ).r);
+
+// Add each previous frame's luma value together with an exponential decay
+float3 input = float3(0.0);
+input += luma0 * pow(response_time, 2.0);
+input += luma1 * pow(response_time, 3.0);
+input += luma2 * pow(response_time, 4.0);
+input += luma3 * pow(response_time, 5.0); 
+input += luma4 * pow(response_time, 6.0);
+input += luma5 * pow(response_time, 7.0);
+input += luma6 * pow(response_time, 8.0);
+
+float4 luma_trails = float4(input, 1.0);
+float4 screen = float4(0.0);
+
+// Setup the threshold for when the luma trails are visible
+// (I had a complicated non-conditional here based on the current
+// frame's luma converted to alpha, but this looked better and was easier to tweak)
+if ( curr.r + curr.g + curr.b > THRESHOLD )
+ screen += float4(curr, 0.0);
+else
+ screen += float4(curr, 1.0);
+
+   output OUT;
+   OUT.col = lerp(screen, luma_trails, screen.a); // Any pixels darker than the threshold will allow the trails to shine through
+   return OUT;
+}
