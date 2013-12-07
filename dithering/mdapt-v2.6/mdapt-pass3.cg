@@ -1,10 +1,10 @@
 /*xCOMPATIBILITY 
    - HLSL compilers
-   -xCg   compilers
+   - Cg   compilers
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 3
+   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 3
    by Sp00kyFox, 2013
 
    Refines the remaining pattern from pass 1 and 2.

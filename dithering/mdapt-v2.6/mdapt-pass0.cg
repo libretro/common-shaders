@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 0
+   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 0
    by Sp00kyFox, 2013
 
    Neighbor anaylsis via dot product of the difference vectors.
@@ -17,7 +17,18 @@
 
 #define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
 
-const static float sq3 = sqrt(3.);
+float dist(float3 A, float3 B)
+{
+	float3 diff = A-B;
+	float  ravg = (A.x + B.x) * 0.5;
+
+	diff *= diff * float3(2.0 + ravg, 4.0, 3.0 - ravg);
+	return sqrt(diff.x + diff.y + diff.z);
+}
+
+float eq(float3 A, float3 B){
+	return smoothstep(3.0, 0.0, dist(A,B));
+}
 
 struct input
 {
@@ -58,7 +69,7 @@ out_vertex main_vertex
 }
 
 /*    FRAGMENT SHADER    */
-float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	/*
 		  U
@@ -68,23 +79,27 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 
 	float3 C = TEX( 0, 0);
-	float3 R = TEX( 1, 0);
 	float3 L = TEX(-1, 0);
-	float3 D = TEX( 0, 1);
+	float3 R = TEX( 1, 0);
 	float3 U = TEX( 0,-1);
-
-	float3 CsL = C-L, CsR = C-R, CsD = C-D, CsU = C-U;
-	float  lLsR = length(L-R), lUsD = length(U-D);
-
-	float r = dot(CsL, CsR) * (sq3 - lLsR) / (length(CsL)*length(CsR)*sq3);
-	float g = dot(CsU, CsD) * (sq3 - lUsD) / (length(CsU)*length(CsD)*sq3);
+	float3 D = TEX( 0, 1);
 
 #ifdef strict
 
-	r *= lLsR == 0;
-	g *= lUsD == 0;
+	bool r = all(L == R) && any(C != L);
+	bool g = all(U == D) && any(C != U);
+
+	return float4(r, g, r && g, 1.0);
+
+#else
+
+	float3 CsL = normalize(C-L), CsR = normalize(C-R), CsD = normalize(C-D), CsU = normalize(C-U);
+
+	float r = dot(CsL, CsR) * eq(L,R);
+	float g = dot(CsU, CsD) * eq(U,D);
+
+	return float4(r, g, min(r,g), 0.0);
 
 #endif
 
-	return float3(r, g, min(r,g));
 }

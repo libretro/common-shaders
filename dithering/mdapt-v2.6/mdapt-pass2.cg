@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 2
+   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 2
    by Sp00kyFox, 2013
 
    Terminates isolated detections.
@@ -12,17 +12,22 @@
 */
 
 // Minimum number of tagged connected pixels in 5x5 area (Vertical Lines, Checkerboard).
-const static float2 thresh = float2(3., 6.);	// valid range: ([0,11], [0,25])
+const static float2 thresh = float2(3.0, 6.0);	// valid range: ([0,11], [0,25])
 
 
 #define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xy
 #define and(x,y) min(x,y)
 #define or(x,y)  max(x,y)
 
-const static float2 base = float2(254., 254.);
+const static float a = log(1019.0);
 
-float2 activation(float2 x){
-	return pow(base, 2.*(thresh - x) - 1.) + 1.;
+float2 sigmoid(float2 signal)
+{
+	float2 x  = a * (signal - thresh + 0.5);
+	float2 x2 = x*x;
+	float2 x4 = x2*x2;
+
+	return (x * (x4 + 105.0 * x2 + 945.0)) / (30.0 * x4 + 840.0 * x2 + 1890.0) + 0.5;
 }
 
 struct input
@@ -113,8 +118,7 @@ float2 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	hits += and(TEX( 2, 2), or(DDR, DRR));
 
 
-	hits += (C + ULL + URR + DRR + DLL + L2 + R2) + float2(0.,1.) * (U1 + U2 + D1 + D2 + L1 + R1 + UL + UR + DL + DR + UUL + UUR + DDR + DDL);
+	hits += (C + ULL + URR + DRR + DLL + L2 + R2) + float2(0.0, 1.0) * (U1 + U2 + D1 + D2 + L1 + R1 + UL + UR + DL + DR + UUL + UUR + DDR + DDL);
 
-
-	return C / activation(hits);
+	return C * sigmoid(hits);
 }

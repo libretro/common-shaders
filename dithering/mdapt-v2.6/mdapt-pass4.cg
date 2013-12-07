@@ -4,16 +4,16 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 4
+   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 4
    by Sp00kyFox, 2013
 
    Blends pixels based on detected dithering patterns.
 
 */
 
-// (De)activate detection of checkerboard (CB) and vertical line (VL) patterns.
-#define CB
-//#define VL
+// (De)activate handling of the following patterns.
+//#define VL	// vertical line
+#define CB	// checkerboard
 
 
 #define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xy
@@ -43,8 +43,8 @@ float or(float a, float b, float c, float d){
 	return max(a, max(b, max(c,d)));
 }
 
-float or(float a, float b, float c, float d, float e, float f, float g, float h, float i, float j, float k){
-	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h, max(i, max(j,k))))))))));
+float or(float a, float b, float c, float d, float e, float f, float g, float h, float i){
+	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h,i))))))));
 }
 
 struct previous
@@ -97,13 +97,18 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 		DL D1 DR	
 	*/
 
-
 	float2 C  = TEX( 0, 0);	float3 c  = TEXt0( 0, 0);
 	float2 L  = TEX(-1, 0);	float3 l  = TEXt0(-1, 0);
 	float2 R  = TEX( 1, 0);	float3 r  = TEXt0( 1, 0);
 
-	float  bCB = 0,			bVL = 0;
-	float3 fCB = float3(0,0,0),	fVL = float3(0,0,0);
+	float  bVL = 0.0,		bCB = 0.0;
+	float3 fVL = float3(0.0),	fCB = float3(0.0);
+
+
+#ifdef VL
+	fVL = (2.0*c + L.x * l + R.x * r)/(2.0 + L.x + R.x);
+	bVL = C.x;
+#endif
 
 
 #ifdef CB
@@ -146,19 +151,11 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float cntB = bUL + bUR + bDL + bDR;
 	float cntW = bU  + bD  + bL  + bR;	
 
-	fCB = (4*c + B + 2*W)/(4 + cntB + 2*cntW);
+	fCB = (4.0*c + B + 2.0*W)/(4.0 + cntB + 2.0*cntW);
 
 	//----------------------------------------------------------------------------------------------------------------	
 
-	bCB = or(C.y, and(L.y, eqCxL), and(R.y, eqCxR), and(U.y, eqCxU), and(D.y, eqCxD), and(UL.y, eqCxUL), and(UR.y, eqCxUR), and(DL.y, eqCxDL), and(DR.y, eqCxDR),
-		and(L.y, R.y, or(and(UL.y, U.y, UR.y), and(DL.y, D.y, DR.y))), and(U.y, D.y, or(and(UL.y, L.y, DL.y), and(UR.y, R.y, DR.y))));
-
-#endif	
-
-
-#ifdef VL
-	fVL = (2*c + L.x * l + R.x * r)/(2 + L.x + R.x);
-	bVL = C.x;
+	bCB = or(C.y, and(L.y, eqCxL), and(R.y, eqCxR), and(U.y, eqCxU), and(D.y, eqCxD), and(UL.y, eqCxUL), and(UR.y, eqCxUR), and(DL.y, eqCxDL), and(DR.y, eqCxDR));
 #endif
 
 	return (bCB >= bVL) ? lerp(c, fCB, bCB) : lerp(c, fVL, bVL);

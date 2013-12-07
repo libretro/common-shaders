@@ -4,20 +4,31 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.5 - Pass 1
+   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 1
    by Sp00kyFox, 2013
 
    Preparing patterns and marking them.
 
 */
 
-#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1).xyz
+#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1)
 #define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
 
-const static float sq3 = sqrt(3.);
+float dist(float3 A, float3 B)
+{
+	float3 diff = A-B;
+	float  ravg = (A.x + B.x) * 0.5;
 
-float eq(float3 A, float3 B){
-	return (sq3 - length(A-B))/sq3;
+	diff *= diff * float3(2.0 + ravg, 4.0, 3.0 - ravg);
+	return sqrt(diff.x + diff.y + diff.z);
+}
+
+float eq(float3 A, float3 B, bool mode){
+	return mode ? all(A == B) : smoothstep(3.0, 0.0, dist(A,B));
+}
+
+float and(float a, float b){
+	return min(a,b);
 }
 
 float and(float a, float b, float c){
@@ -90,12 +101,11 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 		DL  D  DR
 	*/
 
-
-	float3 C  = TEX( 0, 0);
-	float3 L  = TEX(-1, 0);
-	float3 R  = TEX( 1, 0);
-	float3 D  = TEX( 0, 1);
-	float3 U  = TEX( 0,-1);
+	float4 C  = TEX( 0, 0);
+	float3 L  = TEX(-1, 0).xyz;
+	float3 R  = TEX( 1, 0).xyz;
+	float3 D  = TEX( 0, 1).xyz;
+	float3 U  = TEX( 0,-1).xyz;
 	
 	float UL = TEX(-1,-1).z;
 	float UR = TEX( 1,-1).z;
@@ -104,7 +114,9 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 
 	float3 c  = TEXt0( 0, 0);
 	float3 l  = TEXt0(-1, 0);
+	float3 l2 = TEXt0(-2, 0);
 	float3 r  = TEXt0( 1, 0);
+	float3 r2 = TEXt0( 2, 0);
 	float3 d  = TEXt0( 0, 1);
 	float3 u  = TEXt0( 0,-1);
 	float3 ul = TEXt0(-1,-1);
@@ -112,14 +124,16 @@ float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float3 dl = TEXt0(-1, 1);
 	float3 dr = TEXt0( 1, 1);
 	
+	bool bS = C.w;	// strict mode
+
 	// Vertical Lines
-	float fVL = and(C.x, L.x, R.x);
+	float fVL = and(or(C.x, and(eq(c,l2,bS), eq(c,r2,bS))), L.x, R.x);
 
 	// Checkerboard
-	float eqLxU = eq(l,u), eqLxD = eq(l,d), eqLxR = eq(l,r);
-	float eqRxU = eq(r,u), eqRxD = eq(r,d), eqUxD = eq(u,d);
+	float eqLxU = eq(l,u,bS), eqLxD = eq(l,d,bS), eqLxR = eq(l,r,bS);
+	float eqRxU = eq(r,u,bS), eqRxD = eq(r,d,bS), eqUxD = eq(u,d,bS);
 	
-	float eqCxUL = eq(c,ul), eqCxUR = eq(c,ur), eqCxDL = eq(c,dl), eqCxDR = eq(c,dr);
+	float eqCxUL = eq(c,ul,bS), eqCxUR = eq(c,ur,bS), eqCxDL = eq(c,dl,bS), eqCxDR = eq(c,dr,bS);
 	
 	float fCB = or(C.z,
 			and(C.x, L.z, R.z, eqLxR, or(and(U.x, eqLxU, eqRxU), and(D.x, eqLxD, eqRxD))),
