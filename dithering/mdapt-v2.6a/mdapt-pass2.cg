@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 2
+   Merge Dithering and Pseudo Transparency Shader v2.6a - Pass 2
    by Sp00kyFox, 2013
 
    Terminates isolated detections.
@@ -25,9 +25,8 @@ float2 sigmoid(float2 signal)
 {
 	float2 x  = a * (signal - thresh + 0.5);
 	float2 x2 = x*x;
-	float2 x4 = x2*x2;
 
-	return (x * (x4 + 105.0 * x2 + 945.0)) / (30.0 * x4 + 840.0 * x2 + 1890.0) + 0.5;
+	return (((x2 + 105.0)*x2 + 945.0)*x) / (30.0 * ((x2 + 28.0)*x2 + 63.0)) + 0.5;
 }
 
 struct input

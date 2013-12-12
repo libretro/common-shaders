@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 4
+   Merge Dithering and Pseudo Transparency Shader v2.6a - Pass 4
    by Sp00kyFox, 2013
 
    Blends pixels based on detected dithering patterns.

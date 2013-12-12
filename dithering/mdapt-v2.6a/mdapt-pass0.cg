@@ -4,7 +4,7 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.6 - Pass 0
+   Merge Dithering and Pseudo Transparency Shader v2.6a - Pass 0
    by Sp00kyFox, 2013
 
    Neighbor anaylsis via dot product of the difference vectors.
@@ -28,6 +28,10 @@ float dist(float3 A, float3 B)
 
 float eq(float3 A, float3 B){
 	return smoothstep(3.0, 0.0, dist(A,B));
+}
+
+float and(float a, float b, float c, float d, float e, float f){
+	return min(a, min(b, min(c, min(d, min(e,f)))));
 }
 
 struct input
@@ -88,8 +92,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	bool r = all(L == R) && any(C != L);
 	bool g = all(U == D) && any(C != U);
+	bool b = r && g && all(L == U);
 
-	return float4(r, g, r && g, 1.0);
+	return float4(r, g, b, 1.0);
 
 #else
 
@@ -97,8 +102,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	float r = dot(CsL, CsR) * eq(L,R);
 	float g = dot(CsU, CsD) * eq(U,D);
+	float b = and(r, g, dot(CsL, CsU) * eq(L,U), dot(CsL, CsD) * eq(L,D), dot(CsR, CsU) * eq(R,U), dot(CsR, CsD) * eq(R,D));
 
-	return float4(r, g, min(r,g), 0.0);
+	return float4(r, g, b, 0.0);
 
 #endif
 
