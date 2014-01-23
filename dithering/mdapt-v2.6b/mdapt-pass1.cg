@@ -1,0 +1,139 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.6b - Pass 1
+   by Sp00kyFox, 2014
+
+   Preparing patterns and marking them.
+
+*/
+
+#define TEX(dx,dy)   tex2D(IN.texture,   texCoord+float2((dx),(dy))*t1)
+#define TEXt0(dx,dy) tex2D(ORIG.texture, texCoord+float2((dx),(dy))*t1).xyz
+
+float dist(float3 A, float3 B)
+{
+	float3 diff = A-B;
+	float  ravg = (A.x + B.x) * 0.5;
+
+	diff *= diff * float3(2.0 + ravg, 4.0, 3.0 - ravg);
+	return sqrt(diff.x + diff.y + diff.z);
+}
+
+float eq(float3 A, float3 B, bool mode){
+	return mode ? all(A == B) : smoothstep(3.0, 0.0, dist(A,B));
+}
+
+float and(float a, float b){
+	return min(a,b);
+}
+
+float and(float a, float b, float c){
+	return min(a, min(b,c));
+}
+
+float and(float a, float b, float c, float d){
+	return min(a, min(b, min(c,d)));
+}
+
+float or(float a, float b){
+	return max(a,b);
+}
+
+float or(float a, float b, float c, float d, float e, float f){
+	return max(a, max(b, max(c, max(d, max(e,f)))));
+}
+
+struct previous
+{
+	uniform sampler2D texture;
+	float2 tex_coord;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	sampler2D texture : TEXUNIT0;
+};
+
+struct tex_coords
+{
+	float2 tex;
+	float2 or;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float2 tex : TEXCOORD,	
+	float4 position : POSITION,
+	uniform float4x4 modelViewProj,
+
+	previous ORIG,
+
+	out float4 oPosition : POSITION,
+	out tex_coords coords
+)
+{
+	oPosition = mul(modelViewProj, position);
+
+	coords = tex_coords(tex, ORIG.tex_coord);
+}
+
+/*    FRAGMENT SHADER    */
+float2 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous ORIG) : COLOR
+{
+
+        float2 t1 = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+
+	/*
+		UL  U  UR
+		L   C  R
+		DL  D  DR
+	*/
+
+	float4 C  = TEX( 0, 0);
+	float3 L  = TEX(-1, 0).xyz;
+	float3 R  = TEX( 1, 0).xyz;
+	float3 D  = TEX( 0, 1).xyz;
+	float3 U  = TEX( 0,-1).xyz;
+	
+	float ULz = TEX(-1,-1).z;
+	float URz = TEX( 1,-1).z;
+	float DLz = TEX(-1, 1).z;
+	float DRz = TEX( 1, 1).z;
+
+	float3 c  = TEXt0( 0, 0);
+	float3 l  = TEXt0(-1, 0);
+	float3 l2 = TEXt0(-2, 0);
+	float3 r  = TEXt0( 1, 0);
+	float3 r2 = TEXt0( 2, 0);
+	float3 d  = TEXt0( 0, 1);
+	float3 u  = TEXt0( 0,-1);
+	float3 ul = TEXt0(-1,-1);
+	float3 ur = TEXt0( 1,-1);
+	float3 dl = TEXt0(-1, 1);
+	float3 dr = TEXt0( 1, 1);
+	
+	bool bS = C.w;	// strict mode
+
+	// Vertical Lines
+	float fVL = and(or(C.x, and(eq(c,l2,bS), eq(c,r2,bS))), L.x, R.x);
+
+	// Checkerboard
+	float eqLxU = eq(l,u,bS), eqLxD = eq(l,d,bS), eqRxU = eq(r,u,bS), eqRxD = eq(r,d,bS);
+	
+	float fCB = or(C.z,
+		and(C.x, L.z, R.z, or(and(U.x, eqLxU, eqRxU), and(D.x, eqLxD, eqRxD))),
+		and(C.y, U.z, D.z, or(and(L.y, eqLxU, eqLxD), and(R.y, eqRxU, eqRxD))),
+		and(C.x, L.x, R.x, or(and(ULz, U.z, URz), and(DLz, D.z, DRz))),
+		and(C.y, U.y, D.y, or(and(ULz, L.z, DLz), and(URz, R.z, DRz))),
+		and(L.z, R.z, U.z, D.z));
+
+	return float2(fVL, fCB);
+}
