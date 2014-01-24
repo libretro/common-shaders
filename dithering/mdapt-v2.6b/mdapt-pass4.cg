@@ -55,8 +55,8 @@ float2 or(float2 a, float2 b){
 	return max(a,b);
 }
 
-float2 or(float2 a, float2 b, float2 c, float2 d, float2 e, float2 f, float2 g, float2 h){
-	return max(a, max(b, max(c, max(d, max(e, max(f, max(g,h)))))));
+float2 or(float2 a, float2 b, float2 c, float2 d){
+	return max(a, max(b, max(c,d)));
 }
 
 struct previous
@@ -114,15 +114,11 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float2 R  = TEX( 1, 0);	float3 r = TEXt0( 1, 0);
 	float2 U  = TEX( 0,-1);
 	float2 D  = TEX( 0, 1);
-	float2 UL = TEX(-1,-1);
-	float2 UR = TEX( 1,-1);
-	float2 DL = TEX(-1, 1);
-	float2 DR = TEX( 1, 1);
 
 	float  bVL = 0.0,		bCB = 0.0;
 	float3 fVL = float3(0.0),	fCB = float3(0.0);
 
-	C.xy = or(C.xy, and(C.zw, or(L.xy, R.xy, U.xy, D.xy, UL.xy, UR.xy, DL.xy, DR.xy)));
+	C.xy = or(C.xy, and(C.zw, or(L.xy, R.xy, U.xy, D.xy)));
 
 #ifdef VL
 	fVL = (2.0*c + L.x * l + R.x * r)/(2.0 + L.x + R.x);
@@ -130,13 +126,13 @@ float3 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 #endif
 
 
-#ifdef CB
-	float3 u  = TEXt0( 0,-1);
-	float3 d  = TEXt0( 0, 1);
-	float3 ul = TEXt0(-1,-1);
-	float3 ur = TEXt0( 1,-1);
-	float3 dl = TEXt0(-1, 1);
-	float3 dr = TEXt0( 1, 1);
+#ifdef CB	
+				float3 u  = TEXt0( 0,-1);
+				float3 d  = TEXt0( 0, 1);
+	float2 UL = TEX(-1,-1);	float3 ul = TEXt0(-1,-1);
+	float2 UR = TEX( 1,-1);	float3 ur = TEXt0( 1,-1);
+	float2 DL = TEX(-1, 1);	float3 dl = TEXt0(-1, 1);
+	float2 DR = TEX( 1, 1);	float3 dr = TEXt0( 1, 1);
 
 	bool eqCxL  = eq(c,l);
 	bool eqCxR  = eq(c,r);

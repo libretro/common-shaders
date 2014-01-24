@@ -38,8 +38,8 @@ float2 or(float2 a, float2 b){
 	return max(a,b);
 }
 
-float2 or(float2 a, float2 b, float2 c, float2 d, float2 e, float2 f, float2 g, float2 h){
-	return max(a, max(b, max(c, max(d, max(e, max(f, max(g,h)))))));
+float2 or(float2 a, float2 b, float2 c, float2 d){
+	return max(a, max(b, max(c,d)));
 }
 
 struct previous
@@ -98,7 +98,7 @@ float4 main_fragment(in float2 texCoord : TEXCOORD0, uniform input IN, previous 
 	float2 DL = TEX(-1, 1);	float3 dl = TEXt0(-1, 1);
 	float2 DR = TEX( 1, 1);	float3 dr = TEXt0( 1, 1);
 
-	C.xy = or(C.xy, and(C.zw, or(L1.xy, R1.xy, U1.xy, D1.xy, UL.xy, UR.xy, DL.xy, DR.xy)));
+	C.xy = or(C.xy, and(C.zw, or(L1.xy, R1.xy, U1.xy, D1.xy)));
 
 	C.x = or(C.x, L1.x, R1.x, and(L2.x, eq(c,l2)), and(R2.x, eq(c,r2)));
 	C.y = or(C.y, and(U1.y, eq(c,u1)), and(D1.y, eq(c,d1)), and(L1.y, eq(c,l1)), and(R1.y, eq(c,r1)), and(UL.y, eq(c,ul)), and(UR.y, eq(c,ur)), and(DL.y, eq(c,dl)), and(DR.y, eq(c,dr)));
