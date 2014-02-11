@@ -13,6 +13,7 @@ of an OGL/D3D backend.
 Known implementations of this spec are currently:
 - RetroArch
 - SNES9x (Win32 port)
+- OpenEmu
 
 Entry points:
    Vertex: main_vertex
