@@ -22,7 +22,7 @@
         barrel distortion code was taken from the Curvature shader, which is
         under the GPL."
     )
-	This shader variant is pre-configured without screen curvature
+	This shader variant is pre-configured with screen curvature
 */
 
         // Comment the next line to disable interpolation in linear gamma (and
@@ -30,7 +30,7 @@
         #define LINEAR_PROCESSING
 
         // Enable screen curvature.
-//        #define CURVATURE
+        #define CURVATURE
 
         // Enable 3x oversampling of the beam profile; improves moire effect caused by scanlines+curvature
         #define OVERSAMPLE
@@ -78,7 +78,7 @@
                 // nonzero)
                 const static float2 angle = float2(0.0,-0.0);
                 // size of curved corners
-                static float cornersize = 0.001;
+                static float cornersize = 0.03;
                 // border smoothness parameter
                 // decrease if borders are too aliased
                 static float cornersmooth = 1000.0;

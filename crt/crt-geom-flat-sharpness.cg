@@ -37,7 +37,7 @@
   // gamma of display monitor (typically 2.2 is correct)
 #define monitorgamma 2.2
 
-struct input      // These are things that can attach to 'IN' to achieve similar function to ruby* stuff in existing GLSL shaders. NOTE: the ruby* prefix is deprecated but still works in GLSL for legacy compatibility purposes.
+struct input
 {
   float2 video_size;
   float2 texCoord_size;

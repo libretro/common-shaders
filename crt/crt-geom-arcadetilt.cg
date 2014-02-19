@@ -22,7 +22,7 @@
         barrel distortion code was taken from the Curvature shader, which is
         under the GPL."
     )
-	This shader variant is pre-configured without screen curvature
+	This shader variant is pre-configured with screen curvature and a backward tilt to simulate an arcade monitor
 */
 
         // Comment the next line to disable interpolation in linear gamma (and
@@ -30,7 +30,7 @@
         #define LINEAR_PROCESSING
 
         // Enable screen curvature.
-//        #define CURVATURE
+        #define CURVATURE
 
         // Enable 3x oversampling of the beam profile; improves moire effect caused by scanlines+curvature
         #define OVERSAMPLE
@@ -65,7 +65,7 @@
                 // gamma of display monitor (typically 2.2 is correct)
                 static float monitorgamma = 2.2;
                 // overscan (e.g. 1.02 for 2% overscan)
-                static float2 overscan = float2(1.00,1.00);
+                static float2 overscan = float2(1.01,1.01);
                 // aspect ratio
                 static float2 aspect = float2(1.0, 0.75);
                 // lengths are measured in units of (approximately) the width
@@ -76,9 +76,9 @@
                 // tilt angle in radians
                 // (behavior might be a bit wrong if both components are
                 // nonzero)
-                const static float2 angle = float2(0.0,-0.0);
+                const static float2 angle = float2(0.0,-0.15);
                 // size of curved corners
-                static float cornersize = 0.001;
+                static float cornersize = 0.03;
                 // border smoothness parameter
                 // decrease if borders are too aliased
                 static float cornersmooth = 1000.0;
