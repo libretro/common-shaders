@@ -59,7 +59,8 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 L = TEX(-1, 0);
 	float4 R = TEX( 1, 0);
 	
-	float div0 = max(L.w, R.w);
-	float wght = 1.0 + ((div0 == 0.0) ? 0.0 : min(L.w, R.w)/div0);
+	float wght = max(L.w, R.w);
+	      wght = 1.0 + ((wght == 0.0) ? 0.0 : min(L.w, R.w)/wght);
+
 	return lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + L.w + R.w), C.w);	
 }

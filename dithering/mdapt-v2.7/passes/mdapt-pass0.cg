@@ -4,35 +4,37 @@
 */
 
 /*
-   Merge Dithering and Pseudo Transparency Shader v2.6a - Pass 0
-   by Sp00kyFox, 2013
+   Merge Dithering and Pseudo Transparency Shader v2.7 - Pass 0
+   by Sp00kyFox, 2014
 
-   Neighbor anaylsis via dot product of the difference vectors.
+   Neighbor analysis via color metric and dot product of the difference vectors.
 
 */
 
-// Uncomment the following line to activate strict pattern behavior (only allows 2 different colors).
+
+// Uncomment the following line to activate strict neighbor analysis (only allows 2 different colors).
 //#define strict
 
 
-#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
 
-float dist(float3 A, float3 B)
+
+// http://www.compuphase.com/cmetric.htm
+float eq(float3 A, float3 B)
 {
 	float3 diff = A-B;
 	float  ravg = (A.x + B.x) * 0.5;
 
 	diff *= diff * float3(2.0 + ravg, 4.0, 3.0 - ravg);
-	return sqrt(diff.x + diff.y + diff.z);
-}
-
-float eq(float3 A, float3 B){
-	return smoothstep(3.0, 0.0, dist(A,B));
+	
+	float x = smoothstep(3.0, 0.0, sqrt(diff.x + diff.y + diff.z));
+	return x*x;
 }
 
 float and(float a, float b, float c, float d, float e, float f){
 	return min(a, min(b, min(c, min(d, min(e,f)))));
 }
+
 
 struct input
 {
@@ -72,8 +74,9 @@ out_vertex main_vertex
         return OUT;
 }
 
+
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	/*
 		  U
@@ -94,18 +97,16 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	bool g = all(U == D) && any(C != U);
 	bool b = r && g && all(L == U);
 
-	return float4(r, g, b, 1.0);
-
 #else
 
-	float3 CsL = normalize(C-L), CsR = normalize(C-R), CsD = normalize(C-D), CsU = normalize(C-U);
+	float3 dCL = normalize(C-L), dCR = normalize(C-R), dCD = normalize(C-D), dCU = normalize(C-U);
 
-	float r = dot(CsL, CsR) * eq(L,R);
-	float g = dot(CsU, CsD) * eq(U,D);
-	float b = and(r, g, dot(CsL, CsU) * eq(L,U), dot(CsL, CsD) * eq(L,D), dot(CsR, CsU) * eq(R,U), dot(CsR, CsD) * eq(R,D));
-
-	return float4(r, g, b, 0.0);
+	float r = dot(dCL, dCR) * eq(L,R);
+	float g = dot(dCU, dCD) * eq(U,D);
+	float b = and(r, g, dot(dCL, dCU) * eq(L,U), dot(dCL, dCD) * eq(L,D), dot(dCR, dCU) * eq(R,U), dot(dCR, dCD) * eq(R,D));
 
 #endif
+
+	return float3(r, g, b);
 
 }

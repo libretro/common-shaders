@@ -1,0 +1,103 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.7 - Pass 1
+   by Sp00kyFox, 2014
+
+   Preparing checkerboard patterns.
+
+*/
+
+
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+
+float and(float a, float b){
+	return min(a,b);
+}
+
+float and(float a, float b, float c){
+	return min(a, min(b,c));
+}
+
+float or(float a, float b){
+	return max(a,b);
+}
+
+float or(float a, float b, float c, float d, float e){
+	return max(a, max(b, max(c, max(d,e))));
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+        float dx  = ps.x;
+        float dy  = ps.y;
+
+        OUT.texCoord = texCoord;
+        OUT.t1       = float2(dx, dy); // F H
+
+        return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float2 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+
+	/*
+		UL U UR
+		L  C R
+		DL D DR
+	*/
+
+	float3 C  = TEX( 0, 0);
+	float3 L  = TEX(-1, 0);
+	float3 R  = TEX( 1, 0);
+	float3 D  = TEX( 0, 1);
+	float3 U  = TEX( 0,-1);
+	
+	float UL = TEX(-1,-1).z;
+	float UR = TEX( 1,-1).z;
+	float DL = TEX(-1, 1).z;
+	float DR = TEX( 1, 1).z;
+
+	// Checkerboard
+	float prCB = or(C.z,
+		and(L.z, R.z, or(U.x, D.x)),
+		and(U.z, D.z, or(L.y, R.y)),
+		and(C.x, or(and(UL, UR), and(DL, DR))),
+		and(C.y, or(and(UL, DL), and(UR, DR))));
+
+	return float2(C.x, prCB);
+}

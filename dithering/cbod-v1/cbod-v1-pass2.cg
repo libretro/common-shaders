@@ -1,0 +1,83 @@
+/*
+/   "Conditional Blending of Dither" Shader v1.0 - Pass 2
+/   Copyright (c) 2013, Alexander Kulagin <coastkid3d@gmail.com>
+/   All Rights reserved.
+/ 
+/   Redistribution and use in source and binary forms, with or without
+/   modification, are permitted provided that the following conditions are met:
+/ 
+/     * Redistributions of source code must retain the above copyright notice,
+/       this list of conditions and the following disclaimer.
+/ 
+/     * Redistributions in binary form must reproduce the above copyright
+/       notice, this list of conditions and the following disclaimer in the
+/       documentation and/or other materials provided with the distribution.
+/ 
+/   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+/   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+/   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+/   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+/   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+/   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+/   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+/   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+/   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+/   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+/   POSSIBILITY OF SUCH DAMAGE.
+*/
+
+//////////////////
+// VERTEX_SHADER
+
+void main_vertex
+(
+	float2 position : POSITION,
+	float2 texCoord : TEXCOORD0,
+	uniform float4x4 modelViewProj,
+	out float4 oPosition : POSITION,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, float4(position, 0.0f, 1.0f));
+	otexCoord = texCoord;
+}
+
+//////////////////
+// FRAGMENT SHADER
+
+struct output
+{
+	float4 color : COLOR;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+float4 main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D tex0 : TEXUNIT0, uniform input IN): COLOR
+{ 
+  float2 uv = texCoord - (1.0f / IN.texture_size) * 0.25f;
+  float2 uv_shift = (1.0f / IN.texture_size);
+	float3 src = tex2D(tex0, uv).rgb;
+ 
+  // Searching for the Horizontal Dithering Zones
+	float3 dither_h_zone = tex2D(tex0, uv + float2(0, uv_shift.y)).rgb == tex2D(tex0, uv - float2(0, uv_shift.y)).rgb;
+  dither_h_zone = smoothstep(0.2f, 1.0f, dot(dither_h_zone, 0.33333f));
+  
+  // Searching for High Contrast "Safe" Zones 
+  float3 safe_zone = abs(dot(tex2D(tex0, uv) - tex2D(tex0, uv - float2(0, uv_shift.y)),0.3333f));
+  safe_zone = safe_zone < 0.45f;
+ 
+  // Vertical Bluring by 1 pixel
+  float3 blur_v = (tex2D(tex0, uv).rgb + tex2D(tex0, uv - float2(0, uv_shift.y)).rgb) * 0.5f;
+  
+  // Final Blend between Source and Blur using Dithering Zone and Safe Zone
+  float3 finalcolor = lerp(src, blur_v, dither_h_zone * safe_zone);
+  
+  return float4(finalcolor, 1.0f);
+}
+
