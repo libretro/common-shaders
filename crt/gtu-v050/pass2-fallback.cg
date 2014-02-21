@@ -58,6 +58,8 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
 	float range=ceil(0.5+IN.video_size.x/signalResolution);
 #endif
 
+	range = FIXNUM;
+
 	float i;
 	for (i=-range;i<range+2.0;i++){
 		PROCESS(i)
