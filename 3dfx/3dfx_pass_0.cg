@@ -1,0 +1,156 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+// "LeiFX" shader - "dither" and reduction process
+// 
+// 	Copyright (C) 2013-2014 leilei
+// 
+// This program is free software; you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+   output OUT;
+   OUT.color = tex2D(decal, texCoord);
+
+	float2 res;
+	res.x = IN.texture_size.x;
+	res.y = IN.texture_size.y;
+	float2 what;
+	what.x = 1 / res.x;
+	what.y = 1 / res.y;
+
+	float2 dithet = texCoord.xy * res.xy;
+
+	dithet.x = texCoord.x * res.x;
+	dithet.y = texCoord.y * res.y;
+
+	float2 ditheu = texCoord.xy * res.xy;
+
+	ditheu.x = texCoord.x * res.x;
+	ditheu.y = texCoord.y * res.y;
+
+	// 2x2 matrix?
+
+	float vertline1 = 	(mod(dithet.x, 	2.0));
+	float vertline2 = 	(mod(dithet.x+1, 	2.0));
+	float vertline3 = 	(mod(dithet.x+1, 	4.0));
+	float vertline4 = 	(mod(dithet.x+1,	4.0));
+	float vertline5 = 	(mod(dithet.x-1,	4.0));
+	float horzline1 = 	(mod(dithet.y, 	2.0));
+	float horzline2 = 	(mod(dithet.y+1,  2.0));
+	float horzline3 = 	(mod(dithet.y,  4.0));
+	float horzline4 = 	(mod(dithet.y+1,  4.0));
+	float horzline5 = 	(mod(dithet.y-1,  4.0));
+
+
+	float dithone = vertline1 + horzline2;
+	float dithtwo = vertline2 + horzline1;
+	float diththree = vertline3 + horzline3;
+
+	dithone = dithone * 0.3;
+
+	dithtwo = dithtwo * 0.3 + 1;
+
+	dithone *= dithtwo;
+
+
+	// Lamest crudest 'dither matrix' ever.
+
+	// The estimated dither pattern
+
+		//      . X . o . X . o . X . o . X
+		//      v . x . v . x . v . x . v .
+		//      . o . o . o . o . o . o . o
+		//      x . v . x . v . x . v . x .
+		//      . X . o . X . o . X . o . X
+		//	v . v . v . v . v . v . v . 
+
+
+	// This is the stupidest set of hacks ever to get just this stupid dither
+	// pattern. It obviously could be done better, but eh.......
+	// i'm bad at math :(
+								
+								
+	if (dithone > 1.1) dithone = 1.17;			
+	else if (dithone < 0.9) dithone = 1.3;			
+	else dithone = 1.0;
+
+	if (diththree > 1.1)	diththree = 1.2;
+	if (diththree < 1.1)	diththree = 5;
+
+
+	if (diththree == 5) diththree = 1.04;
+	else	diththree = 1;
+
+	dithone *= diththree;
+	dithone *= diththree;
+
+	
+	OUT.color.rgb = pow(OUT.color.rgb, 1 / dithone);
+
+
+	// Reduce the 32-bit image to 16-bit
+	float3 why = 1;
+	float3 reduceme = 1;
+	float radooct = 32;	// 32 is usually the proper value
+
+	reduceme.r = pow(OUT.color.r, why);  
+	reduceme.r *= radooct;	
+	reduceme.r = int(floor(reduceme.r));	
+	reduceme.r /= radooct; 
+	reduceme.r = pow(reduceme.r, why);
+
+	reduceme.g = pow(OUT.color.g, why);  
+	reduceme.g *= radooct * 2;	
+	reduceme.g = int(floor(reduceme.g));	
+	reduceme.g /= radooct * 2; 
+	reduceme.g = pow(reduceme.g, why);
+
+	reduceme.b = pow(OUT.color.b, why);  
+	reduceme.b *= radooct;	
+	reduceme.b = int(floor(reduceme.b));	
+	reduceme.b /= radooct; 
+	reduceme.b = pow(reduceme.b, why);
+
+	OUT.color.rgb = reduceme.rgb;
+
+   return OUT;
+}
