@@ -121,10 +121,22 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	else	diththree = 1;
 
 	dithone *= diththree;
-	dithone *= diththree;
 
+// ok somewhat better way to make a dither pattern
+	float3 dithonme;
+	float eeee = 0.03f;
+	dithone -= 1.0;
+	dithone = pow(dithone, 1.6f);
+	dithonme = OUT.color.rgb;
 	
-	OUT.color.rgb = pow(OUT.color.rgb, 1 / dithone);
+
+	if (dithone < dithonme.r) dithonme.r += eeee;
+	if (dithone < dithonme.g) dithonme.g += eeee;
+	if (dithone < dithonme.b) dithonme.b += eeee;
+
+
+	OUT.color.rgb = dithonme.rgb;
+
 
 
 	// Reduce the 32-bit image to 16-bit
