@@ -11,4 +11,9 @@ filter_linear1 = true
 filter_linear2 = true
 filter_linear3 = true
 filter_linear4 = true 
-filter_linear5 = true 
+filter_linear5 = true
+
+scale_type_x0 = "source"
+scale_x0 = "1.000000"
+scale_type_y0 = "source"
+scale_y0 = "1.000000"
