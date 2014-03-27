@@ -4,7 +4,7 @@
 */
 
 /*
-   Genesis Dithering and Pseudo Transparency Shader v1.2 - Pass 0
+   Genesis Dithering and Pseudo Transparency Shader v1.2a - Pass 0
    by Sp00kyFox, 2014
 
    Neighbor anaylsis via dot product of the difference vectors.
@@ -70,19 +70,17 @@ out_vertex main_vertex
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 
-	float3 C  = TEX( 0, 0);
-	float3 L1 = TEX(-1, 0);
-	float3 R1 = TEX( 1, 0);
-	float3 L2 = TEX(-2, 0);
-	float3 R2 = TEX( 2, 0);
+	float3 C = TEX( 0, 0);
+	float3 L = TEX(-1, 0);
+	float3 R = TEX( 1, 0);
 
 #ifdef strict
 
-	bool tag = all(L1 == R1) && any(C != L1) && (all(C == L2) || all(C == R2));
+	bool tag = all(L == R) && any(C != L);
 
 #else
 
-	float tag = min(dot(normalize(C-L1), normalize(C-R1)) * eq(L1,R1), max(min(eq(C,L2), any(L1 != L2)), min(eq(C,R2), any(R1 != R2))));
+	float tag = dot(normalize(C-L), normalize(C-R)) * eq(L,R);
 
 #endif
 

@@ -4,7 +4,7 @@
 */
 
 /*
-   Genesis Dithering and Pseudo Transparency Shader v1.2 - Pass 1
+   Genesis Dithering and Pseudo Transparency Shader v1.2a - Pass 1
    by Sp00kyFox, 2014
 
    Blends pixels based on detected dithering patterns.
@@ -62,5 +62,5 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float wght = max(L.w, R.w);
 	      wght = 1.0 + ((wght == 0.0) ? 0.0 : min(L.w, R.w)/wght);
 
-	return lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + L.w + R.w), C.w);	
+	return lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + L.w + R.w), min(C.w, max(L.w, R.w)));	
 }
