@@ -86,7 +86,7 @@ out_vertex main_vertex
 (
 	half4 position	: POSITION,
 	half4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+	float2 texCoord1 : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
 	uniform input IN
@@ -106,6 +106,9 @@ out_vertex main_vertex
 	// D0  D  E  F F4
 	// G0  G  H  I I4
 	//    G5 H5 I5
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
 	OUT.texCoord = texCoord;
 	OUT.t1 = texCoord.xxxy + half4( -dx, 0, dx,-2.0*dy); // A1 B1 C1

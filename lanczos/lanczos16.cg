@@ -51,7 +51,7 @@
     (
         float4 position    : POSITION,
         float4 color    : COLOR,
-        float2 tex      : TEXCOORD0,
+        float2 texCoord1   : TEXCOORD0,
      
            uniform float4x4 modelViewProj,
         uniform input IN
@@ -60,7 +60,10 @@
         float2 ps = 1.0/IN.texture_size;
         float dx = ps.x;
         float dy = ps.y;
-     
+
+	// This line fix a bug in ATI cards.
+	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
+
         out_vertex OUT = {
             mul(modelViewProj, position),
             color,

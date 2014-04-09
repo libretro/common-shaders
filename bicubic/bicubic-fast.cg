@@ -51,7 +51,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
    out float4 oPosition : POSITION,
-	float2 tex      : TEXCOORD0,
+	float2 texCoord1 : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -62,6 +62,9 @@ out_vertex main_vertex
 	float dy = ps.y;
 
    oPosition = mul(modelViewProj, position);
+
+	// This line fix a bug in ATI cards.
+	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
 
 	out_vertex OUT = { 
 		tex,

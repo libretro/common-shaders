@@ -61,7 +61,7 @@ VERTEX_OUTPUT main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+	float2 texCoord1 : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -75,6 +75,9 @@ VERTEX_OUTPUT main_vertex
 	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
 	float dx = ps.x*0.5;
 	float dy = ps.y*0.5;
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
 	OUT.texCoord = texCoord;
 	OUT.t1.xy = texCoord + float2(-dx, 0);
