@@ -5,7 +5,7 @@
 
 /*
    Hyllian's CRT Shader
-   
+  
    Copyright (C) 2011-2014 Hyllian/Jararaca - sergiogdb@gmail.com
 
    This program is free software; you can redistribute it and/or
@@ -25,11 +25,23 @@
 */
 
 
-// Uncomment to increase the sharpness of the scanlines
+// Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
+
+// Control the level of sharpness when SHARPER is enabled.
+#define SHARPNESS              2.0
+
 
 // Comment next line if you don't desire the phosphor effect.
 #define PHOSPHOR
+
+// Uncomment to enable adjustment of red and green saturation.
+//#define RED_GREEN_CONTROL
+
+// Control red and green saturation when RED_GREEN_CONTROL is enabled.
+#define RED_BOOST              1.0
+#define GREEN_BOOST            1.0
+
 
 // Control scanlines transparency by changing this param below. Use always values between 0.0 and 1.0.
 #define SCANLINES_STRENGTH     0.7
@@ -38,7 +50,8 @@
 #define BEAM_MIN_WIDTH         0.1
 #define BEAM_MAX_WIDTH         0.7
 
-// You can saturate colors using this parameter.
+// You can saturate all colors using this parameter.
+
 #define COLOR_BOOST            1.5
 
 // This param change the threshold from where the beam gets thicker.
@@ -52,8 +65,9 @@
 #define InputGamma             2.4
 #define OutputGamma            2.2
 
-#define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
-#define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+#define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+
 
 
 const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
@@ -69,20 +83,12 @@ struct input
     float2 output_size;
     float  frame_count;
     float  frame_direction;
-    float frame_rotation;
+    float  frame_rotation;
 };
 
 
 struct out_vertex {
     float2 texCoord;
-    float4 t1;
-    float4 t2;
-    float4 t3;
-    float4 t4;
-    float4 t5;
-    float4 t6;
-    float4 t7;
-    float2 t8;
 };
 
 /*    VERTEX_SHADER    */
@@ -90,34 +96,26 @@ out_vertex main_vertex
 (
     float4 position      : POSITION,
     out float4 oPosition : POSITION,
-    float2 tex1          : TEXCOORD0,
+    float2 texCoord      : TEXCOORD0,
+
 
     uniform float4x4 modelViewProj,
     uniform input IN
 )
 {
 #ifdef SHARPER
-    float2 TextureSize = float2(2.0*IN.texture_size.x, IN.texture_size.y);
+    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+
 #else
     float2 TextureSize = IN.texture_size;
 #endif
     float2 ps = 1.0/TextureSize;
-    float dx = ps.x;
-    float dy = ps.y;
 
-    float2 tex = tex1+ps*float2(-0.499, 1.0);
     oPosition = mul(modelViewProj, position);
 
     out_vertex OUT = {
-        tex,
-        float4(tex,tex) + float4(   -dx,    -dy,    0.0,    -dy),
-        float4(tex,tex) + float4(    dx,    -dy, 2.0*dx,    -dy),
-        float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0),
-        float4(tex,tex) + float4(2.0*dx,    0.0,    -dx,     dy),
-        float4(tex,tex) + float4(   0.0,     dy,     dx,     dy),
-        float4(tex,tex) + float4(2.0*dx,     dy,    -dx, 2.0*dy),
-        float4(tex,tex) + float4(   0.0, 2.0*dy,     dx, 2.0*dy),
-        tex             + float2(2.0*dx, 2.0*dy)
+        texCoord + ps*float2(-0.49, 0.0)
+
     };
 
     return OUT;
@@ -127,67 +125,50 @@ out_vertex main_vertex
 float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
 {
 #ifdef SHARPER
-    float2 TextureSize = float2(2.0*IN.texture_size.x, IN.texture_size.y);
+    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+
 #else
     float2 TextureSize = IN.texture_size;
 #endif
 
+    float2 dx = float2(1.0/TextureSize.x, 0.0);
+    float2 dy = float2(0.0, 1.0/TextureSize.y);
+
+    float2 tc = (floor(VAR.texCoord*TextureSize)+float2(0.5,0.5))/TextureSize;
+
     float2 fp = frac(VAR.texCoord*TextureSize);
 
-    float3 c00 = tex2D(s_p, VAR.t1.xy).xyz;
-    float3 c01 = tex2D(s_p, VAR.t1.zw).xyz;
-    float3 c02 = tex2D(s_p, VAR.t2.xy).xyz;
-    float3 c03 = tex2D(s_p, VAR.t2.zw).xyz;
-    float3 c10 = tex2D(s_p, VAR.t3.xy).xyz;
-    float3 c11 = tex2D(s_p, VAR.texCoord).xyz;
-    float3 c12 = tex2D(s_p, VAR.t3.zw).xyz;
-    float3 c13 = tex2D(s_p, VAR.t4.xy).xyz;
-    float3 c20 = tex2D(s_p, VAR.t4.zw).xyz;
-    float3 c21 = tex2D(s_p, VAR.t5.xy).xyz;
-    float3 c22 = tex2D(s_p, VAR.t5.zw).xyz;
-    float3 c23 = tex2D(s_p, VAR.t6.xy).xyz;
-    float3 c30 = tex2D(s_p, VAR.t6.zw).xyz;
-    float3 c31 = tex2D(s_p, VAR.t7.xy).xyz;
-    float3 c32 = tex2D(s_p, VAR.t7.zw).xyz;
-    float3 c33 = tex2D(s_p, VAR.t8.xy).xyz;
+    float3 c10 = tex2D(s_p, tc     - dx).xyz;
+    float3 c11 = tex2D(s_p, tc         ).xyz;
+    float3 c12 = tex2D(s_p, tc     + dx).xyz;
+    float3 c13 = tex2D(s_p, tc + 2.0*dx).xyz;
 
-    float4x4   red_matrix = float4x4(c00.x, c01.x, c02.x, c03.x,
-                                     c10.x, c11.x, c12.x, c13.x,
-                                     c20.x, c21.x, c22.x, c23.x,
-                                     c30.x, c31.x, c32.x, c33.x);
+    float4x3 color_matrix = float4x3(c10, c11, c12, c13);
 
-    float4x4 green_matrix = float4x4(c00.y, c01.y, c02.y, c03.y,
-                                     c10.y, c11.y, c12.y, c13.y,
-                                     c20.y, c21.y, c22.y, c23.y,
-                                     c30.y, c31.y, c32.y, c33.y);
-
-    float4x4  blue_matrix = float4x4(c00.z, c01.z, c02.z, c03.z,
-                                     c10.z, c11.z, c12.z, c13.z,
-                                     c20.z, c21.z, c22.z, c23.z,
-                                     c30.z, c31.z, c32.z, c33.z);
-
-    float4x1 invX_Px = mul(invX, float4x1(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
-
-    float red   = mul(  red_matrix, invX_Px);
-    float green = mul(green_matrix, invX_Px);
-    float blue  = mul( blue_matrix, invX_Px);
+    float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
+    float3 color   = mul(invX_Px, color_matrix);
 
     float2 pos = abs(fp - float2(0.5));
 
-    c01 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c01);
-    c02 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c02);
-    c01 = pow(c01,BEAM_WIDTH_SENSITIVITY);
-    c02 = pow(c02,BEAM_WIDTH_SENSITIVITY);
-    float3 lum = lerp(c01,c02, 1.0-c01);
+    c11 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c11);
+    c12 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c12);
+    c11 = pow(c11,float3(BEAM_WIDTH_SENSITIVITY));
+    c12 = pow(c12,float3(BEAM_WIDTH_SENSITIVITY));
+
+
+    float3 lum = lerp(c11,c12, 1.0-c11);
     float3 d = clamp(pos.y/lum, 0.0, 1.0);
 
     d = smoothstep(0.0, 1.0, 1.0-d);
 
     d = SCANLINES_STRENGTH*(d-1.0)+1.0;
 
-    float3 color = float3(red, green, blue);
-
+#ifdef RED_GREEN_CONTROL
+    color.rgb *= float3(RED_BOOST, GREEN_BOOST, CRT_TV_BLUE_TINT);
+#else
     color.b *= CRT_TV_BLUE_TINT;
+#endif
+
 
     color = clamp(color*d, 0.0, 1.0);
 
@@ -198,17 +179,19 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
                                  float3(1.0, 0.7, 1.0),
                                  float3(0.7, 1.0, 0.7),
                                  floor(fmod(mod_factor, 2.0))
-      	                        );
-#endif                  
-  
+                                  );
+#endif                 
+ 
     color = GAMMA_IN(color);
 
 #ifdef PHOSPHOR
     color.rgb *= dotMaskWeights;
-#endif                    
+#endif                   
 
     color *= COLOR_BOOST;
+
     color  = GAMMA_OUT(color);
 
     return float4(color, 1.0);
 }
+
