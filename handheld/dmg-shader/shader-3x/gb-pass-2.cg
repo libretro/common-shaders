@@ -1,5 +1,18 @@
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
+// DMG Shader v1.2                                                       //
+//                                                                       //
+// Author: Hi-Ban                                                        //
+//                                                                       //
+// This is a modification and mix of other shaders. Although some bits   //
+// of code have been modified to achieve a more realistic look, all the  //
+// original credits and licenses of the various codes have been left     //
+// intact in the shader files.                                           //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
 //                                                                       //
 // Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
@@ -22,6 +35,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define shadow_blur 2.0	//blurriness of the shadow [0, 5]  [DEFAULT: 2.0]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
@@ -102,11 +117,11 @@ fixed4 gaussian_blur(sampler2D texture, float2 tex_coord, texture_info tex_info)
   //define offsets and weights - change this for both the X and Y passes if you change the sigma value or number of texels sampled
 
     float offsets[5] = float[](0.0, 1.0, 2.0, 3.0, 4.0);
-    fixed weights[5] = fixed[]( 0.13465834124289953661305802732548,  		//precalculated using the Gaussian function:
-				0.13051534237555914090930704141833,  		//  G(x) = (1 / sqrt(2 * pi * sigma^2)) * e^(-x^2 / (2 * sigma^2))
-				0.11883557904592230273554609080014,  		//where sigma = 4.0 and x = offset in range [0, 5]
-				0.10164546793794160274995705611009,  		//normalized to 1 to prevent image darkening by multiplying each weight by:
-				0.08167444001912718529866079800870 ); 		//  1 / sum(all weights)
+    fixed weights[5] = fixed[]( 0.13,  		//precalculated using the Gaussian function:
+				0.13,  		//  G(x) = (1 / sqrt(2 * pi * sigma^2)) * e^(-x^2 / (2 * sigma^2))
+				0.13 - (shadow_blur / 100),  		//where sigma = 4.0 and x = offset in range [0, 5]
+				0.13 - (3 * shadow_blur / 100),  		//normalized to 1 to prevent image darkening by multiplying each weight by:
+				0.13 - (5 * shadow_blur / 100) ); 		//  1 / sum(all weights)
 
 
   //sample the current fragment and apply its weight

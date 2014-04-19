@@ -1,5 +1,18 @@
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
+// DMG Shader v1.2                                                       //
+//                                                                       //
+// Author: Hi-Ban                                                        //
+//                                                                       //
+// This is a modification and mix of other shaders. Although some bits   //
+// of code have been modified to achieve a more realistic look, all the  //
+// original credits and licenses of the various codes have been left     //
+// intact in the shader files.                                           //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
 //                                                                       //
 // Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
@@ -24,7 +37,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define baseline_alpha 0.05	//analogous to the contrast slider on the original Gameboy, higher values darken the pixels - [-1, 1]  [DEFAULT: 0.05]
-#define response_time 0.333	//simulate response time, higher values result in longer color transition periods - [0, 1] [DEFAULT: 0.333]
+#define response_time 0.20	//simulate response time, higher values result in longer color transition periods - [0, 1] [DEFAULT: 0.20]
+#define grey_balance 2.6 //useful to fine-tune the balance between the different shades of grey - [2, 4] [DEFAULT: 2.6]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
@@ -84,7 +98,7 @@ struct matrix_data
 //vertex definitions                                                                                                                      //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define video_scale 		2 // floor(IN.output_size.y / IN.video_size.y)		//largest integer scale of input video that will fit in the current output (y axis would typically be limiting on widescreens)
+#define video_scale 		3 // floor(IN.output_size.y / IN.video_size.y)		//largest integer scale of input video that will fit in the current output (y axis would typically be limiting on widescreens)
 #define scaled_video_out	(IN.video_size * video_scale)				//size of the scaled video
 #define half_pixel		(0.25 / IN.output_size)					//it's... half a pixel
 
@@ -114,7 +128,7 @@ void main_vertex( float4 position      			: POSITION,
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define foreground_color tex2D(COLOR_PALETTE, fixed2(0.75, 0.5)).rgb					//hardcoded to look up the foreground color from the right half of the palette image
-#define rgb_to_alpha(rgb) ( ((rgb.r + rgb.g + rgb.b) / 3.0) + (is_on_dot * baseline_alpha) )		//averages rgb values (allows it to work with color games), modified for contrast and base alpha
+#define rgb_to_alpha(rgb) ( ((rgb.r + rgb.g + rgb.b) / grey_balance) + (is_on_dot * baseline_alpha) )		//averages rgb values (allows it to work with color games), modified for contrast and base alpha
 
 
 //frame sampling definitions
