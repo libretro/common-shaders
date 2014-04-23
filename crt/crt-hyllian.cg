@@ -31,7 +31,6 @@
 // Control the level of sharpness when SHARPER is enabled.
 #define SHARPNESS              2.0
 
-
 // Comment next line if you don't desire the phosphor effect.
 #define PHOSPHOR
 
@@ -42,7 +41,6 @@
 #define RED_BOOST              1.0
 #define GREEN_BOOST            1.0
 
-
 // Control scanlines transparency by changing this param below. Use always values between 0.0 and 1.0.
 #define SCANLINES_STRENGTH     0.7
 
@@ -51,7 +49,6 @@
 #define BEAM_MAX_WIDTH         0.7
 
 // You can saturate all colors using this parameter.
-
 #define COLOR_BOOST            1.5
 
 // This param change the threshold from where the beam gets thicker.
@@ -61,6 +58,7 @@
 // To turn OFF this effect, use 1.0 value.
 #define CRT_TV_BLUE_TINT       1.1
 
+
 // Constants used with gamma correction.
 #define InputGamma             2.4
 #define OutputGamma            2.2
@@ -69,11 +67,11 @@
 #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
 
+const static float4x4 invX = float4x4(    -0.5,  1.0,     -0.5, 0.0,
+                                           1.5, -2.5,      0.0, 1.0,
+                                          -1.5,  2.0,      0.5, 0.0,
+                                           0.5, -0.5,      0.0, 0.0);
 
-const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
-                                           0.5, -1.0,     -0.5, 1.0,
-                                          -0.5,  0.5,      1.0, 0.0,
-                                       1.0/6.0,  0.0, -1.0/6.0, 0.0);
 
 
 struct input
@@ -105,7 +103,6 @@ out_vertex main_vertex
 {
 #ifdef SHARPER
     float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
-
 #else
     float2 TextureSize = IN.texture_size;
 #endif
@@ -126,7 +123,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 {
 #ifdef SHARPER
     float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
-
 #else
     float2 TextureSize = IN.texture_size;
 #endif
@@ -148,16 +144,12 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
     float3 color   = mul(invX_Px, color_matrix);
 
-    float2 pos = abs(fp - float2(0.5));
+    float pos = abs(fp.y - 0.5);
 
-    c11 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c11);
-    c12 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), c12);
-    c11 = pow(c11,float3(BEAM_WIDTH_SENSITIVITY));
-    c12 = pow(c12,float3(BEAM_WIDTH_SENSITIVITY));
+    float3 lum = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color);
+    lum = pow(lum,float3(BEAM_WIDTH_SENSITIVITY));
 
-
-    float3 lum = lerp(c11,c12, 1.0-c11);
-    float3 d = clamp(pos.y/lum, 0.0, 1.0);
+    float3 d = clamp(pos/lum, 0.0, 1.0);
 
     d = smoothstep(0.0, 1.0, 1.0-d);
 
@@ -168,7 +160,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 #else
     color.b *= CRT_TV_BLUE_TINT;
 #endif
-
 
     color = clamp(color*d, 0.0, 1.0);
 
@@ -189,7 +180,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 #endif                   
 
     color *= COLOR_BOOST;
-
     color  = GAMMA_OUT(color);
 
     return float4(color, 1.0);
