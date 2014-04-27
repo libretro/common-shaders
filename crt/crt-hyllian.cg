@@ -25,6 +25,9 @@
 */
 
 
+// Uncomment to dilate bright pixels horizontally.
+#define DILATION
+
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
 
@@ -49,15 +52,14 @@
 #define BEAM_MAX_WIDTH         0.7
 
 // You can saturate all colors using this parameter.
-#define COLOR_BOOST            1.5
+#define COLOR_BOOST            1.2
 
 // This param change the threshold from where the beam gets thicker.
 #define BEAM_WIDTH_SENSITIVITY 0.5
 
 // Cool tint. Controls the blue level. CRT TVs from the 90's had a blue tint.
 // To turn OFF this effect, use 1.0 value.
-#define CRT_TV_BLUE_TINT       1.1
-
+#define CRT_TV_BLUE_TINT       1.05
 
 // Constants used with gamma correction.
 #define InputGamma             2.4
@@ -71,7 +73,6 @@ const static float4x4 invX = float4x4(    -0.5,  1.0,     -0.5, 0.0,
                                            1.5, -2.5,      0.0, 1.0,
                                           -1.5,  2.0,      0.5, 0.0,
                                            0.5, -0.5,      0.0, 0.0);
-
 
 
 struct input
@@ -96,7 +97,6 @@ out_vertex main_vertex
     out float4 oPosition : POSITION,
     float2 texCoord      : TEXCOORD0,
 
-
     uniform float4x4 modelViewProj,
     uniform input IN
 )
@@ -112,7 +112,6 @@ out_vertex main_vertex
 
     out_vertex OUT = {
         texCoord + ps*float2(-0.49, 0.0)
-
     };
 
     return OUT;
@@ -143,6 +142,21 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
     float3 color   = mul(invX_Px, color_matrix);
+
+#ifdef DILATION
+    float dz = IN.video_size.x/(IN.output_size.x);
+
+    float2 fpf = float2(fp.x + dz, fp.y);
+    float2 fpd = float2(fp.x - dz, fp.y);
+
+    invX_Px = mul(invX, float4(fpf.x*fpf.x*fpf.x, fpf.x*fpf.x, fpf.x, 1.0));
+    float3 colorf   = mul(invX_Px, color_matrix);
+
+    invX_Px = mul(invX, float4(fpd.x*fpd.x*fpd.x, fpd.x*fpd.x, fpd.x, 1.0));
+    float3 colord   = mul(invX_Px, color_matrix);
+
+    color = max(color, max(colorf, colord));
+#endif
 
     float pos = abs(fp.y - 0.5);
 
