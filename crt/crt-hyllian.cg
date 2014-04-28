@@ -28,6 +28,10 @@
 // Uncomment to dilate bright pixels horizontally.
 #define DILATION
 
+// Control the dilation intensity by changing this param below when DILATION is enabled. Use always values between 0.0 and 1.0.
+#define DILATION_STRENGTH      0.9
+
+
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
 
@@ -144,7 +148,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float3 color   = mul(invX_Px, color_matrix);
 
 #ifdef DILATION
-    float dz = IN.video_size.x/(IN.output_size.x);
+    float dz = DILATION_STRENGTH*IN.video_size.x/(IN.output_size.x);
+
 
     float2 fpf = float2(fp.x + dz, fp.y);
     float2 fpd = float2(fp.x - dz, fp.y);
