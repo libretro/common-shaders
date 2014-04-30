@@ -31,7 +31,6 @@
 // Control the dilation intensity by changing this param below when DILATION is enabled. Use always values between 0.0 and 1.0.
 #define DILATION_STRENGTH      0.9
 
-
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
 
@@ -73,10 +72,30 @@
 #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
 
-const static float4x4 invX = float4x4(    -0.5,  1.0,     -0.5, 0.0,
-                                           1.5, -2.5,      0.0, 1.0,
-                                          -1.5,  2.0,      0.5, 0.0,
-                                           0.5, -0.5,      0.0, 0.0);
+// Horizontal cubic filter.
+
+// Some known filters use these values:
+
+//    B = 0.0, C = 0.0  =>  Hermite cubic filter.
+//    B = 1.0, C = 0.0  =>  Cubic B-Spline filter.
+//    B = 0.0, C = 0.5  =>  Catmull-Rom Spline filter. This is the default used in this shader.
+//    B = C = 1.0/3.0   =>  Mitchell-Netravali cubic filter.
+//    B = 0.3782, C = 0.3109  =>  Robidoux filter.
+//    B = 0.2620, C = 0.3690  =>  Robidoux Sharp filter.
+//    B = 0.36, C = 0.28  =>  My best config for ringing elimination in pixel art (Hyllian).
+
+
+// For more info, see: http://www.imagemagick.org/Usage/img_diagrams/cubic_survey.gif
+
+// Change these params to configure the horizontal filter.
+const static float  B =  0.0; 
+const static float  C =  0.5;  
+
+const static float4x4 invX = float4x4(            (-B - 6.0*C)/6.0,         (3.0*B + 12.0*C)/6.0,     (-3.0*B - 6.0*C)/6.0,             B/6.0,
+                                        (12.0 - 9.0*B - 6.0*C)/6.0, (-18.0 + 12.0*B + 6.0*C)/6.0,                      0.0, (6.0 - 2.0*B)/6.0,
+                                       -(12.0 - 9.0*B - 6.0*C)/6.0, (18.0 - 15.0*B - 12.0*C)/6.0,      (3.0*B + 6.0*C)/6.0,             B/6.0,
+
+                                                   (B + 6.0*C)/6.0,                           -C,                      0.0,               0.0);
 
 
 struct input
@@ -105,17 +124,10 @@ out_vertex main_vertex
     uniform input IN
 )
 {
-#ifdef SHARPER
-    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
-#else
-    float2 TextureSize = IN.texture_size;
-#endif
-    float2 ps = 1.0/TextureSize;
-
     oPosition = mul(modelViewProj, position);
 
     out_vertex OUT = {
-        texCoord + ps*float2(-0.49, 0.0)
+        texCoord
     };
 
     return OUT;
@@ -132,10 +144,11 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     float2 dx = float2(1.0/TextureSize.x, 0.0);
     float2 dy = float2(0.0, 1.0/TextureSize.y);
+    float2 pix_coord = VAR.texCoord*TextureSize-float2(0.5,0.0);
 
-    float2 tc = (floor(VAR.texCoord*TextureSize)+float2(0.5,0.5))/TextureSize;
+    float2 tc = (floor(pix_coord)+float2(0.5,0.5))/TextureSize;
 
-    float2 fp = frac(VAR.texCoord*TextureSize);
+    float2 fp = frac(pix_coord);
 
     float3 c10 = tex2D(s_p, tc     - dx).xyz;
     float3 c11 = tex2D(s_p, tc         ).xyz;
@@ -149,7 +162,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
 #ifdef DILATION
     float dz = DILATION_STRENGTH*IN.video_size.x/(IN.output_size.x);
-
 
     float2 fpf = float2(fp.x + dz, fp.y);
     float2 fpd = float2(fp.x - dz, fp.y);
