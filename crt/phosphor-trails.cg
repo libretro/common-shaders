@@ -15,7 +15,6 @@ struct input
   float  frame_count;
   float  frame_direction;
   float frame_rotation;
-  sampler2D texture;
 };
 
 struct previous
@@ -80,11 +79,12 @@ uniform input IN,
       previous PREV3,
       previous PREV4,
       previous PREV5,
-      previous PREV6
+      previous PREV6,
+      uniform sampler2D s0 : TEXUNIT0
 )
 {
 // Sample our textures
-float3 curr = tex2D(IN.texture, texCoord).rgb;
+float3 curr = tex2D(s0, texCoord).rgb;
 float3 prev0 = tex2D(PREV.texture, texCoord).rgb;
 float3 prev1 = tex2D(PREV1.texture, texCoord).rgb;
 float3 prev2 = tex2D(PREV2.texture, texCoord).rgb;
