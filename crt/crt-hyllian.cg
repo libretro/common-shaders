@@ -24,6 +24,8 @@
 
 */
 
+// Uncomment to enable anti-ringing to horizontal filter.
+#define ANTI_RINGING
 
 // Uncomment to dilate bright pixels horizontally.
 #define DILATION
@@ -155,6 +157,12 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float3 c12 = tex2D(s_p, tc     + dx).xyz;
     float3 c13 = tex2D(s_p, tc + 2.0*dx).xyz;
 
+#ifdef ANTI_RINGING
+    //  Get min/max samples
+    float3 min_sample = min(c10, min(c11, c12));
+    float3 max_sample = max(c10, max(c11, c12));
+#endif
+
     float4x3 color_matrix = float4x3(c10, c11, c12, c13);
 
     float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
@@ -173,6 +181,11 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float3 colord   = mul(invX_Px, color_matrix);
 
     color = max(color, max(colorf, colord));
+#endif
+
+#ifdef ANTI_RINGING
+    // Anti-ringing
+    color = clamp(color, min_sample, max_sample);
 #endif
 
     float pos = abs(fp.y - 0.5);
