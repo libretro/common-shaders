@@ -159,8 +159,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
 #ifdef ANTI_RINGING
     //  Get min/max samples
-    float3 min_sample = min(c10, min(c11, c12));
-    float3 max_sample = max(c10, max(c11, c12));
+    float3 min_sample = min(c11, c12);
+    float3 max_sample = max(c11, c12);
 #endif
 
     float4x3 color_matrix = float4x3(c10, c11, c12, c13);
