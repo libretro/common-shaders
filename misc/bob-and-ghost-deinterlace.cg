@@ -4,12 +4,12 @@
 */
 
 /*
-   Interlacing
+   Bob-and-ghost Deinterlacing
    Author: hunterk
    License: Public domain
    
    Note: This shader is designed to work with the typical interlaced output from an emulator, which displays both even and odd fields twice.
-   This shader will un-weave the image, resulting in a standard, alternating-field interlacing.
+   As such, it is inappropriate for general video use unless the video has already been similarly woven beforehand.
 */
 
 struct input
@@ -43,9 +43,12 @@ void main_vertex
    oTexCoord = texCoord;
    }
 
+#define one_pixel float2(1.0 / IN.texture_size)
+   
 float4 main_fragment (in float2 texCoord : TEXCOORD, uniform input IN) : COLOR
 {
-float4 res = tex2D(IN.texture, texCoord);
+float4 res = float4(pow(tex2D(IN.texture, texCoord), 2.2));
+float4 color = pow((float4(tex2D(IN.texture, texCoord - float2(0.0, 0.5 * one_pixel.y))) + float4(tex2D(IN.texture, texCoord + float2(0.0, 0.5 * one_pixel.y)))) / 2.0, 2.2);
 float y = 0.0;
 
 // assume anything with a vertical resolution greater than 400 lines is interlaced
@@ -53,7 +56,8 @@ if (IN.video_size.y > 400.0) y = IN.texture_size.y * texCoord.y + IN.frame_count
 else
 y = 2.0 * IN.texture_size.y * texCoord.y;
 
-if (fmod(y, 2.0) > 0.99999) return res;
+if (fmod(y, 2.0) > 0.99999) res = pow(float4(tex2D(IN.texture, texCoord + float2(0.0, one_pixel.y))), 2.2);
 else
-return float4(0.0);
+res = res;
+return float4(pow((res + color) / 2.0, 1.0 / 2.2));
 }
