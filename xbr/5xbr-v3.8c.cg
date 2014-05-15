@@ -90,7 +90,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+	float2 texCoord1 : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
 	uniform input IN
@@ -114,7 +114,7 @@ out_vertex main_vertex
 	// This line fix a bug in ATI cards.
 	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
-	OUT.texCoord = texCoord;
+	OUT.texCoord1 = texCoord;
 	OUT.t1 = texCoord.xxxy + half4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
 	OUT.t2 = texCoord.xxxy + half4( -dx, 0, dx,    -dy); //  A  B  C
 	OUT.t3 = texCoord.xxxy + half4( -dx, 0, dx,      0); //  D  E  F
@@ -135,7 +135,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 fx, fx_left, fx_up, final_fx; // inequations of straight lines.
 	half3 res1, res2, pix1, pix2;
 
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = frac(VAR.texCoord1*IN.texture_size);
 
 	half3 A1 = tex2D(decal, VAR.t1.xw).rgb;
 	half3 B1 = tex2D(decal, VAR.t1.yw).rgb;

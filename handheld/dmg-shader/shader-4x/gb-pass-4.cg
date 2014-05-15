@@ -1,5 +1,18 @@
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
+// DMG Shader v1.2                                                       //
+//                                                                       //
+// Author: Hi-Ban                                                        //
+//                                                                       //
+// This is a modification and mix of other shaders. Although some bits   //
+// of code have been modified to achieve a more realistic look, all the  //
+// original credits and licenses of the various codes have been left     //
+// intact in the shader files.                                           //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
 //                                                                       //
 // Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
@@ -23,11 +36,13 @@
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define contrast 0.80   	//useful to fine-tune the colors. higher values make the "black" color closer to black - [0, 1] [DEFAULT: 0.80]
+#define contrast 0.70   	//useful to fine-tune the colors. higher values make the "black" color closer to black - [0, 1] [DEFAULT: 0.70]
+#define screen_light 0.85   //controls the ambient light of the screen. lower values darken the screen - [0, 2] [DEFAULT: 0.85]
+#define pixel_opacity 0.80	//controls the opacity of the dot-matrix pixels. lower values make pixels more transparent - [0, 1] [DEFAULT: 0.80]
 #define bg_smoothing 0.00	//higher values suppress changes in background color directly beneath the foreground to improve image clarity - [0, 1] [DEFAULT: 0.00]
-#define shadow_opacity 0.65	//how strongly shadows affect the background, higher values darken the shadows - [0, 1] [DEFAULT: 0.65]
-#define shadow_offset_x -1	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity] [DEFAULT: -1]
-#define shadow_offset_y 1	//how far the shadow should be shifted to down in pixels - [-infinity, infinity] [DEFAULT: 1]
+#define shadow_opacity 0.80	//how strongly shadows affect the background, higher values darken the shadows - [0, 1] [DEFAULT: 0.80]
+#define shadow_offset_x -1.5	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity] [DEFAULT: -1.5]
+#define shadow_offset_y 1.5	//how far the shadow should be shifted to down in pixels - [-infinity, infinity] [DEFAULT: 1.5]
 #define screen_offset_x 0	//screen offset - [-infinity, infinity] [DEFAULT: 0]
 #define screen_offset_y 0	//screen offset - [-infinity, infinity] [DEFAULT: 0]
 
@@ -115,9 +130,8 @@ float4 main_fragment( float2 texCoord        		: TEXCOORD0,
 
 
   //foreground is alpha blended with the shadowed background
-  //out_color = (foreground * foreground.a * contrast) + (out_color * (1 - foreground.a * contrast));
 
-    out_color = (foreground * foreground.a *(1 - foreground.a * contrast)) + (out_color * (1 - foreground.a * contrast));
+    out_color = (foreground * foreground.a *(1.0 - foreground.a * foreground.a * contrast)) + (out_color * (screen_light - foreground.a * contrast * pixel_opacity));
 
 
   //return fragment

@@ -12,12 +12,12 @@
 ///////////////////////////////////////////////////////////////////////////
 
 shaders = 6
-shader0 = shader-2x/gb-pass-0.cg
-shader1 = shader-2x/gb-pass-1.cg
-shader2 = shader-2x/gb-pass-2.cg
-shader3 = shader-2x/gb-pass-3.cg
-shader4 = shader-2x/gb-pass-4.cg
-shader5 = shader-2x/gb-pass-5.cg
+shader0 = shader-5x/gb-pass-0.cg
+shader1 = shader-5x/gb-pass-1.cg
+shader2 = shader-5x/gb-pass-2.cg
+shader3 = shader-5x/gb-pass-3.cg
+shader4 = shader-5x/gb-pass-4.cg
+shader5 = shader-5x/gb-pass-5.cg
 
 scale_type0 = viewport
 scale0 = 1
