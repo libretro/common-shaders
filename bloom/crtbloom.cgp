@@ -1,0 +1,25 @@
+shaders = 5
+
+shader0 = ../crt/crt-hyllian.cg
+filter_linear0 = false
+scale_type0 = viewport
+scale0 = 1.0
+
+shader1 = threshold.cg
+filter_linear1 = false
+srgb_framebuffer1 = true
+
+shader2 = blur_horiz.cg
+mipmap_input2 = true
+filter_linear2 = true
+scale_type2 = source
+scale2 = 0.25
+srgb_framebuffer2 = true
+
+shader3 = blur_vert.cg
+filter_linear3 = true
+srgb_framebuffer3 = true
+
+shader4 = resolve.cg
+filter_linear4 = true
+

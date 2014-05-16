@@ -1,8 +1,0 @@
-shaders = 2
-shader0 = linearize.cg
-filter_linear0 = false 
-srgb_framebuffer0 = true
-
-shader1 = bloom.cg
-filter_linear1 = true
-mipmap_input1 = true

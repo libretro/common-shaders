@@ -24,9 +24,18 @@ struct input
    float  frame_rotation;
 };
 
+#define THRESHOLD_STRENGTH 12.0
+#define MIDPOINT 0.65
+#define OVERDRIVE 2.0
+
+float3 colormap(float3 input)
+{
+   return 1.0 / (1.0 + exp(-THRESHOLD_STRENGTH * (input - MIDPOINT)));
+}
+
 float4 main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
-   float3 color = tex2D(s0, tex).rgb; // Linearize with 2.4 gamma.
-   return float4(pow(color, 2.4), 1.0);
+   float3 color = pow(tex2D(s0, tex).rgb, 2.2);
+   return float4(OVERDRIVE * colormap(color), 1.0);
 }
 
