@@ -36,14 +36,13 @@ float3 beam(float3 color, float dist)
    return color * exp(-0.5 * x * x) / width;
 }
 
-#define BOOST 0.40
-#define CRT_GAMMA 2.4
+#define BOOST 0.16
 
 #define HORIZ_GAUSS_WIDTH 0.5
 
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-#define TEX(off_x, off_y) pow(tex2D(s0, vertex.tex + float2(off_x, off_y) * vertex.one).rgb, float3(CRT_GAMMA))
+#define TEX(off_x, off_y) tex2D(s0, vertex.tex + float2(off_x, off_y) * vertex.one).rgb
 
    float base_phase = frac(vertex.pix_no.x - 0.5);
 
@@ -66,6 +65,6 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    scanline += beam(top_blurred, dist0);
    scanline += beam(bottom_blurred, dist1);
 
-   return float4(scanline, 1.0);
+   return float4(scanline / 1.25, 1.0);
 }
 

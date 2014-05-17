@@ -1,26 +1,30 @@
-shaders = 5
+shaders = 6
 
-shader0 = gauss.cg
+shader0 = linearize.cg
 filter_linear0 = false
-scale_type0 = viewport
-scale0 = 1.0
-float_framebuffer0 = true
+srgb_framebuffer0 = true
 
-shader1 = threshold.cg
+shader1 = gauss.cg
 filter_linear1 = false
-float_framebuffer1 = true
+scale_type1 = viewport
+scale1 = 1.0
+srgb_framebuffer1 = true
 
-shader2 = blur_horiz.cg
-mipmap_input2 = true
-filter_linear2 = true
-scale_type2 = source
-scale2 = 0.25
-float_framebuffer2 = true
+shader2 = threshold.cg
+filter_linear2 = false
+srgb_framebuffer2 = true
 
-shader3 = blur_vert.cg
+shader3 = blur_horiz.cg
+mipmap_input3 = true
 filter_linear3 = true
-float_framebuffer3 = true
+scale_type3 = source
+scale3 = 0.25
+srgb_framebuffer3 = true
 
-shader4 = resolve.cg
+shader4 = blur_vert.cg
 filter_linear4 = true
+srgb_framebuffer4 = true
+
+shader5 = resolve.cg
+filter_linear5 = true
 

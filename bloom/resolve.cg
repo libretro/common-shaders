@@ -18,7 +18,7 @@ struct VertexData
    float2 prev;
 };
 
-#define CRT_PASS PASS1
+#define CRT_PASS PASS2
 
 void main_vertex
 (
@@ -49,7 +49,7 @@ float4 main_fragment(in VertexData vert, uniform sampler2D s0 : TEXUNIT0, unifor
 #if BLOOM_ONLY
    float3 source = BLOOM_STRENGTH * tex2D(s0, vert.tex).rgb;
 #else
-   float3 source = tex2D(CRT_PASS.texture, vert.prev).rgb;
+   float3 source = 1.25 * tex2D(CRT_PASS.texture, vert.prev).rgb;
    float3 bloom = tex2D(s0, vert.tex).rgb;
    source += BLOOM_STRENGTH * bloom;
 #endif
