@@ -1,0 +1,71 @@
+struct data
+{
+   float2 tex;
+   float2 pix_no;
+   float2 one;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.tex -= 0.5 / IN.texture_size;
+   oData.pix_no = tex * IN.texture_size;
+   oData.one = 1.0 / IN.texture_size;
+}
+
+float3 beam(float3 color, float dist)
+{
+   float3 width = 0.2 + 0.08 * pow(saturate(color), 3.0);
+   float3 x = dist / width;
+   return color * exp(-0.5 * x * x) / width;
+}
+
+#define BOOST 0.40
+#define CRT_GAMMA 2.4
+
+#define HORIZ_GAUSS_WIDTH 0.5
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+#define TEX(off_x, off_y) pow(tex2D(s0, vertex.tex + float2(off_x, off_y) * vertex.one).rgb, float3(CRT_GAMMA))
+
+   float base_phase = frac(vertex.pix_no.x - 0.5);
+
+   float3 top_blurred = float3(0.0);
+   float3 bottom_blurred = float3(0.0);
+   for (int i = -2; i <= 2; i++)
+   {
+      float phase = base_phase - float(i);
+      float g = BOOST * exp(-0.5 * phase * phase / (HORIZ_GAUSS_WIDTH * HORIZ_GAUSS_WIDTH)) / HORIZ_GAUSS_WIDTH;
+      top_blurred += TEX(i, 0) * g;
+      bottom_blurred += TEX(i, 1) * g;
+   }
+
+   float offset_dist = frac(vertex.pix_no.y - 0.5);
+   float dist0 = offset_dist;
+   float dist1 = dist0 - 1.0;
+
+   float3 scanline = float3(0.0);
+
+   scanline += beam(top_blurred, dist0);
+   scanline += beam(bottom_blurred, dist1);
+
+   return float4(scanline, 1.0);
+}
+
