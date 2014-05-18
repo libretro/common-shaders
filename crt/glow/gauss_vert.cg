@@ -31,7 +31,6 @@ void main_vertex
 
 float3 beam(float3 color, float dist)
 {
-   //float3 width = 0.15 + 0.08 * pow(saturate(color), 3.0);
    const float width = 0.25;
    float3 x = dist / width;
    return color * exp(-0.5 * x * x) / width;

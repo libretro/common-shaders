@@ -29,13 +29,6 @@ void main_vertex
    oData.one = 1.0 / IN.texture_size.x;
 }
 
-float3 beam(float3 color, float dist)
-{
-   float3 width = 0.2 + 0.08 * pow(saturate(color), 3.0);
-   float3 x = dist / width;
-   return color * exp(-0.5 * x * x) / width;
-}
-
 #define BOOST 0.25
 
 #define HORIZ_GAUSS_WIDTH 0.5
