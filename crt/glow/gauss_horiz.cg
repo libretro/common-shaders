@@ -1,0 +1,59 @@
+struct data
+{
+   float2 tex;
+   float pix_no;
+   float one;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   uniform input IN,
+   out data oData
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oData.tex = tex;
+   oData.tex.x -= 0.5 / IN.texture_size.x;
+   oData.pix_no = tex.x * IN.texture_size.x;
+   oData.one = 1.0 / IN.texture_size.x;
+}
+
+float3 beam(float3 color, float dist)
+{
+   float3 width = 0.2 + 0.08 * pow(saturate(color), 3.0);
+   float3 x = dist / width;
+   return color * exp(-0.5 * x * x) / width;
+}
+
+#define BOOST 0.25
+
+#define HORIZ_GAUSS_WIDTH 0.5
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+#define TEX(off_x) tex2D(s0, vertex.tex + float2(float(off_x) * vertex.one, 0.0)).rgb
+
+   float base_phase = frac(vertex.pix_no - 0.5);
+
+   float3 col = float3(0.0);
+   for (int i = -2; i <= 2; i++)
+   {
+      float phase = base_phase - float(i);
+      float g = BOOST * exp(-0.5 * phase * phase / (HORIZ_GAUSS_WIDTH * HORIZ_GAUSS_WIDTH)) / HORIZ_GAUSS_WIDTH;
+      col += TEX(i) * g;
+   }
+
+   return float4(col, 1.0);
+}
+
