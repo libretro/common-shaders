@@ -33,16 +33,13 @@ void main_vertex
 
 float sinc(float x)
 {
-   float d = abs(x);
-   if (d < 0.001)
+   if (abs(x) < 0.001)
       return 1.0;
-   else if (d < 2.0)
+   else
    {
       x *= PI;
       return sin(x) / x;
    }
-   else
-      return 0.0;
 }
 
 #define BOOST 0.7
@@ -57,8 +54,11 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    for (int i = -2; i <= 2; i++)
    {
       float phase = base_phase - float(i);
-      float g = BOOST * sinc(phase) * sinc(0.5 * phase);
-      col += TEX(i) * g;
+      if (abs(phase) < 2.0)
+      {
+         float g = BOOST * sinc(phase) * sinc(0.5 * phase);
+         col += TEX(i) * g;
+      }
    }
 
    return float4(col, 1.0);
