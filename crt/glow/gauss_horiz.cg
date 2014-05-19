@@ -29,7 +29,10 @@ void main_vertex
    oData.one = 1.0 / IN.texture_size.x;
 }
 
-#define BOOST 0.25
+// It's better to tweak BOOST in gauss_vert.cg. If this goes beyond 1.0, you're likely to oversaturate too early.
+#define BOOST 1.0
+
+#define INV_SQRT_2_PI 0.38 // Doesn't have to be accurate.
 
 #define HORIZ_GAUSS_WIDTH 0.5
 
@@ -43,10 +46,10 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    for (int i = -2; i <= 2; i++)
    {
       float phase = base_phase - float(i);
-      float g = BOOST * exp(-0.5 * phase * phase / (HORIZ_GAUSS_WIDTH * HORIZ_GAUSS_WIDTH)) / HORIZ_GAUSS_WIDTH;
+      float g = INV_SQRT_2_PI * exp(-0.5 * phase * phase / (HORIZ_GAUSS_WIDTH * HORIZ_GAUSS_WIDTH)) / HORIZ_GAUSS_WIDTH;
       col += TEX(i) * g;
    }
 
-   return float4(col, 1.0);
+   return float4(BOOST * col, 1.0);
 }
 
