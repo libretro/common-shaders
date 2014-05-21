@@ -24,7 +24,6 @@ void main_vertex
 {
    oPosition = mul(modelViewProj, position);
    oData.tex = tex;
-   oData.tex.x -= 0.5 / IN.texture_size.x;
    oData.pix_no = tex.x * IN.texture_size.x;
    oData.one = 1.0 / IN.texture_size.x;
 }
@@ -46,9 +45,12 @@ float sinc(float x)
 
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-#define TEX(off_x) tex2D(s0, vertex.tex + float2(float(off_x) * vertex.one, 0.0)).rgb
+#define TEX(off_x) tex2D(s0, tex + float2(float(off_x) * vertex.one, 0.0)).rgb
 
-   float base_phase = frac(vertex.pix_no - 0.5);
+   float texel = floor(vertex.pix_no);
+   float phase = vertex.pix_no - texel;
+   float base_phase = phase.x - 0.5;
+   float2 tex = float2((texel + 0.5) / IN.texture_size.x, vertex.tex.y);
 
    float3 col = float3(0.0);
    for (int i = -2; i <= 2; i++)

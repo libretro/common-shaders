@@ -1,7 +1,6 @@
 struct data
 {
-   float2 tex;
-   float pix_no;
+   float2 pix_no;
    float one;
 };
 
@@ -23,9 +22,7 @@ void main_vertex
 )
 {
    oPosition = mul(modelViewProj, position);
-   oData.tex = tex;
-   oData.tex.y -= 0.5 / IN.texture_size.y;
-   oData.pix_no = tex.y * IN.texture_size.y;
+   oData.pix_no = tex * IN.texture_size - float2(0.0, 0.5);
    oData.one = 1.0 / IN.texture_size.y;
 }
 
@@ -48,14 +45,17 @@ float3 beam(float3 color, float dist)
 
 float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-#define TEX(off_y) tex2D(s0, vertex.tex + float2(0.0, off_y * vertex.one)).rgb
+#define TEX(off_y) tex2D(s0, tex + float2(0.0, off_y * vertex.one)).rgb
+
+   float2 texel = floor(vertex.pix_no);
+   float phase = vertex.pix_no.y - texel.y;
+   float2 tex = float2(texel + 0.5) / IN.texture_size;
 
    float3 top = TEX(0);
    float3 bottom = TEX(1);
 
-   float offset_dist = frac(vertex.pix_no - 0.5);
-   float dist0 = offset_dist;
-   float dist1 = dist0 - 1.0;
+   float dist0 = phase;
+   float dist1 = 1.0 - phase;
 
    float3 scanline = float3(0.0);
 
