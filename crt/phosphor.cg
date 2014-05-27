@@ -9,6 +9,26 @@
  * Licesese: Public Domain
  */
 
+#pragma parameter INPUT_GAMMA "Input Gamma" 2.4 0.0 10.0 0.01
+#pragma parameter OUTPUT_GAMMA "Output Gamma" 2.2 0.0 10.0 0.01
+// Used to counteract the desaturation effect of weighting.
+#pragma parameter COLOR_BOOST "Color Boost" 1.45 0.0 10.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float INPUT_GAMMA;
+uniform float OUTPUT_GAMMA;
+uniform float COLOR_BOOST;
+#else
+// Constants used with gamma correction.
+#define INPUT_GAMMA 2.4
+#define OUTPUT_GAMMA 2.2
+#define COLOR_BOOST 1.45
+#endif
+
+#define GAMMA_IN(color)     pow(color, float3(INPUT_GAMMA, INPUT_GAMMA, INPUT_GAMMA))
+#define GAMMA_OUT(color)    pow(color, float3(1.0 / OUTPUT_GAMMA, 1.0 / OUTPUT_GAMMA, 1.0 / OUTPUT_GAMMA))
+
+#define TEX2D(coords)	GAMMA_IN( tex2D(samp, coords).rgb )
 
 struct coords
 {
@@ -64,9 +84,9 @@ float4 main_fragment(in coords co : TEXCOORD1, uniform sampler2D samp : TEXUNIT0
    float y = fmod(co.tex_index.y, 1.0);
    float intensity = exp(-0.2 * y);
 
-   float3 color = tex2D(samp, co.coord).rgb;
-   float3 color_prev = tex2D(samp, co.coord_prev).rgb;
-   float3 color_prev_prev = tex2D(samp, co.coord_prev_prev).rgb;
+   float3 color = TEX2D(co.coord);
+   float3 color_prev = TEX2D(co.coord_prev);
+   float3 color_prev_prev = TEX2D(co.coord_prev_prev);
 
    float pixel_x = 3.0 * co.tex_index.x;
 
@@ -81,6 +101,7 @@ float4 main_fragment(in coords co : TEXCOORD1, uniform sampler2D samp : TEXUNIT0
 
    result = 2.3 * pow(result, float3(1.4, 1.4, 1.4));
 
-   return float4(intensity * result, 1.0);
-}
+   result *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
+   return float4(clamp( GAMMA_OUT(intensity * result), 0.0, 1.0 ), 1.0);
+}
