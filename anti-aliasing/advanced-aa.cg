@@ -56,6 +56,18 @@ struct VERTEX_OUTPUT
   float4 t4 : TEXCOORD4;
 };
 
+#pragma parameter AA_RESOLUTION_X "AdvancedAA Input Resolution X" 0.0 0.0 1920.0 1.0
+#pragma parameter AA_RESOLUTION_Y "AdvancedAA Input Resolution Y" 0.0 0.0 1920.0 1.0
+
+#define AA_RESOLUTION_X_DEF IN.texture_size.x
+#define AA_RESOLUTION_Y_DEF IN.texture_size.y
+#ifdef PARAMETER_UNIFORM
+uniform float AA_RESOLUTION_X;
+uniform float AA_RESOLUTION_Y;
+#else
+#define AA_RESOLUTION_X AA_RESOLUTION_X_DEF
+#define AA_RESOLUTION_Y AA_RESOLUTION_Y_DEF
+#endif
 
 VERTEX_OUTPUT main_vertex
 (
@@ -72,7 +84,7 @@ VERTEX_OUTPUT main_vertex
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = float2(1.0/((AA_RESOLUTION_X == 0) ? AA_RESOLUTION_X_DEF : AA_RESOLUTION_X), 1.0/((AA_RESOLUTION_Y == 0) ? AA_RESOLUTION_Y_DEF : AA_RESOLUTION_Y));
 	float dx = ps.x*0.5;
 	float dy = ps.y*0.5;
 
