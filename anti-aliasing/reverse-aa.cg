@@ -43,7 +43,13 @@
  *
  */
 
-const static float sharpness = 2.0;
+#pragma parameter REVERSEAA_SHARPNESS "ReverseAA Sharpness" 2.0 0.0 10.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float REVERSEAA_SHARPNESS;
+#else
+#define REVERSEAA_SHARPNESS 2.0
+#endif
 
 struct input
 {
@@ -78,7 +84,7 @@ float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
     float4x3  df = pos - pre;
 
     m = (px < 0.5) ? px : (1.0-px);
-    m = sharpness*min(m, min(abs(df[1]), abs(df[2])));
+    m = REVERSEAA_SHARPNESS * min(m, min(abs(df[1]), abs(df[2])));
     t = (7 * (df[1] + df[2]) - 3 * (df[0] + df[3])) / 16;
     t = clamp(t, -m, m);
    
