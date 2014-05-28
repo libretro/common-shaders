@@ -17,9 +17,19 @@ void main_vertex
 	otexCoord = texCoord;
 }
 
-float Luminance = 0.08f;
-static const float fMiddleGray = 0.18f;
-static const float fWhiteCutoff = 0.8f;
+#pragma parameter BLOOM_LUMINANCE "Bloom Luminance" 0.08 0.00 10.00 0.01
+#pragma parameter BLOOM_MIDDLE_GRAY "Bloom Middle Gray" 0.18 0.00 10.00 0.01
+#pragma parameter BLOOM_WHITE_CUTOFF "Bloom White Cutoff" 0.8 0.00 10.00 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float BLOOM_LUMINANCE;
+uniform float BLOOM_MIDDLE_GRAY;
+uniform float BLOOM_WHITE_CUTOFF;
+#else
+#define BLOOM_LUMINANCE 0.08
+#define BLOOM_MIDDLE_GRAY 0.18
+#define BLOOM_WHITE_CUTOFF 0.8
+#endif
 
 #define NUM 13
 
@@ -76,8 +86,8 @@ output main_fragment( float2 Tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0 )
    {
       pixel = tex2D(s0, Tex + PixelOffsets[i] * 5.0f)+BloomSettings.y;
 
-      pixel *= fMiddleGray / (Luminance + 0.001f);
-      pixel *= (1.0f + (pixel / (fWhiteCutoff * fWhiteCutoff)));
+      pixel *= BLOOM_MIDDLE_GRAY / (BLOOM_LUMINANCE + 0.001f);
+      pixel *= (1.0f + (pixel / (BLOOM_WHITE_CUTOFF * BLOOM_WHITE_CUTOFF)));
       pixel -= 5.0f;
 
       pixel = max(pixel,0.0f);
