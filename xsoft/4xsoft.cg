@@ -30,9 +30,9 @@
 
 */
 
-#pragma parameter RESOLUTION_X "Input Resolution X" 0.0 0.0 1920.0 1.0
-#pragma parameter RESOLUTION_Y "Input Resolution Y" 0.0 0.0 1920.0 1.0
-#pragma parameter CONTRAST     "Contrast"           3.0 0.0 10.0 0.1
+#pragma parameter RESOLUTION_X "4xSoft Input Resolution X" 0.0 0.0 1920.0 1.0
+#pragma parameter RESOLUTION_Y "4xSoft Input Resolution Y" 0.0 0.0 1920.0 1.0
+#pragma parameter CONTRAST     "4xSoft Contrast"           3.0 0.0 10.0 0.1
 
 #define RESOLUTION_X_DEF IN.texture_size.x
 #define RESOLUTION_Y_DEF IN.texture_size.y

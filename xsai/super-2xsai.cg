@@ -23,9 +23,6 @@ void main_vertex
 /* 
 	FRAGMENT SHADER
 */
-string name : NAME = "SuperEagle";
-string combineTechique : COMBINETECHNIQUE =  "SuperEagle";
-
 const float3 dtt = float3(65536,255,1);
 
 struct output 
