@@ -2,8 +2,8 @@
 #pragma parameter monitor_gamma "Monitor Gamma" 2.2 0.1 5.0 0.1
 #pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 0.0 25.0 1.0
 #pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 0.0 25.0 1.0
-#pragma parameter saturation "Saturation" 1.0 0.0 2.0 0.1
-#pragma parameter contrast "Contrast" 1.0 0.0 2.0 0.1
+#pragma parameter saturation "Saturation" 1.0 0.0 5.0 0.1
+#pragma parameter contrast "Contrast" 1.0 0.0 7.5 0.1
 #pragma parameter luminance "Luminance" 1.0 0.0 2.0 0.1
 #pragma parameter bright_boost "Brightness Boost" 0.0 -1.0 1.0 0.1
 #pragma parameter R "Red Channel" 1.0 0.0 2.0 0.05
@@ -93,7 +93,8 @@ float4 main_fragment(float2 texCoord : TEXCOORD, uniform input IN) : COLOR
     float3 satColor = lerp(intensity, res, saturation); // apply saturation
     float3 conColor = lerp(AvgLumin, satColor, contrast);   // apply contrast
     conColor = pow(conColor, 1.0 / float3(gamma)); // Apply gamma correction
-    conColor = saturate(conColor * luminance) + float3(bright_boost); // apply luminance and bright-boost
+    conColor = saturate(conColor * luminance); // apply luminance
+	conColor += float3(bright_boost); // apply brightboost
 	conColor *= float3(R, G, B);
     return float4(conColor, 1.0);
 }

@@ -1,5 +1,5 @@
 #pragma parameter baseline_alpha "Baseline Alpha" 0.10 0.0 1.0 0.01
-#pragma parameter response_time "LCD Response Time" 0.333 0.0 1.0 0.111
+#pragma parameter response_time "LCD Response Time" 0.333 0.0 0.777 0.111
 #ifdef PARAMETER_UNIFORM
 uniform float baseline_alpha;
 uniform float response_time;
