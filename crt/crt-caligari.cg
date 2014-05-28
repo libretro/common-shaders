@@ -65,92 +65,92 @@ void main_vertex
    coords.oney = float2(0.0, 1.0 / IN.texture_size.y);
 }
 
-        // 0.5 = the spot stays inside the original pixel
-        // 1.0 = the spot bleeds up to the center of next pixel
-        #define SPOT_WIDTH  0.9
-	#define SPOT_HEIGHT 0.65
+// 0.5 = the spot stays inside the original pixel
+// 1.0 = the spot bleeds up to the center of next pixel
+#define SPOT_WIDTH  0.9
+#define SPOT_HEIGHT 0.65
 
-        // Used to counteract the desaturation effect of weighting.
-        #define COLOR_BOOST 1.45
+// Used to counteract the desaturation effect of weighting.
+#define COLOR_BOOST 1.45
 
-        // Constants used with gamma correction.
-        #define InputGamma 2.4
-        #define OutputGamma 2.2
+// Constants used with gamma correction.
+#define InputGamma 2.4
+#define OutputGamma 2.2
 
-        #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+#define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
-	#define TEX2D(coords)	GAMMA_IN( tex2D(s_p, coords) )
+#define TEX2D(coords)	GAMMA_IN( tex2D(s_p, coords) )
 
-        // Macro for weights computing
-        #define WEIGHT(w) \
-       		if(w>1.0) w=1.0; \
-       		w = 1.0 - w * w; \
-       		w = w * w;
+// Macro for weights computing
+#define WEIGHT(w) \
+   if(w>1.0) w=1.0; \
+w = 1.0 - w * w; \
+w = w * w;
 
 
 float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
 {
-            float2 coords = ( co.texCoord * IN.texture_size );
-            float2 pixel_center = floor( coords ) + float2(0.5, 0.5);
-            float2 texture_coords = pixel_center / IN.texture_size;
+   float2 coords = ( co.texCoord * IN.texture_size );
+   float2 pixel_center = floor( coords ) + float2(0.5, 0.5);
+   float2 texture_coords = pixel_center / IN.texture_size;
 
-            float4 color = TEX2D( texture_coords );
+   float4 color = TEX2D( texture_coords );
 
-            float dx = coords.x - pixel_center.x;
+   float dx = coords.x - pixel_center.x;
 
-            float h_weight_00 = dx / SPOT_WIDTH;
-            WEIGHT(h_weight_00);
+   float h_weight_00 = dx / SPOT_WIDTH;
+   WEIGHT(h_weight_00);
 
-            color *= float4( h_weight_00, h_weight_00, h_weight_00, h_weight_00  );
+   color *= float4( h_weight_00, h_weight_00, h_weight_00, h_weight_00  );
 
-            // get closest horizontal neighbour to blend
-			float2 coords01;
-            if (dx>0.0) {
-            	coords01 = co.onex;
-                dx = 1.0 - dx;
-            } else {
-                coords01 = -co.onex;
-                dx = 1.0 + dx;
-            }
-            float4 colorNB = TEX2D( texture_coords + coords01 );
+   // get closest horizontal neighbour to blend
+   float2 coords01;
+   if (dx>0.0) {
+      coords01 = co.onex;
+      dx = 1.0 - dx;
+   } else {
+      coords01 = -co.onex;
+      dx = 1.0 + dx;
+   }
+   float4 colorNB = TEX2D( texture_coords + coords01 );
 
-            float h_weight_01 = dx / SPOT_WIDTH;
-            WEIGHT( h_weight_01 );
+   float h_weight_01 = dx / SPOT_WIDTH;
+   WEIGHT( h_weight_01 );
 
-            color = color + colorNB * float4( h_weight_01, h_weight_01, h_weight_01, h_weight_01 );
+   color = color + colorNB * float4( h_weight_01, h_weight_01, h_weight_01, h_weight_01 );
 
-			//////////////////////////////////////////////////////
-			// Vertical Blending
-            float dy = coords.y - pixel_center.y;
-            float v_weight_00 = dy / SPOT_HEIGHT;
-            WEIGHT(v_weight_00);
-            color *= float4( v_weight_00, v_weight_00, v_weight_00, v_weight_00 );
+   //////////////////////////////////////////////////////
+   // Vertical Blending
+   float dy = coords.y - pixel_center.y;
+   float v_weight_00 = dy / SPOT_HEIGHT;
+   WEIGHT(v_weight_00);
+   color *= float4( v_weight_00, v_weight_00, v_weight_00, v_weight_00 );
 
-	    // get closest vertical neighbour to blend
-	    float2 coords10;
-            if (dy>0.0) {
-            	coords10 = co.oney;
-                dy = 1.0 - dy;
-            } else {
-                coords10 = -co.oney;
-                dy = 1.0 + dy;
-            }
-            colorNB = TEX2D( texture_coords + coords10 );
+   // get closest vertical neighbour to blend
+   float2 coords10;
+   if (dy>0.0) {
+      coords10 = co.oney;
+      dy = 1.0 - dy;
+   } else {
+      coords10 = -co.oney;
+      dy = 1.0 + dy;
+   }
+   colorNB = TEX2D( texture_coords + coords10 );
 
-            float v_weight_10 = dy / SPOT_HEIGHT;
-            WEIGHT( v_weight_10 );
+   float v_weight_10 = dy / SPOT_HEIGHT;
+   WEIGHT( v_weight_10 );
 
-            color = color + colorNB * float4( v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00 );
+   color = color + colorNB * float4( v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00 );
 
-            colorNB = TEX2D(  texture_coords + coords01 + coords10 );
+   colorNB = TEX2D(  texture_coords + coords01 + coords10 );
 
-            color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
+   color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
 
-	    color *= float4( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
+   color *= float4( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 
-	    return clamp( GAMMA_OUT(color), 0.0, 1.0 );
+   return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
 
 

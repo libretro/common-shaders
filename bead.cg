@@ -7,6 +7,18 @@
    Author: Themaister
    License: Public domain
 */
+
+#pragma parameter BEAD_HIGH "Bead High" 0.35 0.0 1.0 0.01
+#pragma parameter BEAD_LOW  "Bead Low"  0.2  0.0 1.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float BEAD_HIGH;
+uniform float BEAD_LOW;
+#else
+#define BEAD_HIGH 0.35
+#define BEAD_LOW  0.2
+#endif
+
 struct tex_coord
 {
    float2 c11;
@@ -56,19 +68,17 @@ float rolloff(float len)
    return exp(-6.0 * len);
 }
 
-const float high = 0.35;
-const float low = 0.2;
 
 float3 lookup(float2 pixel_no, float3 color)
 {
    float delta = dist(frac(pixel_no), float2(0.5, 0.5));
 
-   if (delta > low && delta < high)
+   if (delta > BEAD_LOW && delta < BEAD_HIGH)
       return color;
-   else if (delta >= high)
-      return color * rolloff(delta - high);
-   else if (delta <= low)
-      return color * rolloff(low - delta);
+   else if (delta >= BEAD_HIGH)
+      return color * rolloff(delta - BEAD_HIGH);
+   else if (delta <= BEAD_LOW)
+      return color * rolloff(BEAD_LOW - delta);
    else
       return float3(0.0, 0.0, 0.0);
 }
