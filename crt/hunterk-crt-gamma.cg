@@ -1,0 +1,65 @@
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg   compilers
+ */
+
+#pragma parameter HUNTERK_CRTGAMMA_MONITOR_GAMMA         "Hunterk CRTGamma Monitor Gamma"         2.2 0.1 10.0 0.1
+#pragma parameter HUNTERK_CRTGAMMA_CRT_GAMMA             "Hunterk CRTGamma CRT Gamma"             2.4 0.1 10.0 0.1
+
+#ifdef PARAMETER_UNIFORM
+uniform float HUNTERK_CRTGAMMA_MONITOR_GAMMA;
+uniform float HUNTERK_CRTGAMMA_CRT_GAMMA;
+#else
+#define HUNTERK_CRTGAMMA_MONITOR_GAMMA 2.2
+#define HUNTERK_CRTGAMMA_CRT_GAMMA 2.4
+#endif
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+ float4 position    : POSITION,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float2 otexCoord : TEXCOORD
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   otexCoord = texCoord;
+}
+
+struct input    
+{
+   float2 video_size;
+   float2 texCoord_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
+   float2 texture_size;
+   sampler2D texture : TEXUNIT0;
+};
+
+struct output
+{
+   float4 col    : COLOR;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment(in float2 texCoord : TEXCOORD0,
+      uniform input IN,
+      uniform sampler2D texture : TEXUNIT0
+      )
+{
+   float3 gamma = float3(HUNTERK_CRTGAMMA_CRT_GAMMA / HUNTERK_CRTGAMMA_MONITOR_GAMMA);
+   float3 res = tex2D(IN.texture, texCoord).rgb;
+
+   output OUT;
+   OUT.col = float4(pow(res, gamma), 1.0);
+   return OUT;
+}
+
