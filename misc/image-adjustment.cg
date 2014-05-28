@@ -1,7 +1,7 @@
 #pragma parameter target_gamma "Target Gamma" 2.4 0.1 5.0 0.1
 #pragma parameter monitor_gamma "Monitor Gamma" 2.2 0.1 5.0 0.1
-#pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 0.0 25.0 1.0
-#pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 0.0 25.0 1.0
+#pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 -25.0 25.0 1.0
+#pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 -25.0 25.0 1.0
 #pragma parameter saturation "Saturation" 1.0 0.0 5.0 0.1
 #pragma parameter contrast "Contrast" 1.0 0.0 7.5 0.1
 #pragma parameter luminance "Luminance" 1.0 0.0 2.0 0.1
