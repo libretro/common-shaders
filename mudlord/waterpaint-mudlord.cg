@@ -1,3 +1,14 @@
+#pragma parameter WATERPAINT_EDGE_COLOR_AMOUNT "Waterpaint Edge Color Amount"           2.0 0.0 10.0 0.1
+#pragma parameter WATERPAINT_DETAIL            "Waterpaint Detail"                      1.0 0.0 10.0 0.1
+
+#ifdef PARAMETER_UNIFORM
+uniform float WATERPAINT_EDGE_COLOR_AMOUNT;
+uniform float WATERPAINT_DETAIL;
+#else
+#define WATERPAINT_EDGE_COLOR_AMOUNT 2.0
+#define WATERPAINT_DETAIL 1.0
+#endif
+
 /* Default Vertex shader */
 void main_vertex
 (
@@ -81,9 +92,6 @@ float edge_detect_sobel(sampler tex, float2 tc, float2 off)
 
 output main_fragment( in float2 Tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0,uniform input IN )
 {
-   float edgeColorAmount = 2; 
-   float Detail = 1;
-
    float4 outcolor = {1.0f, 0.0f, 0.0f, 1.0f};
    float2 texelSize = 1.0 / IN.texture_size;
    float2 offset = { texelSize.x, texelSize.y };
@@ -97,7 +105,7 @@ output main_fragment( in float2 Tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0
         sum += tex2D(s0, Tex.xy + (i-6) * offset.xy) * BlurWeights[i];
     }
     float4 pixelColor = tex2D(s0, Tex);
-    outcolor = ( gradient*Detail*(1-edgeColorAmount) + gradient*Detail*pixelColor*edgeColorAmount + sum);
+    outcolor = ( gradient * WATERPAINT_DETAIL * (1-WATERPAINT_EDGE_COLOR_AMOUNT) + gradient * WATERPAINT_DETAIL * pixelColor * WATERPAINT_EDGE_COLOR_AMOUNT + sum);
 
 
    output OUT;
