@@ -24,7 +24,13 @@
    The final numbers of colors can be set to produce a final reduced color look while still emulating an "advanced" gfx. chipset.
 */
 
-const float colors = 256.0; // number of colors the display can show
+#pragma parameter MCGREEN_COLOR "McGreen Color" 256.0 0.0 256.0 1.0
+
+#ifdef PARAMETER_UNIFORM
+uniform float MCGREEN_COLOR;
+#else
+#define MCGREEN_COLOR 256.0
+#endif
 
 /* Default Vertex shader */
 void main_vertex
@@ -64,7 +70,7 @@ output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2
 {
 	half3 ink = half3(0.32, 0.50, 0.0);  
 	half3 c11 = tex2D(s_p, tex).xyz;
-	half lct = floor(colors*length(c11))/colors;
+	half lct = floor(MCGREEN_COLOR * length(c11)) / MCGREEN_COLOR;
 
 	output OUT;
 	OUT.color = half4(lct*ink,1);
