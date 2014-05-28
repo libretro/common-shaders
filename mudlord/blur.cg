@@ -3,7 +3,13 @@
    - Cg   compilers
 */
 
-static const float BlurFactor = 0.0025; //set between 0.001 and 0.05 
+#pragma parameter BLUR_FACTOR "Blur Factor"           0.025 0.001 0.050 0.001
+
+#ifdef PARAMETER_UNIFORM
+uniform float BLUR_FACTOR;
+#else
+#define BLUR_FACTOR 0.0025
+#endif
 
 const float2 samples[12]
 =	{
@@ -55,12 +61,12 @@ out_vertex main_vertex
 	out_vertex OUT = {
 		mul(modelViewProj, position),
 		float4(tex,0.0,0.0),
-		float4(tex,tex) + float4(BlurFactor * samples[ 0], BlurFactor * samples[ 1]),
-		float4(tex,tex) + float4(BlurFactor * samples[ 2], BlurFactor * samples[ 3]),
-		float4(tex,tex) + float4(BlurFactor * samples[ 4], BlurFactor * samples[ 5]),
-		float4(tex,tex) + float4(BlurFactor * samples[ 6], BlurFactor * samples[ 7]),
-		float4(tex,tex) + float4(BlurFactor * samples[ 8], BlurFactor * samples[ 9]),
-		float4(tex,tex) + float4(BlurFactor * samples[10], BlurFactor * samples[11]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[ 0], BLUR_FACTOR * samples[ 1]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[ 2], BLUR_FACTOR * samples[ 3]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[ 4], BLUR_FACTOR * samples[ 5]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[ 6], BLUR_FACTOR * samples[ 7]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[ 8], BLUR_FACTOR * samples[ 9]),
+		float4(tex,tex) + float4(BLUR_FACTOR * samples[10], BLUR_FACTOR * samples[11]),
 	};
 
 	return OUT;
