@@ -1,3 +1,16 @@
+#pragma parameter blending_mode "Blending Mode" 0.0 0.0 1.0 1.0
+#pragma parameter adjacent_texel_alpha_blending "Neighbor Blending" 0.1755 0.0 1.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float blending_mode;
+uniform float adjacent_texel_alpha_blending;
+#else
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define blending_mode 0							//0 - only the space between dots is blending, 1 - all texels are blended
+#define adjacent_texel_alpha_blending 0.1755	//the amount of alpha swapped between neighboring texels
+#endif
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
@@ -18,13 +31,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>. //
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//config                                                                                                                                  //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define blending_mode 0				//0 - only the space between dots is blending, 1 - all texels are blended
-#define adjacent_texel_alpha_blending 0.1755	//the amount of alpha swapped between neighboring texels
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //

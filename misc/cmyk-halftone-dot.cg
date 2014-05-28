@@ -1,3 +1,10 @@
+#pragma parameter frequency "Dot Density" 400.0 50.0 1000.0 50.0
+#ifdef PARAMETER_UNIFORM
+uniform float frequency;
+#else
+#define frequency 400.0 // controls the density of the dot pattern
+#endif
+
 /*
 CMYK Halftone Dot Shader
 
@@ -15,8 +22,6 @@ Note: the MIT-licensed noise functions have been purposely removed.
    - HLSL compilers
    - Cg   compilers
 */
-
-#define frequency 400.0 //controls the density of the dot pattern
 
 // VERTEX SHADER //
 

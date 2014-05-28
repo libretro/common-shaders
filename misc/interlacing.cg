@@ -1,3 +1,10 @@
+#pragma parameter percent "Scanline Bright %" 0.0 0.0 1.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float percent;
+#else
+#define percent 0.0
+#endif
+
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
@@ -55,5 +62,5 @@ y = 2.0 * IN.texture_size.y * texCoord.y;
 
 if (fmod(y, 2.0) > 0.99999) return res;
 else
-return float4(0.0);
+return float4(percent) * res;
 }

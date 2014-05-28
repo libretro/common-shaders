@@ -1,3 +1,16 @@
+#pragma parameter baseline_alpha "Baseline Alpha" 0.10 0.0 1.0 0.01
+#pragma parameter response_time "LCD Response Time" 0.333 0.0 1.0 0.111
+#ifdef PARAMETER_UNIFORM
+uniform float baseline_alpha;
+uniform float response_time;
+#else
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define baseline_alpha 0.10	//the alpha value of dots in their "off" state, does not affect the border region of the screen - [0, 1]
+#define response_time 0.333	//simulate response time, higher values result in longer color transition periods - [0, 1]
+#endif
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
@@ -18,13 +31,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>. //
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//config                                                                                                                                  //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define baseline_alpha 0.10	//the alpha value of dots in their "off" state, does not affect the border region of the screen - [0, 1]
-#define response_time 0.333	//simulate response time, higher values result in longer color transition periods - [0, 1]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //

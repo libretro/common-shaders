@@ -1,0 +1,99 @@
+#pragma parameter target_gamma "Target Gamma" 2.4 0.1 5.0 0.1
+#pragma parameter monitor_gamma "Monitor Gamma" 2.2 0.1 5.0 0.1
+#pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 0.0 25.0 1.0
+#pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 0.0 25.0 1.0
+#pragma parameter saturation "Saturation" 1.0 0.0 2.0 0.1
+#pragma parameter contrast "Contrast" 1.0 0.0 2.0 0.1
+#pragma parameter luminance "Luminance" 1.0 0.0 2.0 0.1
+#pragma parameter bright_boost "Brightness Boost" 0.0 -1.0 1.0 0.1
+#pragma parameter R "Red Channel" 1.0 0.0 2.0 0.05
+#pragma parameter G "Green Channel" 1.0 0.0 2.0 0.05
+#pragma parameter B "Blue Channel" 1.0 0.0 2.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float target_gamma;
+uniform float monitor_gamma;
+uniform float overscan_percent_x;
+uniform float overscan_percent_y;
+uniform float saturation;
+uniform float contrast;
+uniform float luminance;
+uniform float bright_boost;
+uniform float R;
+uniform float G;
+uniform float B;
+#else
+#define overscan_percent_x 0.0         // crop width of image by X%; default is 0.0
+#define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
+#define saturation 1.0                 // color saturation; default 1.0
+#define monitor_gamma 2.2              // gamma setting of your current display; LCD monitors typically have a gamma of 2.2
+#define target_gamma 2.4               // the gamma you want the image to have; CRT TVs typically have a gamma of 2.4
+#define contrast 1.0                   // image contrast; default 1.0
+#define luminance 1.0                  // image luminance; default 1.0
+#define bright_boost 0.0               // adds to the total brightness. Negative values decrease it; Use values between 1.0 (totally white) and -1.0 (totally black); default is 0.0
+#define R 1.0
+#define G 1.0
+#define B 1.0
+#endif
+// END PARAMETERS //
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+  sampler2D texture;
+};
+
+void main_vertex
+(
+    float4 position    : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN,
+
+    out float4 oPosition : POSITION,
+    out float4 oColor    : COLOR,
+    out float2 otexCoord : TEXCOORD
+)
+{
+    oPosition = mul(modelViewProj, position);
+    oColor = color;
+    float2 shift = 0.5 * IN.video_size / IN.texture_size;
+    float2 overscan_coord = (texCoord - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
+    otexCoord = overscan_coord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+float3 grayscale(float3 col)
+{
+   // ATSC grayscale standard
+   return float3(dot(col, float3(0.2126, 0.7152, 0.0722)));
+}
+
+float4 main_fragment(float2 texCoord : TEXCOORD, uniform input IN) : COLOR
+{
+    float3 res = tex2D(IN.texture, texCoord).rgb; // sample the texture
+    float3 gamma = float3(monitor_gamma / target_gamma); // setup ratio of display's gamma vs desired gamma
+    float3 AvgLumin = float3(0.5, 0.5, 0.5);
+    float3 intensity = grayscale(res); // find luminance
+    float3 satColor = lerp(intensity, res, saturation); // apply saturation
+    float3 conColor = lerp(AvgLumin, satColor, contrast);   // apply contrast
+    conColor = pow(conColor, 1.0 / float3(gamma)); // Apply gamma correction
+    conColor = saturate(conColor * luminance) + float3(bright_boost); // apply luminance and bright-boost
+	conColor *= float3(R, G, B);
+    return float4(conColor, 1.0);
+}

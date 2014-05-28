@@ -1,3 +1,25 @@
+#pragma parameter contrast "Contrast" 0.95 0.0 1.0 0.05
+#pragma parameter bg_smoothing "Background Smooth" 0.75 0.0 1.0 0.05
+#pragma parameter shadow_opacity "Shadow Opacity" 0.55 0.0 1.0 0.05
+#pragma parameter shadow_offset_x "Shadow Offset Horiz" 1.0 -5.0 5.0 0.5
+#pragma parameter shadow_offset_y "Shadow Offset Vert" 1.0 -5.0 5.0 0.5
+#ifdef PARAMETER_UNIFORM
+uniform float contrast;
+uniform float bg_smoothing;
+uniform float shadow_opacity;
+uniform float shadow_offset_x;
+uniform float shadow_offset_y;
+#else
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define contrast 0.95		//analogous to the contrast slider on the original Gameboy, higher values darken the image - [0, 1]
+#define bg_smoothing 0.75	//higher values suppress changes in background color directly beneath the foreground to improve image clarity - [0, 1]
+#define shadow_opacity 0.55	//how strongly shadows affect the background, higher values darken the shadows - [0, 1]
+#define shadow_offset_x 1.0	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity]
+#define shadow_offset_y 1.0	//how far the shadow should be shifted to down in pixels - [-infinity, infinity]
+#endif
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // Gameboy Classic Shader v0.2.2                                         //
@@ -18,16 +40,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>. //
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//config                                                                                                                                  //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define contrast 0.95		//analogous to the contrast slider on the original Gameboy, higher values darken the image - [0, 1]
-#define bg_smoothing 0.75	//higher values suppress changes in background color directly beneath the foreground to improve image clarity - [0, 1]
-#define shadow_opacity 0.55	//how strongly shadows affect the background, higher values darken the shadows - [0, 1]
-#define shadow_offset_x 1.0	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity]
-#define shadow_offset_y 1.0	//how far the shadow should be shifted to down in pixels - [-infinity, infinity]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
