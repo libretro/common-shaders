@@ -54,9 +54,6 @@ void main_vertex
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
 
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
    float2 tex : TEXCOORD,
 
    uniform input IN,
@@ -64,7 +61,6 @@ void main_vertex
 )
 {
    oPosition = mul(modelViewProj, position);
-   oColor = color;
 
    float2 delta = 1.0 / IN.texture_size;
    float dx = delta.x;
@@ -84,7 +80,14 @@ void main_vertex
 
 #define TEX2D(c) tex2D(s0 ,(c))
 #define PI 3.141592653589
-#define gamma 1.5
+
+#pragma parameter CRTCGWG_GAMMA "CRTcgwg Gamma" 2.7 0.0 10.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float CRTCGWG_GAMMA;
+#else
+#define CRTCGWG_GAMMA 2.7
+#endif
 
 float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
@@ -107,8 +110,8 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : 
    float3 wid = 2.0 * pow(col, float3(4.0, 4.0, 4.0)) + 2.0;
    float3 wid2 = 2.0 * pow(col2, float3(4.0, 4.0, 4.0)) + 2.0;
 
-   col = pow(col, float3(gamma, gamma, gamma));
-   col2 = pow(col2, float3(gamma, gamma, gamma));
+   col = pow(col, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
+   col2 = pow(col2, float3(CRTCGWG_GAMMA, CRTCGWG_GAMMA, CRTCGWG_GAMMA));
 
    float3 sqrt1 = rsqrt(0.5 * wid);
    float3 sqrt2 = rsqrt(0.5 * wid2);
