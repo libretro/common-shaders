@@ -53,89 +53,89 @@ struct output
 
 struct input
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
 };
 
 float l(float x)
 { 
-  if (x==0.0) return pi*halfpi;
-  else
-  return sin(x*halfpi)*sin(x*pi)/(x*x);
+   if (x==0.0) return pi*halfpi;
+   else
+      return sin(x*halfpi)*sin(x*pi)/(x*x);
 }
 
 output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {
    float2 ps = float2(0.999/IN.texture_size.x, 0.999/IN.texture_size.y);
 
-  half2 crd[4][4];  half3 pix[4][4];
+   half2 crd[4][4];  half3 pix[4][4];
 
-  half2 dx = half2(ps.x,0.0); half2 dy = half2(0.0,ps.y);
-  
-  float2 pixcoord  = tex/ps;
-  float2 fract     = frac(pixcoord);
-  float2 coord0    = tex-(fract)*ps;
+   half2 dx = half2(ps.x,0.0); half2 dy = half2(0.0,ps.y);
 
-
-// calculating coordinates for 16 texels
-  
-  crd[0][0]=coord0-ps;    crd[1][0]=crd[0][0]+dx; 
-  crd[2][0]=crd[1][0]+dx; 
-  crd[0][1]=crd[0][0]+dy; crd[1][1]=crd[0][1]+dx; 
-  crd[2][1]=crd[1][1]+dx; crd[3][1]=crd[2][1]+dx;
-  crd[0][2]=crd[0][1]+dy; crd[1][2]=crd[0][2]+dx; 
-  crd[2][2]=crd[1][2]+dx; crd[3][2]=crd[2][2]+dx;
-  crd[0][3]=crd[0][2]+dy; crd[1][3]=crd[0][3]+dx; 
-  crd[2][3]=crd[1][3]+dx; 
+   float2 pixcoord  = tex/ps;
+   float2 fract     = frac(pixcoord);
+   float2 coord0    = tex-(fract)*ps;
 
 
-// calculating texel weights
+   // calculating coordinates for 16 texels
 
-  float a,b,c,d,p,q,r,s;
-
-  a = l(1+fract.x); 
-  b = l(  fract.x); 
-  c = l(1-fract.x); 
-  d = l(2-fract.x);
-
-  p = l(1+fract.y); 
-  q = l(  fract.y); 
-  r = l(1-fract.y); 
-  s = l(2-fract.y);
+   crd[0][0]=coord0-ps;    crd[1][0]=crd[0][0]+dx; 
+   crd[2][0]=crd[1][0]+dx; 
+   crd[0][1]=crd[0][0]+dy; crd[1][1]=crd[0][1]+dx; 
+   crd[2][1]=crd[1][1]+dx; crd[3][1]=crd[2][1]+dx;
+   crd[0][2]=crd[0][1]+dy; crd[1][2]=crd[0][2]+dx; 
+   crd[2][2]=crd[1][2]+dx; crd[3][2]=crd[2][2]+dx;
+   crd[0][3]=crd[0][2]+dy; crd[1][3]=crd[0][3]+dx; 
+   crd[2][3]=crd[1][3]+dx; 
 
 
-// reading the texels
+   // calculating texel weights
 
- 
-  pix[1][0] = tex2D(s_p,crd[1][0]).xyz;
-  pix[2][0] = tex2D(s_p,crd[2][0]).xyz;
-  pix[0][1] = tex2D(s_p,crd[0][1]).xyz;
-  pix[1][1] = tex2D(s_p,crd[1][1]).xyz;
-  pix[2][1] = tex2D(s_p,crd[2][1]).xyz;
-  pix[3][1] = tex2D(s_p,crd[3][1]).xyz;
-  pix[0][2] = tex2D(s_p,crd[0][2]).xyz;
-  pix[1][2] = tex2D(s_p,crd[1][2]).xyz;
-  pix[2][2] = tex2D(s_p,crd[2][2]).xyz;
-  pix[3][2] = tex2D(s_p,crd[3][2]).xyz;
-  pix[1][3] = tex2D(s_p,crd[1][3]).xyz;
-  pix[2][3] = tex2D(s_p,crd[2][3]).xyz;
+   float a,b,c,d,p,q,r,s;
+
+   a = l(1+fract.x); 
+   b = l(  fract.x); 
+   c = l(1-fract.x); 
+   d = l(2-fract.x);
+
+   p = l(1+fract.y); 
+   q = l(  fract.y); 
+   r = l(1-fract.y); 
+   s = l(2-fract.y);
 
 
-// applying weights
-
-  pix[1][0] = (pix[1][0]*b+pix[2][0]*c)*p;
-  pix[0][1] = (pix[0][1]*a+pix[1][1]*b+pix[2][1]*c+pix[3][1]*d)*q;
-  pix[0][2] = (pix[0][2]*a+pix[1][2]*b+pix[2][2]*c+pix[3][2]*d)*r;
-  pix[1][3] = (pix[1][3]*b+pix[2][3]*c)*s;
+   // reading the texels
 
 
-// final sum and weight normalization
+   pix[1][0] = tex2D(s_p,crd[1][0]).xyz;
+   pix[2][0] = tex2D(s_p,crd[2][0]).xyz;
+   pix[0][1] = tex2D(s_p,crd[0][1]).xyz;
+   pix[1][1] = tex2D(s_p,crd[1][1]).xyz;
+   pix[2][1] = tex2D(s_p,crd[2][1]).xyz;
+   pix[3][1] = tex2D(s_p,crd[3][1]).xyz;
+   pix[0][2] = tex2D(s_p,crd[0][2]).xyz;
+   pix[1][2] = tex2D(s_p,crd[1][2]).xyz;
+   pix[2][2] = tex2D(s_p,crd[2][2]).xyz;
+   pix[3][2] = tex2D(s_p,crd[3][2]).xyz;
+   pix[1][3] = tex2D(s_p,crd[1][3]).xyz;
+   pix[2][3] = tex2D(s_p,crd[2][3]).xyz;
+
+
+   // applying weights
+
+   pix[1][0] = (pix[1][0]*b+pix[2][0]*c)*p;
+   pix[0][1] = (pix[0][1]*a+pix[1][1]*b+pix[2][1]*c+pix[3][1]*d)*q;
+   pix[0][2] = (pix[0][2]*a+pix[1][2]*b+pix[2][2]*c+pix[3][2]*d)*r;
+   pix[1][3] = (pix[1][3]*b+pix[2][3]*c)*s;
+
+
+   // final sum and weight normalization
    output OUT;
-	OUT.color = float4((pix[1][0]+pix[0][1]+pix[0][2]+pix[1][3])/((a+b+c+d)*(p+q+r+s)-(a+d)*(p+s)),1);
+   OUT.color = float4((pix[1][0]+pix[0][1]+pix[0][2]+pix[1][3])/((a+b+c+d)*(p+q+r+s)-(a+d)*(p+s)),1);
    return OUT;
 }
 

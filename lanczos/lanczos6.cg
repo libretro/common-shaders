@@ -24,7 +24,6 @@ http://www.gnu.org/copyleft/gpl.html
 
 */
 
-
 /* Default Vertex shader */
 void main_vertex
 (
@@ -51,81 +50,77 @@ struct output
 
 struct input
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
 };
 
-    #define FIX(c) max(abs(c), 1e-5);
+#define FIX(c) max(abs(c), 1e-5);
 
-    const float PI = 3.1415926535897932384626433832795;
+const float PI = 3.1415926535897932384626433832795;
 
-    float3 weight3(float x)
-    {
-        const float radius = 3.0;
-        float3 sample = FIX(2.0 * PI * float3(x - 1.5, x - 0.5, x + 0.5));
-		
-        // Lanczos3. Note: we normalize outside this function, so no point in multiplying by radius.
-        return /*radius **/ sin(sample) * sin(sample / radius) / (sample * sample);
-    }
+float3 weight3(float x)
+{
+   const float radius = 3.0;
+   float3 sample = FIX(2.0 * PI * float3(x - 1.5, x - 0.5, x + 0.5));
+
+   // Lanczos3. Note: we normalize outside this function, so no point in multiplying by radius.
+   return /*radius **/ sin(sample) * sin(sample / radius) / (sample * sample);
+}
 	
-    float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
-    {
-        return tex2D(s_p, float2(xpos, ypos)).rgb;
-    }
+float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
+{
+   return tex2D(s_p, float2(xpos, ypos)).rgb;
+}
 
-    float3 line_run(float ypos, float3 xpos1, float3 xpos2, float3 linetaps1, float3 linetaps2, uniform sampler2D s_p)
-    {
-        return
-            pixel(xpos1.r, ypos, s_p) * linetaps1.r +
-            pixel(xpos1.g, ypos, s_p) * linetaps2.r +
-            pixel(xpos1.b, ypos, s_p) * linetaps1.g +
-            pixel(xpos2.r, ypos, s_p) * linetaps2.g +
-            pixel(xpos2.g, ypos, s_p) * linetaps1.b +
-            pixel(xpos2.b, ypos, s_p) * linetaps2.b; 
-    }
-
-
+float3 line_run(float ypos, float3 xpos1, float3 xpos2, float3 linetaps1, float3 linetaps2, uniform sampler2D s_p)
+{
+   return
+      pixel(xpos1.r, ypos, s_p) * linetaps1.r +
+      pixel(xpos1.g, ypos, s_p) * linetaps2.r +
+      pixel(xpos1.b, ypos, s_p) * linetaps1.g +
+      pixel(xpos2.r, ypos, s_p) * linetaps2.g +
+      pixel(xpos2.g, ypos, s_p) * linetaps1.b +
+      pixel(xpos2.b, ypos, s_p) * linetaps2.b; 
+}
 
 output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {
+   float2 stepxy = 1.0 / IN.texture_size.xy;
+   float2 pos = tex.xy + stepxy * 0.5;
+   float2 f = frac(pos / stepxy);
 
-	float2 stepxy = 1.0 / IN.texture_size.xy;
-        float2 pos = tex.xy + stepxy * 0.5;
-        float2 f = frac(pos / stepxy);
+   float3 linetaps1   = weight3(0.5 - f.x * 0.5);
+   float3 linetaps2   = weight3(1.0 - f.x * 0.5);
+   float3 columntaps1 = weight3(0.5 - f.y * 0.5);
+   float3 columntaps2 = weight3(1.0 - f.y * 0.5);
 
-        float3 linetaps1   = weight3(0.5 - f.x * 0.5);
-        float3 linetaps2   = weight3(1.0 - f.x * 0.5);
-        float3 columntaps1 = weight3(0.5 - f.y * 0.5);
-        float3 columntaps2 = weight3(1.0 - f.y * 0.5);
+   // make sure all taps added together is exactly 1.0, otherwise some
+   // (very small) distortion can occur
+   float suml = dot(linetaps1, float3(1.0)) + dot(linetaps2, float3(1.0));
+   float sumc = dot(columntaps1, float3(1.0)) + dot(columntaps2, float3(1.0));
+   linetaps1 /= suml;
+   linetaps2 /= suml;
+   columntaps1 /= sumc;
+   columntaps2 /= sumc;
 
-        // make sure all taps added together is exactly 1.0, otherwise some
-        // (very small) distortion can occur
-        float suml = dot(linetaps1, float3(1.0)) + dot(linetaps2, float3(1.0));
-        float sumc = dot(columntaps1, float3(1.0)) + dot(columntaps2, float3(1.0));
-        linetaps1 /= suml;
-        linetaps2 /= suml;
-        columntaps1 /= sumc;
-        columntaps2 /= sumc;
-
-        float2 xystart = (-2.5 - f) * stepxy + pos;
-        float3 xpos1 = float3(xystart.x, xystart.x + stepxy.x, xystart.x + stepxy.x * 2.0);
-        float3 xpos2 = float3(xystart.x + stepxy.x * 3.0, xystart.x + stepxy.x * 4.0, xystart.x + stepxy.x * 5.0);
-
+   float2 xystart = (-2.5 - f) * stepxy + pos;
+   float3 xpos1 = float3(xystart.x, xystart.x + stepxy.x, xystart.x + stepxy.x * 2.0);
+   float3 xpos2 = float3(xystart.x + stepxy.x * 3.0, xystart.x + stepxy.x * 4.0, xystart.x + stepxy.x * 5.0);
 
 
-// final sum and weight normalization
+
+   // final sum and weight normalization
    output OUT;
    OUT.color = float4(
-            line_run(xystart.y                 , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.r +
-            line_run(xystart.y + stepxy.y      , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.r +
-            line_run(xystart.y + stepxy.y * 2.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.g +
-            line_run(xystart.y + stepxy.y * 3.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.g +
-            line_run(xystart.y + stepxy.y * 4.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.b +
-            line_run(xystart.y + stepxy.y * 5.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.b,1.0);
+         line_run(xystart.y                 , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.r +
+         line_run(xystart.y + stepxy.y      , xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.r +
+         line_run(xystart.y + stepxy.y * 2.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.g +
+         line_run(xystart.y + stepxy.y * 3.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.g +
+         line_run(xystart.y + stepxy.y * 4.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps1.b +
+         line_run(xystart.y + stepxy.y * 5.0, xpos1, xpos2, linetaps1, linetaps2, s_p) * columntaps2.b,1.0);
    return OUT;
 }
-

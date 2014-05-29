@@ -29,7 +29,6 @@ http://www.gnu.org/copyleft/gpl.html
 
 */
 
-
 /* Default Vertex shader */
 void main_vertex
 (
@@ -56,69 +55,67 @@ struct output
 
 struct input
 {
-  half2 video_size;
-  half2 texture_size;
-  half2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
+   half2 video_size;
+   half2 texture_size;
+   half2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
 };
 
+#define FIX(c) max(abs(c), 1e-5);
 
-    #define FIX(c) max(abs(c), 1e-5);
+const float PI = 3.1415926535897932384626433832795;
 
-    const float PI = 3.1415926535897932384626433832795;
+float4 weight4(float x)
+{         
+   float4 sample = FIX(PI * float4(1.0 + x, x, 1.0 - x, 2.0 - x));
 
-    float4 weight4(float x)
-    {         
-        float4 sample = FIX(PI * float4(1.0 + x, x, 1.0 - x, 2.0 - x));
+   // Lanczos2. Note: we normalize below, so no point in multiplying by radius (2.0)
+   float4 ret = /*2.0 **/ sin(sample) * sin(sample / 2.0) / (sample * sample);
 
-        // Lanczos2. Note: we normalize below, so no point in multiplying by radius (2.0)
-        float4 ret = /*2.0 **/ sin(sample) * sin(sample / 2.0) / (sample * sample);
+   // Normalize
+   return ret / dot(ret, float4(1.0, 1.0, 1.0, 1.0));
+}         
 
-        // Normalize
-        return ret / dot(ret, float4(1.0, 1.0, 1.0, 1.0));
-    }         
+float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
+{
+   return tex2D(s_p, float2(xpos, ypos)).rgb;
+}
 
-    float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
-    {
-        return tex2D(s_p, float2(xpos, ypos)).rgb;
-    }
-
-    float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
-    {         
-        return mul(linetaps, float4x3(
+float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+{         
+   return mul(linetaps, float4x3(
             pixel(xpos.x, ypos, s_p),
             pixel(xpos.y, ypos, s_p),
             pixel(xpos.z, ypos, s_p),
             pixel(xpos.w, ypos, s_p)));
-    }
+}
 
 
 output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {
-        float2 stepxy = 1.0 / IN.texture_size.xy;
-        float2 pos = tex.xy + stepxy * 0.5;
-        float2 f = frac(pos / stepxy);
+   float2 stepxy = 1.0 / IN.texture_size.xy;
+   float2 pos = tex.xy + stepxy * 0.5;
+   float2 f = frac(pos / stepxy);
 
-        float2 xystart = (-1.5 - f) * stepxy + pos;
-        float4 xpos = float4(
-            xystart.x,
-            xystart.x + stepxy.x,
-            xystart.x + stepxy.x * 2.0,
-            xystart.x + stepxy.x * 3.0);
+   float2 xystart = (-1.5 - f) * stepxy + pos;
+   float4 xpos = float4(
+         xystart.x,
+         xystart.x + stepxy.x,
+         xystart.x + stepxy.x * 2.0,
+         xystart.x + stepxy.x * 3.0);
 
-        float4 linetaps   = weight4(f.x);
-        float4 columntaps = weight4(f.y);   
+   float4 linetaps   = weight4(f.x);
+   float4 columntaps = weight4(f.y);   
 
 
-// final sum and weight normalization
+   // final sum and weight normalization
    output OUT;
    OUT.color = float4(mul(columntaps, float4x3(
-            line_run(xystart.y                 , xpos, linetaps, s_p),
-            line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p),
-            line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p),
-            line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p))),1.0);
+               line_run(xystart.y                 , xpos, linetaps, s_p),
+               line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p),
+               line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p),
+               line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p))),1.0);
    return OUT;
 }
-
