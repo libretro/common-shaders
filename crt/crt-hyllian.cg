@@ -1,3 +1,44 @@
+#pragma parameter InputGamma "Input gamma" 2.4 0.0 5.0 0.1
+#pragma parameter OutputGamma "Output Gamma" 2.2 0.0 5.0 0.1
+#pragma parameter DILATION_STRENGTH "Dilation Strength" 0.9 0.0 1.0 0.05
+#pragma parameter SHARPNESS "Sharpness" 2.0 0.0 5.0 0.1
+#pragma parameter RED_BOOST "Red Boost" 1.0 1.0 2.0 0.01
+#pragma parameter GREEN_BOOST "Green Boost" 1.0 1.0 2.0 0.01
+#pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.7 0.0 1.0 0.01
+#pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.1 0.0 1.0 0.01
+#pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 0.7 0.0 1.0 0.01
+#pragma parameter COLOR_BOOST "Color Boost" 1.2 1.0 2.0 0.05
+#pragma parameter BEAM_WIDTH_SENSITIVITY "Beam Width Sensitivity" 0.5 0.0 1.0 0.01
+#pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.05 1.0 2.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float InputGamma;
+uniform float OutputGamma;
+uniform float DILATION_STRENGTH;
+uniform float SHARPNESS;
+uniform float RED_BOOST;
+uniform float GREEN_BOOST;
+uniform float SCANLINES_STRENGTH;
+uniform float BEAM_MIN_WIDTH;
+uniform float BEAM_MAX_WIDTH;
+uniform float COLOR_BOOST;
+uniform float BEAM_WIDTH_SENSITIVITY;
+uniform float CRT_TV_BLUE_TINT;
+#else
+#define InputGamma 2.4
+#define OutputGamma 2.2
+#define DILATION_STRENGTH 0.9
+#define SHARPNESS 2.0
+#define RED_BOOST 1.0
+#define GREEN_BOOST 1.0
+#define SCANLINES_STRENGTH 0.7
+#define BEAM_MIN_WIDTH 0.1
+#define BEAM_MAX_WIDTH 0.7
+#define COLOR_BOOST 1.2
+#define BEAM_WIDTH_SENSITIVITY 0.5
+#define CRT_TV_BLUE_TINT 1.05
+#endif
+// END PARAMETERS //
+
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers
@@ -30,45 +71,14 @@
 // Uncomment to dilate bright pixels horizontally.
 #define DILATION
 
-// Control the dilation intensity by changing this param below when DILATION is enabled. Use always values between 0.0 and 1.0.
-#define DILATION_STRENGTH      0.9
-
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
-
-// Control the level of sharpness when SHARPER is enabled.
-#define SHARPNESS              2.0
 
 // Comment next line if you don't desire the phosphor effect.
 #define PHOSPHOR
 
 // Uncomment to enable adjustment of red and green saturation.
 //#define RED_GREEN_CONTROL
-
-// Control red and green saturation when RED_GREEN_CONTROL is enabled.
-#define RED_BOOST              1.0
-#define GREEN_BOOST            1.0
-
-// Control scanlines transparency by changing this param below. Use always values between 0.0 and 1.0.
-#define SCANLINES_STRENGTH     0.7
-
-// Control the beam width range by changing these two params below. Use always values between 0.0 and 1.0.
-#define BEAM_MIN_WIDTH         0.1
-#define BEAM_MAX_WIDTH         0.7
-
-// You can saturate all colors using this parameter.
-#define COLOR_BOOST            1.2
-
-// This param change the threshold from where the beam gets thicker.
-#define BEAM_WIDTH_SENSITIVITY 0.5
-
-// Cool tint. Controls the blue level. CRT TVs from the 90's had a blue tint.
-// To turn OFF this effect, use 1.0 value.
-#define CRT_TV_BLUE_TINT       1.05
-
-// Constants used with gamma correction.
-#define InputGamma             2.4
-#define OutputGamma            2.2
 
 #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
@@ -205,7 +215,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     color.b *= CRT_TV_BLUE_TINT;
 #endif
 
-    color = clamp(color*d, 0.0, 1.0);
+    color = clamp(color*d, 0.0, 1.0);            
+ 
+    color = GAMMA_IN(color);
 
 #ifdef PHOSPHOR
     float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
@@ -215,11 +227,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
                                  float3(0.7, 1.0, 0.7),
                                  floor(fmod(mod_factor, 2.0))
                                   );
-#endif                 
- 
-    color = GAMMA_IN(color);
 
-#ifdef PHOSPHOR
     color.rgb *= dotMaskWeights;
 #endif                   
 
