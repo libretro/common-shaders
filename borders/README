@@ -3,3 +3,5 @@ over the integer-scaled content window. Such an image should be sized to
 fit the output resolution (such as 1920x1080 px) and should have an
 appropriately sized transparent window in the middle for the content to
 show through.
+
+The border.png image file found in this directory can be used as a template.
