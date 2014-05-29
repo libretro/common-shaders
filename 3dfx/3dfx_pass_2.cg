@@ -50,12 +50,18 @@ struct input
 // Software Foundation; either version 2 of the License, or (at your option)
 // any later version.
 
-#define	BLURFACTOR 0.69f
+#pragma parameter LEIFX_BLURFACTOR "LeiFX Blur Factor" 0.69 0.00 1.00 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float LEIFX_BLURFACTOR;
+#else
+#define LEIFX_BLURFACTOR 0.69f
+#endif
 
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
-   	output OUT;
-   	OUT.color = tex2D(decal, texCoord);
+   output OUT;
+   OUT.color = tex2D(decal, texCoord);
 	float2 pixel;
 	pixel.x = 1 / IN.video_size.x;
 	pixel.y = 1 / IN.video_size.y;
@@ -84,9 +90,10 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 
 	if (mean < 0)	mean *= -1;
 	if (mean > 1) mean = 1;	
-	mean = pow(mean, BLURFACTOR);	
+	mean = pow(mean, LEIFX_BLURFACTOR);	
 
-	if (mean > 1) mean = 1;	
+	if (mean > 1)
+      mean = 1;	
 
 	{
 		// variably BLEND IT ALL TO H*CK!!!!
