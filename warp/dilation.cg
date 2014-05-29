@@ -19,12 +19,19 @@
 
 */
 
-const static half y_weight        = 48.0;
-const static half u_weight        = 7.0;
-const static half v_weight        = 6.0;
-const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
-const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
+#pragma parameter DILATION_Y_WEIGHT "Dilation Y Weight" 48.0 0.0 128.0 0.5
+#pragma parameter DILATION_U_WEIGHT "Dilation U Weight" 7.0  0.0 128.0 0.5
+#pragma parameter DILATION_V_WEIGHT "Dilation V Weight" 6.0  0.0 128.0 0.5
 
+#ifdef PARAMETER_UNIFORM
+uniform float DILATION_Y_WEIGHT;
+uniform float DILATION_U_WEIGHT;
+uniform float DILATION_V_WEIGHT;
+#else
+#define DILATION_Y_WEIGHT 48.0
+#define DILATION_U_WEIGHT 7.0
+#define DILATION_V_WEIGHT 6.0
+#endif
 
 struct input
 {
@@ -84,6 +91,9 @@ out_vertex main_vertex
 /*    FRAGMENT SHADER    */
 half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
+   half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+   half3x3 yuv_weighted = half3x3(DILATION_Y_WEIGHT * yuv[0], DILATION_U_WEIGHT * yuv[1], DILATION_V_WEIGHT * yuv[2]);
+
 	half3 B  = tex2D(decal, VAR.t2.yw).rgb;
 	half3 D  = tex2D(decal, VAR.t3.xw).rgb;
 	half3 E  = tex2D(decal, VAR.t3.yw).rgb;
