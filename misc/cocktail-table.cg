@@ -1,6 +1,7 @@
-#pragma parameter height "Image Height" -1.145 -3.0 3.0 0.01
-#pragma parameter width "Image Width" 2.0 1.0 5.0 0.05
-#pragma parameter location "Image Location" 0.75 -2.0 2.0 0.005
+#pragma parameter height "CocktailTable Image Height" -1.145 -3.0 3.0 0.01
+#pragma parameter width "CocktailTable Image Width" 2.0 1.0 5.0 0.05
+#pragma parameter location "CocktailTable Image Location" 0.75 -2.0 2.0 0.005
+
 #ifdef PARAMETER_UNIFORM
 uniform float height;
 uniform float width;
@@ -43,11 +44,11 @@ void main_vertex
    out float2 otexCoord2 : TEXCOORD1
 )
 {
-float4x4 RotationMatrix = float4x4( height, 0.0, 0.0, 0.0,
-                           0.0, width, 0.0, 0.0,
-                           0.0, 0.0, 1.0, 0.0,
-                           0.0, 0.0, 0.0, 1.0 );
-                                             
+   float4x4 RotationMatrix = float4x4( height, 0.0, 0.0, 0.0,
+         0.0, width, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0 );
+
    oPosition = mul(mul(modelViewProj, position), RotationMatrix);
    oColor = color;
    otexCoord1 = mul(position.st , float2x2(0.0, 1.0, -1.0, 0.0)) + float2(location, -0.500);
@@ -56,11 +57,11 @@ float4x4 RotationMatrix = float4x4( height, 0.0, 0.0, 0.0,
 
 struct output 
 {
-  float4 color    : COLOR;
+   float4 color    : COLOR;
 };
 
 float4 main_fragment(float2 texCoord1 : TEXCOORD0, float2 texCoord2 : TEXCOORD1, uniform input IN) : COLOR
 {
-float4 color = float4(tex2D(IN.texture, texCoord1) + tex2D(IN.texture, texCoord2));
+   float4 color = float4(tex2D(IN.texture, texCoord1) + tex2D(IN.texture, texCoord2));
    return color;
 }

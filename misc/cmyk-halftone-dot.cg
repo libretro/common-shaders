@@ -1,4 +1,5 @@
-#pragma parameter frequency "Dot Density" 400.0 50.0 1000.0 50.0
+#pragma parameter frequency "CMYK HalfTone Dot Density" 400.0 50.0 1000.0 50.0
+
 #ifdef PARAMETER_UNIFORM
 uniform float frequency;
 #else

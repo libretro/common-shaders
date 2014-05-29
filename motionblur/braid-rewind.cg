@@ -80,7 +80,6 @@ uniform input IN,
       previous PREV6
 )
 {
-
    float4 color = tex2D(PREV6.texture, texCoord);
    color = color + tex2D(PREV5.texture, texCoord);
    color = color + tex2D(PREV4.texture, texCoord);
@@ -89,19 +88,19 @@ uniform input IN,
    color = color + tex2D(PREV1.texture, texCoord);
    color = color + tex2D(PREV.texture, texCoord);
    color = color + tex2D(IN.texture, texCoord);
-   
+
    float4 sepia = float4(1.0,0.8,0.6,0.5); 
-   
+
    float4 final = tex2D(IN.texture, texCoord);
-   
+
    if (IN.frame_direction < 0.0)
-    {
-        final = (final + color * sepia / 7.0) / 2.0;
-    }
-    else
-    {
-        final = tex2D(IN.texture, texCoord);
-    }
+   {
+      final = (final + color * sepia / 7.0) / 2.0;
+   }
+   else
+   {
+      final = tex2D(IN.texture, texCoord);
+   }
 
    output OUT;
    OUT.col = final;

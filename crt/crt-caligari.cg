@@ -1,8 +1,9 @@
-#pragma parameter SPOT_WIDTH "Spot Width" 0.9 0.1 1.5 0.05
-#pragma parameter SPOT_HEIGHT "Spot Height" 0.65 0.1 1.5 0.05
-#pragma parameter COLOR_BOOST "Color Boost" 1.45 1.0 2.0 0.05
-#pragma parameter InputGamma "Input Gamma" 2.4 0.0 5.0 0.1
-#pragma parameter OutputGamma "Output Gamma" 2.2 0.0 5.0 0.1
+#pragma parameter SPOT_WIDTH "CRTCaligari Spot Width" 0.9 0.1 1.5 0.05
+#pragma parameter SPOT_HEIGHT "CRTCaligari Spot Height" 0.65 0.1 1.5 0.05
+#pragma parameter COLOR_BOOST "CRTCaligari Color Boost" 1.45 1.0 2.0 0.05
+#pragma parameter InputGamma "CRTCaligari Input Gamma" 2.4 0.0 5.0 0.1
+#pragma parameter OutputGamma "CRTCaligari Output Gamma" 2.2 0.0 5.0 0.1
+
 #ifdef PARAMETER_UNIFORM
 uniform float SPOT_WIDTH;
 uniform float SPOT_HEIGHT;
@@ -20,7 +21,6 @@ uniform float OutputGamma;
 #define InputGamma 2.4
 #define OutputGamma 2.2
 #endif
-// END PARAMETERS //
 
 /* COMPATIBILITY 
    - HLSL compilers
