@@ -1,7 +1,7 @@
 #pragma parameter CRTgamma "CRTGeom gamma" 2.4 0.1 5.0 0.1
 #pragma parameter monitorgamma "CRTGeom Monitor Gamma" 2.2 0.1 5.0 0.1
 #pragma parameter d "CRTGeom Distance" 1.5 0.1 3.0 0.1
-#pragma parameter R "CRTGeom Radius of Curvature" 2.0 10.0 10.0 0.1
+#pragma parameter R "CRTGeom Radius of Curvature" 2.0 0.1 10.0 0.1
 #pragma parameter cornersize "CRTGeom Corner Size" 0.03 0.001 1.0 0.005
 #pragma parameter cornersmooth "CRTGeom Corner Smoothness" 1000.0 80.0 2000.0 100.0
 #pragma parameter x_tilt "CRTGeom Horizontal Tilt" 0.0 -0.5 0.5 0.1
@@ -217,7 +217,11 @@ out_vertex main_vertex
     OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
    OUT.texCoord = texCoord;
 
+#ifdef INTERLACED
     OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/200.0),1.0,2.0));
+#else
+    OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/1000.0),1.0,2.0));
+#endif
 
     // The size of one texel, in texture-coordinates.
     OUT.one = OUT.ilfac / IN.texture_size;
@@ -275,11 +279,8 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
                 // Of all the pixels that are mapped onto the texel we are
                 // currently rendering, which pixel are we currently rendering?
                 float2 ilfloat = float2(0.0,VAR.ilfac.y > 1.5 ? fmod(float(IN.frame_count),2.0) : 0.0);
-      #ifdef INTERLACED
-                float2 ratio_scale = (xy * IN.texture_size - float2(0.5) + ilfloat)/VAR.ilfac;
-      #else
+
             float2 ratio_scale = xy * IN.texture_size - float2(0.5);
-      #endif
       
       #ifdef OVERSAMPLE
                 float filter = IN.video_size.y / IN.output_size.y;
@@ -287,11 +288,8 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
                 float2 uv_ratio = frac(ratio_scale);
 
                 // Snap to the center of the underlying texel.
-      #ifdef INTERLACED
-                xy = (floor(ratio_scale)*VAR.ilfac + float2(0.5) - ilfloat) / IN.texture_size;
-      #else
+
             xy = (floor(ratio_scale) + float2(0.5)) / IN.texture_size;
-      #endif
 
                 // Calculate Lanczos scaling coefficients describing the effect
                 // of various neighbour texels in a scanline on the current
