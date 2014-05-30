@@ -1,3 +1,17 @@
+#pragma parameter SB_RED_THRESHOLD "Smart Blur Red Threshold" 0.2 0.0 0.6 0.01
+#pragma parameter SB_GREEN_THRESHOLD "Smart Blur Green Threshold" 0.2 0.0 0.6 0.01
+#pragma parameter SB_BLUE_THRESHOLD "Smart Blur Blue Threshold" 0.2 0.0 0.6 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float SB_RED_THRESHOLD;
+uniform float SB_GREEN_THRESHOLD;
+uniform float SB_BLUE_THRESHOLD;
+#else
+#define SB_RED_THRESHOLD 0.2
+#define SB_GREEN_THRESHOLD 0.2
+#define SB_BLUE_THRESHOLD 0.2
+#endif
+// END PARAMETERS //
+
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers
@@ -26,12 +40,11 @@
 
 // Control the blur changing this param (RGB values). Below the threshold, blur is applied for each color channel.
 // Threshold is the max color differency among the eight pixel neighbors from central pixel.
-const static float3 threshold = float3(0.2, 0.2, 0.2);
 
 
 bool eq(float3 c1, float3 c2) {
     float3 df = abs(c1 - c2);
-    return (df.r < threshold.r) && (df.g < threshold.g) && (df.b < threshold.b);
+    return (df.r < SB_RED_THRESHOLD) && (df.g < SB_GREEN_THRESHOLD) && (df.b < SB_BLUE_THRESHOLD);
 }
 
 
