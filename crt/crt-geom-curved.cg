@@ -280,7 +280,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
                 // currently rendering, which pixel are we currently rendering?
                 float2 ilfloat = float2(0.0,VAR.ilfac.y > 1.5 ? fmod(float(IN.frame_count),2.0) : 0.0);
 
-            float2 ratio_scale = xy * IN.texture_size - float2(0.5);
+            float2 ratio_scale = (xy * IN.texture_size - float2(0.5) + ilfloat)/VAR.ilfac;
       
       #ifdef OVERSAMPLE
                 float filter = IN.video_size.y / IN.output_size.y;
@@ -289,7 +289,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
 
                 // Snap to the center of the underlying texel.
 
-            xy = (floor(ratio_scale) + float2(0.5)) / IN.texture_size;
+            xy = (floor(ratio_scale)*VAR.ilfac + float2(0.5) - ilfloat) / IN.texture_size;
 
                 // Calculate Lanczos scaling coefficients describing the effect
                 // of various neighbour texels in a scanline on the current
@@ -352,7 +352,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
                         floor(fmod(VAR.mod_factor, 2.0))
                     ); 
         #ifdef DOTMASK
-                mul_res *= dotMaksWeights;
+                mul_res *= dotMaskWeights;
         #endif
 		
                 // Convert the image gamma for display on our output device.
