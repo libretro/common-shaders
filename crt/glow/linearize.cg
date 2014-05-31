@@ -24,7 +24,12 @@ struct input
    float  frame_rotation;
 };
 
+#pragma parameter GAMMA "Input Gamma" 2.4 2.0 2.6 0.02
+#ifdef PARAMETER_UNIFORM
+uniform float GAMMA;
+#else
 #define GAMMA 2.4
+#endif
 
 float4 main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {

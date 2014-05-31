@@ -41,8 +41,15 @@ void main_vertex
 // For debugging
 #define BLOOM_ONLY 0
 
+#pragma parameter BLOOM_STRENGTH "Glow Strength" 0.45 0.0 0.8 0.05
+#pragma parameter OUTPUT_GAMMA "Monitor Gamma" 2.2 1.8 2.6 0.02
+#ifdef PARAMETER_UNIFORM
+uniform float BLOOM_STRENGTH;
+uniform float OUTPUT_GAMMA;
+#else
 #define BLOOM_STRENGTH 0.45
-#define INV_OUTPUT_GAMMA (1.0 / 2.2)
+#define OUTPUT_GAMMA 2.2
+#endif
 
 float4 main_fragment(in VertexData vert, uniform sampler2D s0 : TEXUNIT0, uniform input IN, prev CRT_PASS) : COLOR
 {
@@ -53,6 +60,6 @@ float4 main_fragment(in VertexData vert, uniform sampler2D s0 : TEXUNIT0, unifor
    float3 bloom = tex2D(s0, vert.tex).rgb;
    source += BLOOM_STRENGTH * bloom;
 #endif
-   return float4(pow(saturate(source), INV_OUTPUT_GAMMA), 1.0);
+   return float4(pow(saturate(source), 1.0 / OUTPUT_GAMMA), 1.0);
 }
 
