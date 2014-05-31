@@ -11,7 +11,7 @@
 //  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
 //  sell copies of the Software, and to permit persons to whom the Software is
 //  furnished to do so, subject to the following conditions:
-//  
+//
 //  The above copyright notice and this permission notice shall be included in
 //  all copies or substantial portions of the Software.
 //
@@ -39,8 +39,7 @@
 //  position in its 2x2 pixel quad.  Given that vector, obtain the values of any
 //  variable at neighboring fragments.
 //  Requires:   Using this file in general requires:
-//              1.) ddx() and ddy() are present in the current Cg profile, and
-//                  DRIVERS_ALLOW_DERIVATIVES is defined to signal this.
+//              1.) ddx() and ddy() are present in the current Cg profile.
 //              2.) The GPU driver is using fine/high-quality derivatives.
 //                  Functions will give incorrect results if this is not true,
 //                  so a test function is included.
@@ -74,7 +73,6 @@ float4 get_quad_vector_naive(const float4 output_pixel_num_wrt_uvxy)
     return quad_vector;
 }
 
-#ifdef DRIVERS_ALLOW_DERIVATIVES
 float4 get_quad_vector(const float4 output_pixel_num_wrt_uvxy)
 {
     //  Requires:   Same as get_quad_vector_naive() (see that first).
@@ -92,8 +90,7 @@ float4 get_quad_vector(const float4 output_pixel_num_wrt_uvxy)
 
 float4 get_quad_vector(const float2 output_pixel_num_wrt_uv)
 {
-    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile,
-    //                  and DRIVERS_ALLOW_DERIVATIVES is defined to signal this.
+    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile.
     //              2.) output_pixel_num_wrt_uv must increase with uv coords and
     //                  measure the current fragment's output pixel number in:
     //                      ([0, IN.output_size.x), [0, IN.output_size.y))
@@ -121,8 +118,7 @@ float4 get_quad_vector(const float2 output_pixel_num_wrt_uv)
 void quad_gather(const float4 quad_vector, const float4 curr,
     out float4 adjx, out float4 adjy, out float4 diag)
 {
-    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile,
-    //                  and DRIVERS_ALLOW_DERIVATIVES is defined to signal this.
+    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile.
     //              2.) The GPU driver is using fine/high-quality derivatives.
     //              3.) quad_vector describes the current fragment's location in
     //                  its 2x2 pixel quad using get_quad_vector()'s conventions.
@@ -199,8 +195,7 @@ float quad_gather_sum(const float4 quad_vector, const float curr)
 
 bool fine_derivatives_working(const float4 quad_vector, float4 curr)
 {
-    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile,
-    //                  and DRIVERS_ALLOW_DERIVATIVES is defined to signal this.
+    //  Requires:   1.) ddx() and ddy() are present in the current Cg profile.
     //              2.) quad_vector describes the current fragment's location in
     //                  its 2x2 pixel quad using get_quad_vector()'s conventions.
     //              3.) curr must be a test vector with non-constant derivatives
@@ -243,7 +238,6 @@ bool fine_derivatives_working_fast(const float4 quad_vector, float curr)
     float adjx = curr - ddx_curr * quad_vector.z;
     return (ddy_curr != ddy(adjx));
 }
-#endif  //  DRIVERS_ALLOW_DERIVATIVES
 
 #endif  //  QUAD_PIXEL_COMMUNICATION_H
 

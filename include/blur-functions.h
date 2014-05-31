@@ -46,13 +46,11 @@
 //              Many blurs share these requirements:
 //              1.) One-pass blurs require scale_xN == scale_yN, or they will
 //                  blur more in the lower-scaled dimension.
-//              2.) One-pass shared sample blurs require all requirements of
-//                  quad-pixel-communication.h to be met, including
-//                  DRIVERS_ALLOW_DERIVATIVES being #defined, etc.
+//              2.) One-pass shared sample blurs require ddx(), ddy(), and
+//                  tex2Dlod() to be supported by the current Cg profile, and
+//                  the drivers must support high-quality derivatives.
 //              3.) One-pass shared sample blurs require:
 //                      tex_uv.w == log2(IN.video_size/IN.output_size).y;
-//              4.) One-pass shared sample blurs require DRIVERS_ALLOW_TEX2DLOD
-//                  to be #defined.
 //              All blurs share these requirements, which are automatically met
 //              (unless OVERRIDE_BLUR_STD_DEVS is #defined; see below):
 //              1.) blurN_std_dev must be global static const float values
@@ -180,9 +178,7 @@
 //  gamma-management.h relies on pass-specific settings to guide its behavior:
 //  FIRST_PASS, LAST_PASS, GAMMA_ENCODE_EVERY_FBO, etc.  See it for details.
 #include "gamma-management.h"
-#ifdef DRIVERS_ALLOW_DERIVATIVES
-    #include "quad-pixel-communication.h"
-#endif
+#include "quad-pixel-communication.h"
 
 
 /////////////////////////  SHARED CONSTANTS AND MACROS  ////////////////////////
@@ -845,21 +841,18 @@ float3 tex2Dblur3x3(const sampler2D texture, const float2 tex_uv,
 
 //////////////////  LINEAR ONE-PASS BLURS WITH SHARED SAMPLES  /////////////////
 
-#ifdef DRIVERS_ALLOW_DERIVATIVES
-#ifdef DRIVERS_ALLOW_TEX2DLOD
 float3 tex2Dblur12x12shared(const sampler2D texture,
     const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
 {
     //  Perform a 1-pass mipmapped blur with shared samples across a pixel quad.
     //  Requires:   1.) Same as tex2Dblur9()
-    //              2.) ddx() and ddy() are present in the current Cg profile
-    //                  and DRIVERS_ALLOW_DERIVATIVES is #defined.
+    //              2.) ddx() and ddy() are present in the current Cg profile.
     //              3.) The GPU driver is using fine/high-quality derivatives.
     //              4.) quad_vector *correctly* describes the current fragment's
     //                  location in its pixel quad, by the conventions noted in
     //                  get_quad_vector[_naive].
     //              5.) tex_uv.w = log2(IN.video_size/IN.output_size).y
-    //              6.) DRIVERS_ALLOW_TEX2DLOD must be #defined.
+    //              6.) tex2Dlod() is present in the current Cg profile.
     //  Optional:   Tune artifacts vs. excessive blurriness with the global
     //              float error_blurring.
     //  Returns:    A blurred texture lookup using a "virtual" 12x12 Gaussian
@@ -1258,7 +1251,7 @@ float3 tex2Dblur8x8shared(const sampler2D texture,
     //      1c3 1c2 0c3 0c2 0d2 0d3 1d2 1d3
     //      3c1 3c0 2c1 2c0 2d0 2d1 3d0 4d1
     //      3c3 3c2 2c3 2c2 2d2 2d3 3d2 4d3
-    
+
     //  COMPUTE COORDS FOR TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur12x12shared).
     static const float denom_inv = blur8_exp_denom_inv;
@@ -1455,8 +1448,6 @@ float3 tex2Dblur6x6shared(const sampler2D texture,
             (w3curr * weight_sum_inv) * sample3curr;
     return sum;
 }
-#endif  //  DRIVERS_ALLOW_TEX2DLOD
-#endif  //  DRIVERS_ALLOW_DERIVATIVES
 
 
 #endif  //  BLUR_FUNCTIONS_H
