@@ -27,7 +27,7 @@ struct input
 // Not really a parameter.
 #define OVERDRIVE 10.0
 
-#pragma parameter THRESHOLD "Glow Threshold" 1.0 0.5 1.15 0.05
+#pragma parameter THRESHOLD "Glow Threshold" 1.0 0.5 1.10 0.02
 #ifdef PARAMETER_UNIFORM
 uniform float THRESHOLD;
 #else
