@@ -1,0 +1,61 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Dot Mask
+   Author: cgwg
+   License: GPL
+   
+   Note: This shader is just the dotmask code from cgwg's CRT shader.
+*/
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture : TEXUNIT0;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 texCoord : TEXCOORD,
+   out float2 oTexCoord : TEXCOORD,
+
+   uniform input IN
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   oTexCoord = texCoord;
+}
+
+#define mod_factor texCoord.x * IN.texture_size.x * IN.output_size.x / IN.video_size.x
+
+float4 main_fragment (in float2 texCoord : TEXCOORD, uniform input IN) : COLOR
+{
+   float3 res = tex2D(IN.texture, texCoord);
+   
+   // dot-mask emulation:
+   // Output pixels are alternately tinted green and magenta.
+   float3 dotMaskWeights = lerp(
+                           float3(1.0, 0.7, 1.0),
+                           float3(0.7, 1.0, 0.7),
+                           floor(fmod(mod_factor, 2.0))
+						   );
+   res *= dotMaskWeights;
+
+      return float4(res, 1.0);
+}
