@@ -18,7 +18,7 @@ struct VertexData
    float2 prev;
 };
 
-#define CRT_PASS PASS3
+#define CRT_PASS PASSPREV4
 
 void main_vertex
 (
