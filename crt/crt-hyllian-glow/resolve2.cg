@@ -1,0 +1,69 @@
+#pragma parameter BLOOM_STRENGTH "Bloom Strength" 0.45 0.0 1.0 0.01
+#pragma parameter SOURCE_BOOST "Bloom Color Boost" 1.15 1.0 1.3 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float BLOOM_STRENGTH;
+uniform float SOURCE_BOOST;
+#else
+#define BLOOM_STRENGTH 0.9
+#define SOURCE_BOOST 2.0
+#endif
+// END PARAMETERS //
+
+
+struct prev
+{
+   uniform float2 video_size;
+   uniform float2 texture_size;
+   uniform sampler2D texture;
+   float2 tex_coord;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+};
+
+struct VertexData
+{
+   float2 tex;
+   float2 prev;
+};
+
+#define CRT_PASS PASS2
+
+void main_vertex
+(
+	float4 position : POSITION,
+	float2 texCoord : TEXCOORD0,
+   prev CRT_PASS,
+
+   uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+   out VertexData vert
+)
+{
+	oPosition = mul(modelViewProj, position);
+
+   vert.tex = texCoord;
+   vert.prev = CRT_PASS.tex_coord;
+}
+
+// For debugging
+#define BLOOM_ONLY 0
+
+#define INV_OUTPUT_GAMMA (1.0 / 2.2)
+
+float4 main_fragment(in VertexData vert, uniform sampler2D s0 : TEXUNIT0, uniform input IN, prev CRT_PASS) : COLOR
+{
+#if BLOOM_ONLY
+   float3 source = BLOOM_STRENGTH * tex2D(s0, vert.tex).rgb;
+#else
+   float3 source = SOURCE_BOOST * tex2D(CRT_PASS.texture, vert.prev).rgb;
+   float3 bloom = tex2D(s0, vert.tex).rgb;
+   source += BLOOM_STRENGTH * bloom;
+#endif
+   return float4(pow(saturate(source), INV_OUTPUT_GAMMA), 1.0);
+}
+
