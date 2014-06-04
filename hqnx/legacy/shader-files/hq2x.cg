@@ -148,7 +148,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	half2 offset = step / 2.0;
 	half4 vector = tex2D(LUT, index * step + offset);
 	half sum = dot(vector, half4(1));
-	float3 res = mul(transpose(pixels), vector) / sum);
+	float3 res = mul(transpose(pixels), vector / sum);
 
 	return float4(res, 1.0);
 }
