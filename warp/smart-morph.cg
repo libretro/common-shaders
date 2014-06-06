@@ -1,0 +1,113 @@
+/*
+	Smart Morph v1.1
+	by Sp00kyFox, 2014
+
+
+Determines the brightest (or darkest) pixel X in the orthogonal neighborship of pixel E (including itself).
+Output is a linear combination of X and E weighted with their luma difference d (range: [0.0, 1.0]):
+
+w = sstp{sat[(d - CUTLO)/(CUTHI - CUTLO)]^PWR} * (STRMAX - STRMIN) + STRMIN
+
+with
+sstp(x) := smoothstep(0, 1, x) = -2x^3 + 3x^2
+sat(x)  := saturate(x) = max(0, min(1, x))
+
+*/
+
+
+#pragma parameter MODE   "SmartMorph Dilation / Erosion"	0.0 0.0 1.0 1.0		// Switches between dilation and erosion (line thinning or thickening).
+#pragma parameter PWR    "SmartMorph Luma Exponent"		0.5 0.0 10.0 0.1	// range: [0.0, +inf)   - Raises d by the exponent of PWR. Smaller values for stronger morphing.
+#pragma parameter STRMIN "SmartMorph MIN Strength"		0.0 0.0 1.0 0.01	// range: [0.0, STRMAX] - Minimal strength to apply
+#pragma parameter STRMAX "SmartMorph MAX Strength"		1.0 0.0 1.0 0.01	// range: [STRMIN, 1.0] - Maximal strength to apply.
+#pragma parameter CUTLO  "SmartMorph LO Contrast Cutoff"	0.0 0.0 1.0 0.01	// range: [0.0, CUTHI)  - Cutoff for low contrasts. For d smaller than CUTLO, STRMIN is applied.
+#pragma parameter CUTHI  "SmartMorph HI Contrast Cutoff"	1.0 0.0 1.0 0.01	// range: (CUTLO, 1.0]  - Cutoff for high contrasts. For d bigger than CUTHI, STRMAX is applied.
+#pragma parameter DEBUG  "SmartMorph Adjust View"		0.0 0.0 1.0 1.0
+
+// STRMIN = CUTLO = 1.0 behaves equivalent to Hyllian's shaders.
+
+#ifdef PARAMETER_UNIFORM
+	uniform float MODE, PWR, STRMIN, STRMAX, CUTLO, CUTHI, DEBUG;
+#else
+	#define MODE 0.0
+	#define PWR 0.5
+	#define STRMIN 0.0
+	#define STRMAX 1.0
+	#define CUTLO 0.0
+	#define CUTHI 1.0
+	#define DEBUG 0.0
+#endif
+
+const static float3 y_weights = float3(0.299, 0.587, 0.114);
+
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float2 t1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+
+	OUT.texCoord = texCoord;
+	OUT.t1       = 1.0/IN.texture_size;
+
+	return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float3 B = TEX( 0,-1).rgb;
+	float3 D = TEX(-1, 0).rgb;
+	float3 E = TEX( 0, 0).rgb;
+	float3 F = TEX( 1, 0).rgb;
+	float3 H = TEX( 0, 1).rgb;
+
+	float4 b = mul( float4x3(B, D, H, F), y_weights );
+	float  e = dot(E, y_weights);
+	
+	float di = 0.0;
+
+	if(MODE){
+		di = min(min(b.x, b.y), min(b.z, min(b.w, e)));
+	}
+	else{
+		di = max(max(b.x, b.y), max(b.z, max(b.w, e)));
+	}	
+
+	float3 res = (di==b.x) ? B : (di==b.y) ? D : (di==b.z) ? H : F;
+	di = abs(e-di);
+
+	float str = (di<=CUTLO) ? STRMIN : (di>=CUTHI) ? STRMAX : smoothstep( 0.0, 1.0, pow((di-CUTLO)/(CUTHI-CUTLO), PWR) ) * (STRMAX-STRMIN) + STRMIN;
+
+	if(DEBUG)
+		return float3(str);
+
+	return (di==0.0) ? E : lerp(E, res, str);
+}
