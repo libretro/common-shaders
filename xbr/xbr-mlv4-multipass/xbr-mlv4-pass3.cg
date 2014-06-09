@@ -88,7 +88,7 @@ float weighted_distance(float a, float b, float c, float d, float e, float f, fl
 	return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
 }
 
-struct orig
+struct prev
 {
 	float2 tex_coord;
 	uniform float2 texture_size;
@@ -122,14 +122,14 @@ void main_vertex
 
    	uniform float4x4 modelViewProj,
 	uniform input IN,
-	orig ORIG,
+	prev PASSPREV3,
 	out out_vertex co
 )
 {
 	co.position = mul(modelViewProj, position);
 	co.color = color;
 
-	float2 ps = float2(1.0/ORIG.texture_size.x, 1.0/ORIG.texture_size.y);
+	float2 ps = float2(1.0/PASSPREV3.texture_size.x, 1.0/PASSPREV3.texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -147,22 +147,22 @@ void main_vertex
 
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, orig ORIG, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, prev PASSPREV3, uniform input IN) : COLOR
 {
 	float px;
 
-	float2 pos = frac(co.texCoord*ORIG.texture_size)-float2(0.5, 0.5); // pos = pixel position
+	float2 pos = frac(co.texCoord*PASSPREV3.texture_size)-float2(0.5, 0.5); // pos = pixel position
 	float2 dir = sign(pos); // dir = pixel direction
 
 	float2 g1 = dir*( saturate(-dir.y*dir.x)*co.t1.zw + saturate( dir.y*dir.x)*co.t1.xy);
 	float2 g2 = dir*( saturate( dir.y*dir.x)*co.t1.zw + saturate(-dir.y*dir.x)*co.t1.xy);
 
-	float3 E   = tex2D(ORIG.texture, co.texCoord    ).rgb;
-	float3 F   = tex2D(ORIG.texture, co.texCoord +g1).rgb;
-	float3 H   = tex2D(ORIG.texture, co.texCoord +g2).rgb;
-	float3 I   = tex2D(ORIG.texture, co.texCoord +g1+g2).rgb;
-	float3 F4  = tex2D(ORIG.texture, co.texCoord +2.0*g1).rgb;
-	float3 H5  = tex2D(ORIG.texture, co.texCoord +2.0*g2).rgb;
+	float3 E   = tex2D(PASSPREV3.texture, co.texCoord    ).rgb;
+	float3 F   = tex2D(PASSPREV3.texture, co.texCoord +g1).rgb;
+	float3 H   = tex2D(PASSPREV3.texture, co.texCoord +g2).rgb;
+	float3 I   = tex2D(PASSPREV3.texture, co.texCoord +g1+g2).rgb;
+	float3 F4  = tex2D(PASSPREV3.texture, co.texCoord +2.0*g1).rgb;
+	float3 H5  = tex2D(PASSPREV3.texture, co.texCoord +2.0*g2).rgb;
 
 	float e = dot(E, yuv_weighted[0]);
 	float f = dot(F, yuv_weighted[0]);
