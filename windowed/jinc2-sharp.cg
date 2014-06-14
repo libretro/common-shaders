@@ -1,3 +1,17 @@
+#pragma parameter A "Window Sinc Param" 0.39 0.0 1.0 0.01
+#pragma parameter B "Sinc Param" 0.82 0.0 1.0 0.01
+#pragma parameter AR_STRENGTH "Anti-ringing Strength" 0.8 0.0 1.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float A;
+uniform float B;
+uniform float AR_STRENGTH;
+#else
+#define A 0.39
+#define B 0.82
+#define AR_STRENGTH 0.8
+#endif
+// END PARAMETERS //
+
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers
@@ -33,13 +47,11 @@
 // A=0.5, B=0.825 is the best jinc approximation for x<2.5. if B=1.0, it's a lanczos filter.
 // Increase A to get more blur. Decrease it to get a sharper picture. 
 // B = 0.825 to get rid of dithering. Increase B to get a fine sharpness, though dithering returns.
-#define A   0.4
-#define B   0.825
 
-    const static float     halfpi     = 1.5707963267948966192313216916398;
-    const static float         pi     = 3.1415926535897932384626433832795;
-    const static float         wa     = A*pi;
-    const static float         wb     = B*pi;
+#define halfpi  1.5707963267948966192313216916398
+#define pi    3.1415926535897932384626433832795
+#define wa    (A*pi)
+#define wb    (B*pi)
 
 // Calculates the distance between two points
 float d(float2 pt1, float2 pt2)
@@ -159,7 +171,10 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
       color = color/(dot(mul(weights, float4(1)), 1));
 
       // Anti-ringing
+      float3 aux = color;
       color = clamp(color, min_sample, max_sample);
+
+      color = lerp(aux, color, AR_STRENGTH);
  
       // final sum and weight normalization
       return float4(color, 1);
