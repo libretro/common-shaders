@@ -64,8 +64,8 @@ else
 	color = res;
 }
 
-if (fmod(y, 2.0) > 0.99999) res = res;
+if (fmod(y, 2.0) > 0.99999) res = float4(pow(tex2D(IN.texture, texCoord), 2.2));
 else
-res = float4(pow(tex2D(IN.texture, texCoord), 2.2));
+res = res;
 return float4(pow((res + color) / 2.0, 1.0 / 2.2));
 }
