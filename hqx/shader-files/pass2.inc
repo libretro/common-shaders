@@ -26,8 +26,6 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-#define SCALE 4
-
 struct orig
 {
 	float2 tex_coord;
@@ -46,17 +44,14 @@ struct out_vertex {
 	float4 position : POSITION;
 	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
-	float4 t1;
-	float4 t2;
-	float4 t3;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	float4 position	 : POSITION,
-	float4 color	 : COLOR,
-	float2 texCoord1 : TEXCOORD0,
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
 
    	uniform half4x4 modelViewProj,
 	uniform input IN
@@ -67,7 +62,7 @@ out_vertex main_vertex
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = 1.0/IN.texture_size;
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -82,13 +77,7 @@ out_vertex main_vertex
 	//   | w7 | w8 | w9 |
 	//   +----+----+----+
 
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
 	OUT.texCoord = texCoord;
-	OUT.t1 = texCoord.xxxy + half4(-dx, 0, dx, -dy); //  w1 | w2 | w3
-	OUT.t2 = texCoord.xxxy + half4(-dx, 0, dx,   0); //  w4 | w5 | w6
-	OUT.t3 = texCoord.xxxy + half4(-dx, 0, dx,  dy); //  w7 | w8 | w9
 
 	return OUT;
 }
@@ -98,40 +87,26 @@ out_vertex main_vertex
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig ORIG, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
 {
 	float2 fp = frac(VAR.texCoord*IN.texture_size);
-	half2 quad = floor(fp * SCALE);
+	half2 quad = sign(-0.5 + fp);
 
-	half3 w1  = tex2D(ORIG.texture, VAR.t1.xw).rgb;
-	half3 w2  = tex2D(ORIG.texture, VAR.t1.yw).rgb;
-	half3 w3  = tex2D(ORIG.texture, VAR.t1.zw).rgb;
+	float2 ps = 1.0/ORIG.texture_size;
+	float dx = ps.x;
+	float dy = ps.y;
 
-	half3 w4  = tex2D(ORIG.texture, VAR.t2.xw).rgb;
-	half3 w5  = tex2D(ORIG.texture, VAR.t2.yw).rgb;
-	half3 w6  = tex2D(ORIG.texture, VAR.t2.zw).rgb;
-
-	half3 w7  = tex2D(ORIG.texture, VAR.t3.xw).rgb;
-	half3 w8  = tex2D(ORIG.texture, VAR.t3.yw).rgb;
-	half3 w9  = tex2D(ORIG.texture, VAR.t3.zw).rgb;
+	half3 p1  = tex2D(ORIG.texture, VAR.texCoord).rgb;
+	half3 p2  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, dy) * quad).rgb;
+	half3 p3  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, 0) * quad).rgb;
+	half3 p4  = tex2D(ORIG.texture, VAR.texCoord + float2(0, dy) * quad).rgb;
+	half4x3 pixels = half4x3(p1, p2, p3, p4);
 
 	half2 index = tex2D(decal, VAR.texCoord).xy * half2(255.0, 15.0 * (SCALE * SCALE));
-
-	half4x3 pixels;
-	if (quad.x <= 1 && quad.y <= 1) {
-		pixels = half4x3(w5, w1, w2, w4); // PIXEL00, PIXEL01, PIXEL10, PIXEL11
-	} else if (quad.x >= 2 && quad.y <= 1) {
-		pixels = half4x3(w5, w2, w3, w6); // PIXEL02, PIXEL03, PIXEL12, PIXEL13
-	} else if (quad.x <= 1 && quad.y >= 2) {
-		pixels = half4x3(w5, w4, w7, w8); // PIXEL20, PIXEL21, PIXEL30, PIXEL31
-	} else {
-		pixels = half4x3(w5, w6, w8, w9); // PIXEL22, PIXEL23, PIXEL32, PIXEL33
-	}
-
-	index.y += dot(quad, half2(1, SCALE));
+	index.y += dot(floor(fp * SCALE), half2(1, SCALE));
 
 	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
 	half2 offset = step / 2.0;
-	half4 vector = tex2D(LUT, index * step + offset);        
-        half sum = dot(vector, half4(1));
-        float3 res = mul(transpose(pixels), vector / sum);
+	half4 vector = tex2D(LUT, index * step + offset);
+	half sum = dot(vector, half4(1));
+	float3 res = mul(transpose(pixels), vector / sum);
 
 	return float4(res, 1.0);
 }

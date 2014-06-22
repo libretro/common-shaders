@@ -1,5 +1,5 @@
 shaders = 2
-shader0 = shader-files/hqx.cg
+shader0 = shader-files/pass1.cg
 shader1 = shader-files/hq4x.cg
 
 filter_linear0 = false
