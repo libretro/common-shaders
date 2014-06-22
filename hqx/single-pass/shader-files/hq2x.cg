@@ -24,4 +24,4 @@
 
 #define SCALE 2
 
-#include "pass2.inc"
+#include "hqx.inc"

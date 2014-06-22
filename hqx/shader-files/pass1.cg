@@ -26,13 +26,12 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-#define SCALE 4
-
-const static half3x3 yuv = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
-const static float3 yuv_threshold = float3(1.0 / 48.0, 1.0 / 7.0, 1.0 / 6.0);
+const static half3x3 yuv_matrix = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.5, 0.5, -0.419, -0.081);
+const static half3 yuv_threshold = half3(48.0, 7.0, 6.0);
+const static half3x3 yuv = half3x3(yuv_threshold.x*yuv_matrix[0], yuv_threshold.y*yuv_matrix[1], yuv_threshold.z*yuv_matrix[2]);
 
 bool yuv_diff(float3 yuv1, float3 yuv2) {
-	bool3 res = abs(yuv1 - yuv2) > yuv_threshold;
+	bool3 res = abs(yuv1 - yuv2) > half3(10.0, 10.0, 10.0);
 	return res.x || res.y || res.z;
 }
 
@@ -68,7 +67,7 @@ out_vertex main_vertex
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = 1.0/IN.texture_size;
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -95,9 +94,6 @@ out_vertex main_vertex
 /*    FRAGMENT SHADER    */
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
 {
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
-	half2 quad = floor(fp * SCALE);
-
 	half3 w1  = tex2D(decal, VAR.t1.xw).rgb;
 	half3 w2  = tex2D(decal, VAR.t1.yw).rgb;
 	half3 w3  = tex2D(decal, VAR.t1.zw).rgb;
@@ -131,24 +127,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	index.x = dot(pattern[0], half3(1, 2, 4)) +
 	          dot(pattern[1], half3(8, 0, 16)) +
 	          dot(pattern[2], half3(32, 64, 128));
-	index.y = dot(cross, half4(1, 2, 4, 8)) * (SCALE * SCALE) + dot(quad, half2(1, SCALE));
+	index.y = dot(cross, half4(1, 2, 4, 8));
 
-	half4x3 pixels;
-	if (quad.x <= 1 && quad.y <= 1) {
-		pixels = half4x3(w5, w1, w2, w4); // PIXEL00, PIXEL01, PIXEL10, PIXEL11
-	} else if (quad.x >= 2 && quad.y <= 1) {
-		pixels = half4x3(w5, w2, w3, w6); // PIXEL02, PIXEL03, PIXEL12, PIXEL13
-	} else if (quad.x <= 1 && quad.y >= 2) {
-		pixels = half4x3(w5, w4, w7, w8); // PIXEL20, PIXEL21, PIXEL30, PIXEL31
-	} else {
-		pixels = half4x3(w5, w6, w8, w9); // PIXEL22, PIXEL23, PIXEL32, PIXEL33
-	}
-
-	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
-	half2 offset = step / 2.0;
-	half4 vector = tex2D(LUT, index * step + offset);        
-        half sum = dot(vector, half4(1));
-        float3 res = mul(transpose(pixels), vector / sum);
-
-	return float4(res, 1.0);
+	return float4(index / half2(255.0, 15.0), 0.0, 1.0);
 }
