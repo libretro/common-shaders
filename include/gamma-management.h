@@ -43,7 +43,8 @@
 //              whether it's #defined for intermediate passes or not.
 //  Optional:   The including file (or an earlier included file) may optionally
 //              #define a number of macros indicating it will override certain
-//              constants.  The macros and associated constants are as follows:
+//              macros and associated constants are as follows:
+//              static constants with either static or uniform constants.  The
 //              1.) OVERRIDE_STANDARD_GAMMA: The user must first define:
 //                  static const float ntsc_gamma
 //                  static const float pal_gamma
@@ -125,7 +126,7 @@
 //  number determines the gamma encoding of the input and output.
 
 
-//////////////////////////////////  CONSTANTS  /////////////////////////////////
+///////////////////////////////  BASE CONSTANTS  ///////////////////////////////
 
 //  Set standard gamma constants, but allow users to override them:
 #ifndef OVERRIDE_STANDARD_GAMMA
@@ -148,77 +149,98 @@
     static const float lcd_reference_gamma = 2.5;       //  To match CRT
     static const float crt_office_gamma = 2.2;  //  Circuitry-adjusted for NTSC
     static const float lcd_office_gamma = 2.2;  //  Approximates sRGB
+#endif  //  OVERRIDE_STANDARD_GAMMA
+
+//  Assuming alpha == 1.0 might make it easier for users to avoid some bugs,
+//  but only if they're aware of it.
+#ifndef OVERRIDE_ALPHA_ASSUMPTIONS
+    static const bool assume_opaque_alpha = false;
 #endif
+
+
+///////////////////////  DERIVED CONSTANTS AS FUNCTIONS  ///////////////////////
+
+//  gamma-management.h should be compatible with overriding gamma values with
+//  runtime user parameters, but we can only define other global constants in
+//  terms of static constants, not uniform user parameters.  To get around this
+//  limitation, we need to define derived constants using functions.
 
 //  Set device gamma constants, but allow users to override them:
-#ifndef OVERRIDE DEVICE_GAMMA
-    static const float crt_gamma = crt_reference_gamma_high;
-    static const float gba_gamma = 3.5; //  Game Boy Advance; in (3.0, 4.0)
-    static const float lcd_gamma = lcd_office_gamma;
-#endif
+#ifdef OVERRIDE DEVICE_GAMMA
+    //  The user promises to globally define the appropriate constants:
+    inline float get_crt_gamma()    {   return crt_gamma;   }
+    inline float get_gba_gamma()    {   return gba_gamma;   }
+    inline float get_lcd_gamma()    {   return lcd_gamma;   }
+#else
+    inline float get_crt_gamma()    {   return crt_reference_gamma_high;    }
+    inline float get_gba_gamma()    {   return 3.5; }   //  Game Boy Advance; in (3.0, 4.0)
+    inline float get_lcd_gamma()    {   return lcd_office_gamma;            }
+#endif  //  OVERRIDE_DEVICE_GAMMA
 
 //  Set decoding/encoding gammas for the first/lass passes, but allow overrides:
-#ifndef OVERRIDE_FINAL_GAMMA
+#ifdef OVERRIDE_FINAL_GAMMA
+    //  The user promises to globally define the appropriate constants:
+    inline float get_intermediate_gamma()   {   return intermediate_gamma;  }
+    inline float get_input_gamma()          {   return input_gamma;         }
+    inline float get_output_gamma()         {   return output_gamma;        }
+#else
     //  If we gamma-correct every pass, always use ntsc_gamma between passes to
     //  ensure middle passes don't need to care if anything is being simulated:
-    static const float intermediate_gamma = ntsc_gamma;
+    inline float get_intermediate_gamma()   {   return ntsc_gamma;          }
     #ifdef SIMULATE_CRT_ON_LCD
-        static const float input_gamma = crt_gamma;
-        static const float output_gamma = lcd_gamma;
+        inline float get_input_gamma()      {   return get_crt_gamma();     }
+        inline float get_output_gamma()     {   return get_lcd_gamma();     }
     #else
     #ifdef SIMULATE_GBA_ON_LCD
-        static const float input_gamma = gba_gamma;
-        static const float output_gamma = lcd_gamma;
+        inline float get_input_gamma()      {   return get_gba_gamma();     }
+        inline float get_output_gamma()     {   return get_lcd_gamma();     }
     #else
     #ifdef SIMULATE_LCD_ON_CRT
-        static const float input_gamma = lcd_gamma;
-        static const float output_gamma = crt_gamma;
+        inline float get_input_gamma()      {   return get_lcd_gamma();     }
+        inline float get_output_gamma()     {   return get_crt_gamma();     }
     #else
     #ifdef SIMULATE_GBA_ON_CRT
-        static const float input_gamma = gba_gamma;
-        static const float output_gamma = crt_gamma;
+        inline float get_input_gamma()      {   return get_gba_gamma();     }
+        inline float get_output_gamma()     {   return get_crt_gamma();     }
     #else   //  Don't simulate anything:
-        static const float input_gamma = ntsc_gamma;
-        static const float output_gamma = ntsc_gamma;
+        inline float get_input_gamma()      {   return ntsc_gamma;          }
+        inline float get_output_gamma()     {   return ntsc_gamma;          }
     #endif  //  SIMULATE_GBA_ON_CRT
     #endif  //  SIMULATE_LCD_ON_CRT
     #endif  //  SIMULATE_GBA_ON_LCD
     #endif  //  SIMULATE_CRT_ON_LCD
-#endif  //  USER_GAMMA_DEFINED
+#endif  //  OVERRIDE_FINAL_GAMMA
 
-//  Assuming alpha == 1.0 makes it easier to avoid bugs (with e.g. addition):
-#ifndef OVERRIDE_ALPHA_ASSUMPTIONS
-    static const bool assume_opaque_alpha = true;
-#endif
-
-//  Set decoding/encoding gammas for the current pass.
+//  Set decoding/encoding gammas for the current pass.  Use static constants for
+//  linearize_input and gamma_encode_output, because they aren't derived, and
+//  they let the compiler do dead-code elimination.
 #ifndef GAMMA_ENCODE_EVERY_FBO
     #ifdef FIRST_PASS
         static const bool linearize_input = true;
-        static const float pass_input_gamma = input_gamma;
+        inline float get_pass_input_gamma()     {   return get_input_gamma();   }
     #else
         static const bool linearize_input = false;
-        static const float pass_input_gamma = 1.0;
+        inline float get_pass_input_gamma()     {   return 1.0;                 }
     #endif
     #ifdef LAST_PASS
         static const bool gamma_encode_output = true;
-        static const float pass_output_gamma = output_gamma;
+        inline float get_pass_output_gamma()    {   return get_output_gamma();  }
     #else
         static const bool gamma_encode_output = false;
-        static const float pass_output_gamma = 1.0;
+        inline float get_pass_output_gamma()    {   return 1.0;                 }
     #endif
 #else
     static const bool linearize_input = true;
     static const bool gamma_encode_output = true;
     #ifdef FIRST_PASS
-        static const float pass_input_gamma = input_gamma;
+        inline float get_pass_input_gamma()     {   return get_input_gamma();   }
     #else
-        static const float pass_input_gamma = intermediate_gamma;
+        inline float get_pass_input_gamma()     {   return get_intermediate_gamma();    }
     #endif
     #ifdef LAST_PASS
-        static const float pass_output_gamma = output_gamma;
+        inline float get_pass_output_gamma()    {   return get_output_gamma();  }
     #else
-        static const float pass_output_gamma = intermediate_gamma;
+        inline float get_pass_output_gamma()    {   return get_intermediate_gamma();    }
     #endif
 #endif
 
@@ -234,11 +256,11 @@ inline float4 encode_output(const float4 color)
     {
         if(assume_opaque_alpha)
         {
-            return float4(pow(color.rgb, 1.0/pass_output_gamma), 1.0);
+            return float4(pow(color.rgb, 1.0/get_pass_output_gamma()), 1.0);
         }
         else
         {
-            return float4(pow(color.rgb, 1.0/pass_output_gamma), color.a);
+            return float4(pow(color.rgb, 1.0/get_pass_output_gamma()), color.a);
         }
     }
     else
@@ -253,11 +275,11 @@ inline float4 decode_input(const float4 color)
     {
         if(assume_opaque_alpha)
         {
-            return float4(pow(color.rgb, pass_input_gamma), 1.0);
+            return float4(pow(color.rgb, get_pass_input_gamma()), 1.0);
         }
         else
         {
-            return float4(pow(color.rgb, pass_input_gamma), color.a);
+            return float4(pow(color.rgb, get_pass_input_gamma()), color.a);
         }
     }
     else
