@@ -71,16 +71,15 @@ out_vertex main_vertex
 	OUT.position = mul(modelViewProj, position);
 	OUT.tex_uv = tex_uv;
 
-	//  Get the uv distance between source texels if upsizing or output pixels
-    //  if downsizing.  Blurs are not generic resizers; correct blurs require:
+	//  Get the uv sample distance between output pixels.  Blurs are not generic
+    //  Gaussian resizers, and correct blurs require:
     //  1.) IN.output_size == IN.video_size * 2^m, where m is an integer <= 0.
     //  2.) mipmap_inputN = "true" for this pass in .cgp preset if m != 0
     //  3.) filter_linearN = "true" except for 1x scale nearest neighbor blurs
-    //  Generic resizers would upsize using the distance between input texels
-    //  (not output pixels), but we avoid this and leave the blur kernel small:
-    //  Otherwise, combining statically calculated weights with bilinear sample
-    //  exploitation would result in terrible artifacts.  If you want to upsize
-    //  and blur, use blurNnearest() or a Gaussian resize with dynamic weights.
+    //  Gaussian resizers would upsize using the distance between input texels
+    //  (not output pixels), but we avoid this and consistently blur at the
+    //  destination size.  Otherwise, combining statically calculated weights
+    //  with bilinear sample exploitation would result in terrible artifacts.
     const float2 dxdy_scale = IN.video_size/IN.output_size;
 	const float2 dxdy = dxdy_scale/IN.texture_size;
     //  This blur is vertical-only, so zero out the horizontal offset:

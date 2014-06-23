@@ -9,18 +9,21 @@ add more processing to the same pass as a Gaussian blur.
 
 PICK THE RIGHT BLUR FOR YOUR USE CASE:
 There are several different types of blurs, ranging in size from 3-12 texels:
-a.) Naive separable blurs use vertical and horizontal passes and require N taps
-    for an Nx blur.  These are the only blurs which work with arbitrary resizes.
-b.) Fast separable blurs use vertical and horizontal passes and require N taps
+a.) "Resize" separable blurs use vertical and horizontal passes and require N
+    taps for an Nx blur.  These are arbitrarily resizable.
+b.) "Fast" separable blurs use vertical and horizontal passes and require N taps
     for an (N*2 - 1)x blur.  They exploit bilinear filtering to reduce the
     required taps from e.g. 9 to 5.  These are always faster, but they have
     strict image scale requirements.
-c.) One-pass blurs combine the vertical/horizontal passes of the fast separable
-    blurs.  They exploit bilinear filtering the same way.  They're faster than
-    separable blurs at 3x3, competitive at 5x5 depending on options, and slower
-    at 7x7 and above...but larger blurs may still be useful if you're hurting
-    for passes.
-d.) One-pass shared sample blurs go a step further: They also use quad-pixel
+c.) "Resize" one-pass blurs combine the vertical/horizontal passes of the
+    "resize" separable blurs, and they require NxN taps for an NxN blur.  These
+    perform slowly enough that only tex2Dblur3x3resize is useful/included.
+d.) Other one-pass blurs combine the vertical/horizontal passes of the "fast"
+    separable blurs, and they exploit bilinear filtering the same way.  They're
+    faster than separable blurs at 3x3, competitive at 5x5 depending on options,
+    and slower at 7x7 and above...but larger blurs may still be useful if you're
+    hurting for passes.
+e.) "Shared" one-pass blurs go a step further: They also use quad-pixel
     communication with fine-grained derivatives to distribute texture samples
     across a 2x2 pixel quad.  (ddx() and ddy() are required, as well as a GPU
     that uses fine-grained derivatives).  These blurs are faster than the other
@@ -28,7 +31,7 @@ d.) One-pass shared sample blurs go a step further: They also use quad-pixel
     with bilinear sampling, so they're best reserved for reblurring an already-
     blurred input.
 
-Every blur expects linear filtering.  Except for naive separable blurs, all
+Every blur expects linear filtering.  Except for resize separable blurs, all
 require a pass scale of (1/(2^M)) for some M >= 0.  That is, the output image
 has to have a 1:1 pixel:texel ratio with some mipmap of the input image, so use
 e.g. scaleN = "1.0" or scaleN = "0.25", not scaleN = "0.33" or scaleN = "2.0".
@@ -60,22 +63,23 @@ you can just look at the sRGB performance figures if you don't care about gamma:
 //  other FBO is mipmapped for separable blurs, to mimic realistic usage).
 //  Mipmap      Neither     sRGB+Mipmap sRGB        Function
 //  76.0        92.3        131.3       193.7       tex2Dblur3fast
-//  63.2        74.4        122.4       175.5       tex2Dblur3naive
+//  63.2        74.4        122.4       175.5       tex2Dblur3resize
 //  93.7        121.2       159.3       263.2       tex2Dblur3x3
+//  59.7        68.7        115.4       162.1       tex2Dblur3x3resize
 //  63.2        74.4        122.4       175.5       tex2Dblur5fast
-//  49.3        54.8        100.0       132.7       tex2Dblur5naive
+//  49.3        54.8        100.0       132.7       tex2Dblur5resize
 //  59.7        68.7        115.4       162.1       tex2Dblur5x5
 //  64.9        77.2        99.1        137.2       tex2Dblur6x6shared
 //  55.8        63.7        110.4       151.8       tex2Dblur7fast
-//  39.8        43.9        83.9        105.8       tex2Dblur7naive
+//  39.8        43.9        83.9        105.8       tex2Dblur7resize
 //  40.0        44.2        83.2        104.9       tex2Dblur7x7
 //  56.4        65.5        71.9        87.9        tex2Dblur8x8shared
 //  49.3        55.1        99.9        132.5       tex2Dblur9fast
-//  33.3        36.2        72.4        88.0        tex2Dblur9naive
+//  33.3        36.2        72.4        88.0        tex2Dblur9resize
 //  27.8        29.7        61.3        72.2        tex2Dblur9x9
 //  37.2        41.1        52.6        60.2        tex2Dblur10x10shared
 //  44.4        49.5        91.3        117.8       tex2Dblur11fast
-//  28.8        30.8        63.6        75.4        tex2Dblur11naive
+//  28.8        30.8        63.6        75.4        tex2Dblur11resize
 //  33.6        36.5        40.9        45.5        tex2Dblur12x12shared
 
 BASIC USAGE:
