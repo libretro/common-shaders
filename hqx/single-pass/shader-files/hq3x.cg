@@ -22,6 +22,10 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
+#pragma parameter trY "Y Threshold" 48.0 0.0 255.0 1.0
+#pragma parameter trU "U Threshold" 7.0 0.0 255.0 1.0
+#pragma parameter trV "V Threshold" 6.0 0.0 255.0 1.0
+
 #define SCALE 3
 
 #include "hqx.inc"
