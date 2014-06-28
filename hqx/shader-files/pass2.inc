@@ -93,20 +93,20 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig
 	float dx = ps.x;
 	float dy = ps.y;
 
-	half3 p1  = tex2D(ORIG.texture, VAR.texCoord).rgb;
-	half3 p2  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, dy) * quad).rgb;
-	half3 p3  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, 0) * quad).rgb;
-	half3 p4  = tex2D(ORIG.texture, VAR.texCoord + float2(0, dy) * quad).rgb;
-	half4x3 pixels = half4x3(p1, p2, p3, p4);
+	float3 p1  = tex2D(ORIG.texture, VAR.texCoord).rgb;
+	float3 p2  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, dy) * quad).rgb;
+	float3 p3  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, 0) * quad).rgb;
+	float3 p4  = tex2D(ORIG.texture, VAR.texCoord + float2(0, dy) * quad).rgb;
+	float4x3 pixels = half4x3(p1, p2, p3, p4);
 
 	half2 index = tex2D(decal, VAR.texCoord).xy * half2(255.0, 15.0 * (SCALE * SCALE));
 	index.y += dot(floor(fp * SCALE), half2(1, SCALE));
 
 	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
 	half2 offset = step / 2.0;
-	half4 vector = tex2D(LUT, index * step + offset);
-	half sum = dot(vector, half4(1));
-	float3 res = mul(transpose(pixels), vector / sum);
+	half4 weights = tex2D(LUT, index * step + offset);
+	half sum = dot(weights, half4(1));
+	float3 res = mul(transpose(pixels), weights / sum);
 
 	return float4(res, 1.0);
 }

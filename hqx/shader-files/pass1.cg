@@ -26,12 +26,27 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-const static half3x3 yuv_matrix = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.5, 0.5, -0.419, -0.081);
-const static half3 yuv_threshold = half3(48.0, 7.0, 6.0);
-const static half3x3 yuv = half3x3(yuv_threshold.x*yuv_matrix[0], yuv_threshold.y*yuv_matrix[1], yuv_threshold.z*yuv_matrix[2]);
+#pragma parameter trY "Y Threshold" 48.0 0.0 255.0 1.0
+#pragma parameter trU "U Threshold" 7.0 0.0 255.0 1.0
+#pragma parameter trV "V Threshold" 6.0 0.0 255.0 1.0
 
-bool yuv_diff(float3 yuv1, float3 yuv2) {
-	bool3 res = abs(yuv1 - yuv2) > half3(10.0, 10.0, 10.0);
+#ifdef PARAMETER_UNIFORM
+uniform float trY;
+uniform float trU;
+uniform float trV;
+#else
+#define trY 48.0
+#define trU 7.0
+#define trV 6.0
+#endif
+
+static half3 yuv_threshold = half3(trY/255.0, trU/255.0, trV/255.0);
+
+const static half3x3 yuv = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.5, 0.5, -0.419, -0.081);
+const static half3 yuv_offset = half3(0, 0.5, 0.5);
+
+bool diff(float3 yuv1, float3 yuv2) {
+	bool3 res = abs((yuv1 + yuv_offset) - (yuv2 + yuv_offset)) > yuv_threshold;
 	return res.x || res.y || res.z;
 }
 
@@ -94,34 +109,22 @@ out_vertex main_vertex
 /*    FRAGMENT SHADER    */
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
 {
-	half3 w1  = tex2D(decal, VAR.t1.xw).rgb;
-	half3 w2  = tex2D(decal, VAR.t1.yw).rgb;
-	half3 w3  = tex2D(decal, VAR.t1.zw).rgb;
+	float3 w1  = mul(yuv, tex2D(decal, VAR.t1.xw).rgb);
+	float3 w2  = mul(yuv, tex2D(decal, VAR.t1.yw).rgb);
+	float3 w3  = mul(yuv, tex2D(decal, VAR.t1.zw).rgb);
 
-	half3 w4  = tex2D(decal, VAR.t2.xw).rgb;
-	half3 w5  = tex2D(decal, VAR.t2.yw).rgb;
-	half3 w6  = tex2D(decal, VAR.t2.zw).rgb;
+	float3 w4  = mul(yuv, tex2D(decal, VAR.t2.xw).rgb);
+	float3 w5  = mul(yuv, tex2D(decal, VAR.t2.yw).rgb);
+	float3 w6  = mul(yuv, tex2D(decal, VAR.t2.zw).rgb);
 
-	half3 w7  = tex2D(decal, VAR.t3.xw).rgb;
-	half3 w8  = tex2D(decal, VAR.t3.yw).rgb;
-	half3 w9  = tex2D(decal, VAR.t3.zw).rgb;
+	float3 w7  = mul(yuv, tex2D(decal, VAR.t3.xw).rgb);
+	float3 w8  = mul(yuv, tex2D(decal, VAR.t3.yw).rgb);
+	float3 w9  = mul(yuv, tex2D(decal, VAR.t3.zw).rgb);
 
-	float3 yuv1 = mul(yuv, w1);
-	float3 yuv2 = mul(yuv, w2);
-	float3 yuv3 = mul(yuv, w3);
-
-	float3 yuv4 = mul(yuv, w4);
-	float3 yuv5 = mul(yuv, w5);
-	float3 yuv6 = mul(yuv, w6);
-
-	float3 yuv7 = mul(yuv, w7);
-	float3 yuv8 = mul(yuv, w8);
-	float3 yuv9 = mul(yuv, w9);
-
-	bool3x3 pattern = bool3x3(yuv_diff(yuv5, yuv1), yuv_diff(yuv5, yuv2), yuv_diff(yuv5, yuv3),
-	                          yuv_diff(yuv5, yuv4), false               , yuv_diff(yuv5, yuv6),
-	                          yuv_diff(yuv5, yuv7), yuv_diff(yuv5, yuv8), yuv_diff(yuv5, yuv9));
-	bool4 cross = bool4(yuv_diff(yuv4, yuv2), yuv_diff(yuv2, yuv6), yuv_diff(yuv8, yuv4), yuv_diff(yuv6, yuv8));
+	bool3x3 pattern = bool3x3(diff(w5, w1), diff(w5, w2), diff(w5, w3),
+	                          diff(w5, w4), false       , diff(w5, w6),
+	                          diff(w5, w7), diff(w5, w8), diff(w5, w9));
+	bool4 cross = bool4(diff(w4, w2), diff(w2, w6), diff(w8, w4), diff(w6, w8));
 
 	half2 index;
 	index.x = dot(pattern[0], half3(1, 2, 4)) +
