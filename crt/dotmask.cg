@@ -44,15 +44,25 @@ void main_vertex
 
 #define mod_factor texCoord.x * IN.texture_size.x * IN.output_size.x / IN.video_size.x
 
+#pragma parameter DOTMASK_STRENGTH "Dot Mask Strength" 0.3 0.0 1.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float DOTMASK_STRENGTH;
+#else
+#define DOTMASK_STRENGTH 0.3
+#endif
+
 float4 main_fragment (in float2 texCoord : TEXCOORD, uniform input IN) : COLOR
 {
    float3 res = tex2D(IN.texture, texCoord);
    
+   float mask = 1.0 - DOTMASK_STRENGTH;
+   
    // dot-mask emulation:
    // Output pixels are alternately tinted green and magenta.
    float3 dotMaskWeights = lerp(
-                           float3(1.0, 0.7, 1.0),
-                           float3(0.7, 1.0, 0.7),
+                           float3(1.0, mask, 1.0),
+                           float3(mask, 1.0, mask),
                            floor(fmod(mod_factor, 2.0))
 						   );
    res *= dotMaskWeights;
