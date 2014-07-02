@@ -1,5 +1,5 @@
 shaders = 2
-shader0 = ../xbr/2xbr-v3.7c.cg
+shader0 = ../xbr/legacy/2xbr-v3.7c.cg
 shader1 = ../anti-aliasing/reverse-aa.cg
 
 filter_linear0 = false

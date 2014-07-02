@@ -1,5 +1,5 @@
 shaders = "4"
-shader0 = "../xbr/5xbr-v4.0-noblend.cg"
+shader0 = "../xbr/legacy/5xbr-v4.0-noblend.cg"
 filter_linear0 = "false"
 wrap_mode0 = "clamp_to_border"
 float_framebuffer0 = "false"
