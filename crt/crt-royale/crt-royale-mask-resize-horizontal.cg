@@ -1,0 +1,142 @@
+/////////////////////////////  GPL LICENSE NOTICE  /////////////////////////////
+
+//  crt-royale: A full-featured CRT shader, with cheese.
+//  Copyright (C) 2014 TroggleMonkey <trogglemonkey@gmx.com>
+//
+//  This program is free software; you can redistribute it and/or modify it
+//  under the terms of the GNU General Public License as published by the Free
+//  Software Foundation; either version 2 of the License, or any later version.
+//
+//  This program is distributed in the hope that it will be useful, but WITHOUT
+//  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+//  FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+//  more details.
+//
+//  You should have received a copy of the GNU General Public License along with
+//  this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+//  Place, Suite 330, Boston, MA 02111-1307 USA
+
+
+/////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
+
+#include "user-settings.h"
+#include "derived-settings-and-constants.h"
+#include "bind-shader-params.h"
+
+
+//////////////////////////////////  INCLUDES  //////////////////////////////////
+
+#include "phosphor-mask-resizing.h"
+
+
+/////////////////////////////////  STRUCTURES  /////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+struct out_vertex
+{
+    float4 position                     : POSITION;
+    float2 src_tex_uv_wrap              : TEXCOORD0;
+    float2 tile_uv_wrap                 : TEXCOORD1;
+    float2 resize_magnification_scale   : TEXCOORD2;
+    float2 src_dxdy                     : TEXCOORD3;
+    float2 tile_size_uv                 : TEXCOORD4;
+    float2 input_tiles_per_texture      : TEXCOORD5;
+};
+
+
+////////////////////////////////  VERTEX SHADER  ///////////////////////////////
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 tex_uv   : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+
+    //  First estimate the viewport size (the user will get the wrong number of
+    //  triads if it's wrong and mask_specify_num_triads is 1.0/true).
+    const float2 estimated_viewport_size =
+        IN.output_size / mask_resize_viewport_scale;
+    //  Find the final size of our resized phosphor mask tiles.  We probably
+    //  estimated the viewport size and MASK_RESIZE output size differently last
+    //  pass, so do not swear they were the same. ;)
+    const float2 mask_resize_tile_size = get_resized_mask_tile_size(
+        estimated_viewport_size, IN.output_size, false);
+
+    //  We'll render resized tiles until filling the output FBO or meeting a
+    //  limit, so compute [wrapped] tile uv coords based on the output uv coords
+    //  and the number of tiles that will fit in the FBO.
+    const float2 output_tiles_this_pass = IN.output_size / mask_resize_tile_size;
+    const float2 output_video_uv = tex_uv * IN.texture_size / IN.video_size;
+    const float2 tile_uv_wrap = output_video_uv * output_tiles_this_pass;
+
+    //  Get the texel size of an input tile and related values:
+    const float2 input_tile_size = float2(min(
+        mask_resize_src_lut_size.x, IN.video_size.x), mask_resize_tile_size.y);
+    const float2 tile_size_uv = input_tile_size / IN.texture_size;
+    const float2 input_tiles_per_texture = IN.texture_size / input_tile_size;
+
+    //  Derive [wrapped] texture uv coords from [wrapped] tile uv coords and
+    //  the tile size in uv coords, and save frac() for the fragment shader.
+    const float2 src_tex_uv_wrap = tile_uv_wrap * tile_size_uv;
+
+    //  Output the values we need, including the magnification scale and step:
+    OUT.tile_uv_wrap = tile_uv_wrap;
+    OUT.src_tex_uv_wrap = src_tex_uv_wrap;
+    OUT.resize_magnification_scale = mask_resize_tile_size / input_tile_size;
+    OUT.src_dxdy = float2(1.0/IN.texture_size.x, 0.0);
+    OUT.tile_size_uv = tile_size_uv;
+    OUT.input_tiles_per_texture = input_tiles_per_texture;
+    return OUT;
+}
+
+
+///////////////////////////////  FRAGMENT SHADER  //////////////////////////////
+
+float4 main_fragment(in out_vertex VAR,
+    uniform sampler2D input_texture : TEXUNIT0, uniform input IN) : COLOR
+{
+    //  The input contains one mask tile horizontally and a number vertically.
+    //  Resize the tile horizontally to its final screen size and repeat it
+    //  until drawing at least mask_resize_num_tiles, leaving it unchanged
+    //  vertically.  Lanczos-resizing the phosphor mask achieves much sharper
+    //  results than mipmapping, outputting >= mask_resize_num_tiles makes for
+    //  easier tiled sampling later.
+    #ifdef PHOSPHOR_MASK_MANUALLY_RESIZE
+        //  Discard unneeded fragments in case our profile allows real branches.
+        const float2 tile_uv_wrap = VAR.tile_uv_wrap;
+        if(get_mask_sample_mode() < 0.5 &&
+            max(tile_uv_wrap.x, tile_uv_wrap.y) <= mask_resize_num_tiles)
+        {
+            const float src_dx = VAR.src_dxdy.x;
+            const float2 src_tex_uv = frac(VAR.src_tex_uv_wrap);
+            const float3 pixel_color = downsample_horizontal_sinc_tiled(input_texture,
+                src_tex_uv, IN.texture_size, VAR.src_dxdy.x,
+                VAR.resize_magnification_scale.x, VAR.tile_size_uv.x);
+            //  The input LUT was linear RGB, and so is our output:
+            return float4(pixel_color, 1.0);
+        }
+        else
+        {
+            discard;
+        }
+    #else
+        discard;
+        return float4(1.0);
+    #endif
+}
+

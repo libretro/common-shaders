@@ -29,34 +29,34 @@
 //  Requires:   All blurs share these requirements (dxdy requirement is split):
 //              1.) All requirements of gamma-management.h must be satisfied!
 //              2.) filter_linearN must == "true" in your .cgp preset unless
-//                  you're using tex2DblurNnaive at 1x scale.
+//                  you're using tex2DblurNresize at 1x scale.
 //              3.) mipmap_inputN must == "true" in your .cgp preset if
 //                  IN.output_size < IN.video_size.
 //              4.) IN.output_size == IN.video_size / pow(2, M), where M is some
-//                  positive integer.  tex2DblurNnaive can resize arbitrarily,
-//                  but arbitrary resizes "fail" with other blurs due to the way
-//                  they mix static weights with bilinear sample exploitation.
+//                  positive integer.  tex2Dblur*resize can resize arbitrarily
+//                  (and the blur will be done after resizing), but arbitrary
+//                  resizes "fail" with other blurs due to the way they mix
+//                  static weights with bilinear sample exploitation.
 //              5.) In general, dxdy should contain the uv pixel spacing:
 //                      dxdy = (IN.video_size/IN.output_size)/IN.texture_size
-//                  but use the uv texel spacing for tex2DblurNnaive upsizes:
-//                      dxdy = 1.0/IN.texture_size
-//              6.) For separable blurs (tex2DblurNnaive and tex2DblurNfast),
+//              6.) For separable blurs (tex2DblurNresize and tex2DblurNfast),
 //                  zero out the dxdy component in the unblurred dimension:
 //                      dxdy = float2(dxdy.x, 0.0) or float2(0.0, dxdy.y)
 //              Many blurs share these requirements:
-//              1.) One-pass blurs require scale_xN == scale_yN, or they will
-//                  blur more in the lower-scaled dimension.
+//              1.) One-pass blurs require scale_xN == scale_yN or scales > 1.0,
+//                  or they will blur more in the lower-scaled dimension.
 //              2.) One-pass shared sample blurs require ddx(), ddy(), and
 //                  tex2Dlod() to be supported by the current Cg profile, and
 //                  the drivers must support high-quality derivatives.
 //              3.) One-pass shared sample blurs require:
 //                      tex_uv.w == log2(IN.video_size/IN.output_size).y;
-//              All blurs share these requirements, which are automatically met
-//              (unless OVERRIDE_BLUR_STD_DEVS is #defined; see below):
+//              Non-wrapper blurs share this requirement:
+//              1.) sigma is the intended standard deviation of the blur
+//              Wrapper blurs share this requirement, which is automatically
+//              met (unless OVERRIDE_BLUR_STD_DEVS is #defined; see below):
 //              1.) blurN_std_dev must be global static const float values
 //                  specifying standard deviations for Nx blurs in units
 //                  of destination pixels
-//              2.) blurN_exp_denom_inv == 0.5/(blurN_std_dev*blurN_std_dev)
 //  Optional:   1.) The including file (or an earlier included file) may
 //                  optionally #define USE_BINOMIAL_BLUR_STD_DEVS to replace
 //                  default standard deviations with those matching a binomial
@@ -73,6 +73,10 @@
 //                      static const float blur10_std_dev
 //                      static const float blur11_std_dev
 //                      static const float blur12_std_dev
+//                      static const float blur17_std_dev
+//                      static const float blur25_std_dev
+//                      static const float blur31_std_dev
+//                      static const float blur43_std_dev
 //              3.) The including file (or an earlier included file) may
 //                  optionally #define OVERRIDE_ERROR_BLURRING and override:
 //                      static const float error_blurring
@@ -81,11 +85,18 @@
 //                  fragments.  Values closer to 0.0 have "correct" blurriness
 //                  but allow more artifacts, and values closer to 1.0 blur away
 //                  artifacts by sampling closer to halfway between texels.
+//              UPDATE 6/21/14: The above static constants may now be overridden
+//              by non-static uniform constants.  This permits exposing blur
+//              standard deviations as runtime GUI shader parameters.  However,
+//              using them keeps weights from being statically computed, and the
+//              speed hit depends on the blur: On my machine, uniforms kill over
+//              53% of the framerate with tex2Dblur12x12shared, but they only
+//              drop the framerate by about 18% with tex2Dblur11fast.
 //  Quality and Performance Comparisons:
 //  For the purposes of the following discussion, "no sRGB" means
 //  GAMMA_ENCODE_EVERY_FBO is #defined, and "sRGB" means it isn't.
-//  1.) tex2DblurNfast is always faster than tex2DblurNnaive.
-//  2.) tex2DblurNnaive functions are the only ones that can arbitrarily resize
+//  1.) tex2DblurNfast is always faster than tex2DblurNresize.
+//  2.) tex2DblurNresize functions are the only ones that can arbitrarily resize
 //      well, because they're the only ones that don't exploit bilinear samples.
 //      This also means they're the only functions which can be truly gamma-
 //      correct without linear (or sRGB FBO) input, but only at 1x scale.
@@ -109,28 +120,36 @@
 //  other FBO is mipmapped for separable blurs, to mimic realistic usage).
 //  Mipmap      Neither     sRGB+Mipmap sRGB        Function
 //  76.0        92.3        131.3       193.7       tex2Dblur3fast
-//  63.2        74.4        122.4       175.5       tex2Dblur3naive
+//  63.2        74.4        122.4       175.5       tex2Dblur3resize
 //  93.7        121.2       159.3       263.2       tex2Dblur3x3
+//  59.7        68.7        115.4       162.1       tex2Dblur3x3resize
 //  63.2        74.4        122.4       175.5       tex2Dblur5fast
-//  49.3        54.8        100.0       132.7       tex2Dblur5naive
+//  49.3        54.8        100.0       132.7       tex2Dblur5resize
 //  59.7        68.7        115.4       162.1       tex2Dblur5x5
 //  64.9        77.2        99.1        137.2       tex2Dblur6x6shared
 //  55.8        63.7        110.4       151.8       tex2Dblur7fast
-//  39.8        43.9        83.9        105.8       tex2Dblur7naive
+//  39.8        43.9        83.9        105.8       tex2Dblur7resize
 //  40.0        44.2        83.2        104.9       tex2Dblur7x7
 //  56.4        65.5        71.9        87.9        tex2Dblur8x8shared
 //  49.3        55.1        99.9        132.5       tex2Dblur9fast
-//  33.3        36.2        72.4        88.0        tex2Dblur9naive
+//  33.3        36.2        72.4        88.0        tex2Dblur9resize
 //  27.8        29.7        61.3        72.2        tex2Dblur9x9
 //  37.2        41.1        52.6        60.2        tex2Dblur10x10shared
 //  44.4        49.5        91.3        117.8       tex2Dblur11fast
-//  28.8        30.8        63.6        75.4        tex2Dblur11naive
+//  28.8        30.8        63.6        75.4        tex2Dblur11resize
 //  33.6        36.5        40.9        45.5        tex2Dblur12x12shared
+//  TODO: Fill in benchmarks for new untested blurs.
+//                                                  tex2Dblur17fast
+//                                                  tex2Dblur25fast
+//                                                  tex2Dblur31fast
+//                                                  tex2Dblur43fast
+//                                                  tex2Dblur3x3resize
 
 
 /////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
 
-//  Set static standard deviations, but allow users to override them:
+//  Set static standard deviations, but allow users to override them with their
+//  own constants (even non-static uniforms if they're okay with the speed hit):
 #ifndef OVERRIDE_BLUR_STD_DEVS
     //  blurN_std_dev values are specified in terms of dxdy strides.
     #ifdef USE_BINOMIAL_BLUR_STD_DEVS
@@ -149,6 +168,10 @@
         static const float blur10_std_dev = 1.21982421875;
         static const float blur11_std_dev = 1.25361328125;
         static const float blur12_std_dev = 1.2423828125;
+        static const float blur17_std_dev = 1.27783203125;
+        static const float blur25_std_dev = 1.2810546875;
+        static const float blur31_std_dev = 1.28125;
+        static const float blur43_std_dev = 1.28125;
     #else
         //  The defaults are the largest values that keep the largest unused
         //  blur term on each side <= 1.0/256.0.  (We could get away with more
@@ -163,6 +186,10 @@
         static const float blur10_std_dev = 1.80478515625;
         static const float blur11_std_dev = 2.15986328125;
         static const float blur12_std_dev = 2.215234375;
+        static const float blur17_std_dev = 3.45535583496;
+        static const float blur25_std_dev = 5.3409576416;
+        static const float blur31_std_dev = 6.86488037109;
+        static const float blur43_std_dev = 10.1852050781;
     #endif  //  USE_BINOMIAL_BLUR_STD_DEVS
 #endif  //  OVERRIDE_BLUR_STD_DEVS
 
@@ -179,25 +206,7 @@
 //  FIRST_PASS, LAST_PASS, GAMMA_ENCODE_EVERY_FBO, etc.  See it for details.
 #include "gamma-management.h"
 #include "quad-pixel-communication.h"
-
-
-/////////////////////////  SHARED CONSTANTS AND MACROS  ////////////////////////
-
-//  Gaussian weights are calculated as exp(-dist^2 / (2 * std_dev^2)).  Compute
-//  the inverse denominator inside the exp() here to reduce repetition below.
-static const float blur3_exp_denom_inv = 0.5/(blur3_std_dev*blur3_std_dev);
-static const float blur4_exp_denom_inv = 0.5/(blur4_std_dev*blur4_std_dev);
-static const float blur5_exp_denom_inv = 0.5/(blur5_std_dev*blur5_std_dev);
-static const float blur6_exp_denom_inv = 0.5/(blur6_std_dev*blur6_std_dev);
-static const float blur7_exp_denom_inv = 0.5/(blur7_std_dev*blur7_std_dev);
-static const float blur8_exp_denom_inv = 0.5/(blur8_std_dev*blur8_std_dev);
-static const float blur9_exp_denom_inv = 0.5/(blur9_std_dev*blur9_std_dev);
-static const float blur10_exp_denom_inv = 0.5/(blur10_std_dev*blur10_std_dev);
-static const float blur11_exp_denom_inv = 0.5/(blur11_std_dev*blur11_std_dev);
-static const float blur12_exp_denom_inv = 0.5/(blur12_std_dev*blur12_std_dev);
-
-//  Make a length squared helper macro (for static constants only):
-#define LENGTH_SQ(vec) (dot(vec, vec))
+#include "special-functions.h"
 
 
 ///////////////////////////////////  HELPERS  //////////////////////////////////
@@ -208,141 +217,166 @@ inline float4 uv2_to_uv4(float2 tex_uv)
     return float4(tex_uv, 0.0, 0.0);
 }
 
+//  Make a length squared helper macro (for usage with static constants):
+#define LENGTH_SQ(vec) (dot(vec, vec))
 
-//////////////////////  NEAREST NEIGHBOR SEPARABLE BLURS  //////////////////////
+inline float get_fast_gaussian_weight_sum_inv(const float sigma)
+{
+    //  We can use the Gaussian integral to calculate the asymptotic weight for
+    //  the center pixel.  Since the unnormalized center pixel weight is 1.0,
+    //  the normalized weight is the same as the weight sum inverse.  Given a
+    //  large enough blur (9+), the asymptotic weight sum is close and faster:
+    //      center_weight = 0.5 *
+    //          (erf(0.5/(sigma*sqrt(2.0))) - erf(-0.5/(sigma*sqrt(2.0))))
+    //      erf(-x) == -erf(x), so we get 0.5 * (2.0 * erf(blah blah)):
+    //  However, we can get even faster results with curve-fitting.  These are
+    //  also closer than the asymptotic results, because they were constructed
+    //  from 64 blurs sizes from [3, 131) and 255 equally-spaced sigmas from
+    //  (0, blurN_std_dev), so the results for smaller sigmas are biased toward
+    //  smaller blurs.  The max error is 0.0031793913.
+    //  Relative FPS: 134.3 with erf, 135.8 with curve-fitting.
+    //static const float temp = 0.5/sqrt(2.0);
+    //return erf(temp/sigma);
+    return min(exp(exp(0.348348412457428/
+        (sigma - 0.0860587260734721))), 0.399334576340352/sigma);
+}
 
-float3 tex2Dblur11naive(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+
+////////////////////  ARBITRARILY RESIZABLE SEPARABLE BLURS  ///////////////////
+
+float3 tex2Dblur11resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Global requirements must be met (see file description).
     //  Returns:    A 1D 11x Gaussian blurred texture lookup using a 11-tap blur.
     //              It may be mipmapped depending on settings and dxdy.
     //  Calculate Gaussian blur kernel weights and a normalization factor for
     //  distances of 0-4, ignoring constant factors (since we're normalizing).
-    //  "static" is supposedly only usable for globals, but it still helps. :)
-    static const float denom_inv = blur11_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float w4 = exp(-16.0 * denom_inv);
-    static const float w5 = exp(-25.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 /
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float weight_sum_inv = 1.0 /
         (w0 + 2.0 * (w1 + w2 + w3 + w4 + w5));
-    //  Statically normalize weights, sum weighted samples, and return:
+    //  Statically normalize weights, sum weighted samples, and return.  Blurs are
+    //  currently optimized for dynamic weights.
     float3 sum = float3(0.0);
-    sum += (w5 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 5.0 * dxdy).rgb;
-    sum += (w4 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 4.0 * dxdy).rgb;
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
-    sum += (w4 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 4.0 * dxdy).rgb;
-    sum += (w5 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 5.0 * dxdy).rgb;
-    return sum;
+    sum += w5 * tex2D_linearize(texture, tex_uv - 5.0 * dxdy).rgb;
+    sum += w4 * tex2D_linearize(texture, tex_uv - 4.0 * dxdy).rgb;
+    sum += w3 * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
+    sum += w3 * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
+    sum += w4 * tex2D_linearize(texture, tex_uv + 4.0 * dxdy).rgb;
+    sum += w5 * tex2D_linearize(texture, tex_uv + 5.0 * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
-float3 tex2Dblur9naive(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+float3 tex2Dblur9resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Global requirements must be met (see file description).
     //  Returns:    A 1D 9x Gaussian blurred texture lookup using a 9-tap blur.
     //              It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur9_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float w4 = exp(-16.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3 + w4));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3 + w4));
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w4 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 4.0 * dxdy).rgb;
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
-    sum += (w4 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 4.0 * dxdy).rgb;
-    return sum;
+    sum += w4 * tex2D_linearize(texture, tex_uv - 4.0 * dxdy).rgb;
+    sum += w3 * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
+    sum += w3 * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
+    sum += w4 * tex2D_linearize(texture, tex_uv + 4.0 * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
-float3 tex2Dblur7naive(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+float3 tex2Dblur7resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Global requirements must be met (see file description).
     //  Returns:    A 1D 7x Gaussian blurred texture lookup using a 7-tap blur.
     //              It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur7_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3));
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
-    sum += (w3 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
-    return sum;
+    sum += w3 * tex2D_linearize(texture, tex_uv - 3.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
+    sum += w3 * tex2D_linearize(texture, tex_uv + 3.0 * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
-float3 tex2Dblur5naive(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+float3 tex2Dblur5resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Global requirements must be met (see file description).
     //  Returns:    A 1D 5x Gaussian blurred texture lookup using a 5-tap blur.
     //              It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur5_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2));
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
-    sum += (w2 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
-    return sum;
+    sum += w2 * tex2D_linearize(texture, tex_uv - 2.0 * dxdy).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
+    sum += w2 * tex2D_linearize(texture, tex_uv + 2.0 * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
-float3 tex2Dblur3naive(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+float3 tex2Dblur3resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Global requirements must be met (see file description).
     //  Returns:    A 1D 3x Gaussian blurred texture lookup using a 3-tap blur.
     //              It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * blur3_exp_denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * w1);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * w1);
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w1 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
-    return sum;
+    sum += w1 * tex2D_linearize(texture, tex_uv - 1.0 * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1 * tex2D_linearize(texture, tex_uv + 1.0 * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
 
-///////////////////////////  LINEAR SEPARABLE BLURS  ///////////////////////////
+///////////////////////////  FAST SEPARABLE BLURS  ///////////////////////////
 
 float3 tex2Dblur11fast(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   1.) Global requirements must be met (see file description).
     //              2.) filter_linearN must = "true" in your .cgp file.
@@ -351,130 +385,131 @@ float3 tex2Dblur11fast(const sampler2D texture, const float2 tex_uv,
     //  Returns:    A 1D 11x Gaussian blurred texture lookup using 6 linear
     //              taps.  It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur11_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float w4 = exp(-16.0 * denom_inv);
-    static const float w5 = exp(-25.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 /
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float weight_sum_inv = 1.0 /
         (w0 + 2.0 * (w1 + w2 + w3 + w4 + w5));
     //  Calculate combined weights and linear sample ratios between texel pairs.
     //  The center texel (with weight w0) is used twice, so halve its weight.
-    static const float w01 = w0 * 0.5 + w1;
-    static const float w23 = w2 + w3;
-    static const float w45 = w4 + w5;
-    static const float w01_ratio = w1/w01;
-    static const float w23_ratio = w3/w23;
-    static const float w45_ratio = w5/w45;
+    const float w01 = w0 * 0.5 + w1;
+    const float w23 = w2 + w3;
+    const float w45 = w4 + w5;
+    const float w01_ratio = w1/w01;
+    const float w23_ratio = w3/w23;
+    const float w45_ratio = w5/w45;
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w45 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (4.0 + w45_ratio) * dxdy).rgb;
-    sum += (w23 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (2.0 + w23_ratio) * dxdy).rgb;
-    sum += (w01 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - w01_ratio * dxdy).rgb;
-    sum += (w01 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + w01_ratio * dxdy).rgb;
-    sum += (w23 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (2.0 + w23_ratio) * dxdy).rgb;
-    sum += (w45 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (4.0 + w45_ratio) * dxdy).rgb;
-    return sum;
+    sum += w45 * tex2D_linearize(texture, tex_uv - (4.0 + w45_ratio) * dxdy).rgb;
+    sum += w23 * tex2D_linearize(texture, tex_uv - (2.0 + w23_ratio) * dxdy).rgb;
+    sum += w01 * tex2D_linearize(texture, tex_uv - w01_ratio * dxdy).rgb;
+    sum += w01 * tex2D_linearize(texture, tex_uv + w01_ratio * dxdy).rgb;
+    sum += w23 * tex2D_linearize(texture, tex_uv + (2.0 + w23_ratio) * dxdy).rgb;
+    sum += w45 * tex2D_linearize(texture, tex_uv + (4.0 + w45_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur9fast(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Same as tex2Dblur11()
     //  Returns:    A 1D 9x Gaussian blurred texture lookup using 1 nearest
     //              neighbor and 4 linear taps.  It may be mipmapped depending
     //              on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur9_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float w4 = exp(-16.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3 + w4));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3 + w4));
     //  Calculate combined weights and linear sample ratios between texel pairs.
-    static const float w12 = w1 + w2;
-    static const float w34 = w3 + w4;
-    static const float w12_ratio = w2/w12;
-    static const float w34_ratio = w4/w34;
+    const float w12 = w1 + w2;
+    const float w34 = w3 + w4;
+    const float w12_ratio = w2/w12;
+    const float w34_ratio = w4/w34;
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w34 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (3.0 + w34_ratio) * dxdy).rgb;
-    sum += (w12 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (1.0 + w12_ratio) * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w12 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (1.0 + w12_ratio) * dxdy).rgb;
-    sum += (w34 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (3.0 + w34_ratio) * dxdy).rgb;
-    return sum;
+    sum += w34 * tex2D_linearize(texture, tex_uv - (3.0 + w34_ratio) * dxdy).rgb;
+    sum += w12 * tex2D_linearize(texture, tex_uv - (1.0 + w12_ratio) * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w12 * tex2D_linearize(texture, tex_uv + (1.0 + w12_ratio) * dxdy).rgb;
+    sum += w34 * tex2D_linearize(texture, tex_uv + (3.0 + w34_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur7fast(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Same as tex2Dblur11()
     //  Returns:    A 1D 7x Gaussian blurred texture lookup using 4 linear
     //              taps.  It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur7_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float w3 = exp(-9.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2 + w3));
     //  Calculate combined weights and linear sample ratios between texel pairs.
     //  The center texel (with weight w0) is used twice, so halve its weight.
-    static const float w01 = w0 * 0.5 + w1;
-    static const float w23 = w2 + w3;
-    static const float w01_ratio = w1/w01;
-    static const float w23_ratio = w3/w23;
+    const float w01 = w0 * 0.5 + w1;
+    const float w23 = w2 + w3;
+    const float w01_ratio = w1/w01;
+    const float w23_ratio = w3/w23;
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w23 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (2.0 + w23_ratio) * dxdy).rgb;
-    sum += (w01 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - w01_ratio * dxdy).rgb;
-    sum += (w01 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + w01_ratio * dxdy).rgb;
-    sum += (w23 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (2.0 + w23_ratio) * dxdy).rgb;
-    return sum;
+    sum += w23 * tex2D_linearize(texture, tex_uv - (2.0 + w23_ratio) * dxdy).rgb;
+    sum += w01 * tex2D_linearize(texture, tex_uv - w01_ratio * dxdy).rgb;
+    sum += w01 * tex2D_linearize(texture, tex_uv + w01_ratio * dxdy).rgb;
+    sum += w23 * tex2D_linearize(texture, tex_uv + (2.0 + w23_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur5fast(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Same as tex2Dblur11()
     //  Returns:    A 1D 5x Gaussian blurred texture lookup using 1 nearest
     //              neighbor and 2 linear taps.  It may be mipmapped depending
     //              on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float denom_inv = blur5_exp_denom_inv;
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * denom_inv);
-    static const float w2 = exp(-4.0 * denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2));
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * (w1 + w2));
     //  Calculate combined weights and linear sample ratios between texel pairs.
-    static const float w12 = w1 + w2;
-    static const float w12_ratio = w2/w12;
+    const float w12 = w1 + w2;
+    const float w12_ratio = w2/w12;
     //  Statically normalize weights, sum weighted samples, and return:
     float3 sum = float3(0.0);
-    sum += (w12 * weight_sum_inv) * tex2D_linearize(texture, tex_uv - (1.0 + w12_ratio) * dxdy).rgb;
-    sum += (w0 * weight_sum_inv) * tex2D_linearize(texture, tex_uv).rgb;
-    sum += (w12 * weight_sum_inv) * tex2D_linearize(texture, tex_uv + (1.0 + w12_ratio) * dxdy).rgb;
-    return sum;
+    sum += w12 * tex2D_linearize(texture, tex_uv - (1.0 + w12_ratio) * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w12 * tex2D_linearize(texture, tex_uv + (1.0 + w12_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur3fast(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Requires:   Same as tex2Dblur11()
     //  Returns:    A 1D 3x Gaussian blurred texture lookup using 2 linear
     //              taps.  It may be mipmapped depending on settings and dxdy.
     //  First get the texel weights and normalization factor as above.
-    static const float w0 = 1.0;
-    static const float w1 = exp(-1.0 * blur3_exp_denom_inv);
-    static const float weight_sum_inv = 1.0 / (w0 + 2.0 * w1);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float weight_sum_inv = 1.0 / (w0 + 2.0 * w1);
     //  Calculate combined weights and linear sample ratios between texel pairs.
     //  The center texel (with weight w0) is used twice, so halve its weight.
-    static const float w01 = w0 * 0.5 + w1;
-    static const float w01_ratio = w1/w01;
+    const float w01 = w0 * 0.5 + w1;
+    const float w01_ratio = w1/w01;
     //  Weights for all samples are the same, so just average them:
     return 0.5 * (
         tex2D_linearize(texture, tex_uv - w01_ratio * dxdy).rgb +
@@ -482,10 +517,308 @@ float3 tex2Dblur3fast(const sampler2D texture, const float2 tex_uv,
 }
 
 
-////////////////////////////  LINEAR ONE-PASS BLURS  ///////////////////////////
+////////////////////////////  HUGE SEPARABLE BLURS  ////////////////////////////
+
+//  Huge separable blurs come only in "fast" versions.
+float3 tex2Dblur43fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
+{
+    //  Requires:   Same as tex2Dblur11()
+    //  Returns:    A 1D 43x Gaussian blurred texture lookup using 22 linear
+    //              taps.  It may be mipmapped depending on settings and dxdy.
+    //  First get the texel weights and normalization factor as above.
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float w6 = exp(-36.0 * denom_inv);
+    const float w7 = exp(-49.0 * denom_inv);
+    const float w8 = exp(-64.0 * denom_inv);
+    const float w9 = exp(-81.0 * denom_inv);
+    const float w10 = exp(-100.0 * denom_inv);
+    const float w11 = exp(-121.0 * denom_inv);
+    const float w12 = exp(-144.0 * denom_inv);
+    const float w13 = exp(-169.0 * denom_inv);
+    const float w14 = exp(-196.0 * denom_inv);
+    const float w15 = exp(-225.0 * denom_inv);
+    const float w16 = exp(-256.0 * denom_inv);
+    const float w17 = exp(-289.0 * denom_inv);
+    const float w18 = exp(-324.0 * denom_inv);
+    const float w19 = exp(-361.0 * denom_inv);
+    const float w20 = exp(-400.0 * denom_inv);
+    const float w21 = exp(-441.0 * denom_inv);
+    //const float weight_sum_inv = 1.0 /
+    //    (w0 + 2.0 * (w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10 + w11 +
+    //        w12 + w13 + w14 + w15 + w16 + w17 + w18 + w19 + w20 + w21));
+    const float weight_sum_inv = get_fast_gaussian_weight_sum_inv(sigma);
+    //  Calculate combined weights and linear sample ratios between texel pairs.
+    //  The center texel (with weight w0) is used twice, so halve its weight.
+    const float w0_1 = w0 * 0.5 + w1;
+    const float w2_3 = w2 + w3;
+    const float w4_5 = w4 + w5;
+    const float w6_7 = w6 + w7;
+    const float w8_9 = w8 + w9;
+    const float w10_11 = w10 + w11;
+    const float w12_13 = w12 + w13;
+    const float w14_15 = w14 + w15;
+    const float w16_17 = w16 + w17;
+    const float w18_19 = w18 + w19;
+    const float w20_21 = w20 + w21;
+    const float w0_1_ratio = w1/w0_1;
+    const float w2_3_ratio = w3/w2_3;
+    const float w4_5_ratio = w5/w4_5;
+    const float w6_7_ratio = w7/w6_7;
+    const float w8_9_ratio = w9/w8_9;
+    const float w10_11_ratio = w11/w10_11;
+    const float w12_13_ratio = w13/w12_13;
+    const float w14_15_ratio = w15/w14_15;
+    const float w16_17_ratio = w17/w16_17;
+    const float w18_19_ratio = w19/w18_19;
+    const float w20_21_ratio = w21/w20_21;
+    //  Statically normalize weights, sum weighted samples, and return:
+    float3 sum = float3(0.0);
+    sum += w20_21 * tex2D_linearize(texture, tex_uv - (20.0 + w20_21_ratio) * dxdy).rgb;
+    sum += w18_19 * tex2D_linearize(texture, tex_uv - (18.0 + w18_19_ratio) * dxdy).rgb;
+    sum += w16_17 * tex2D_linearize(texture, tex_uv - (16.0 + w16_17_ratio) * dxdy).rgb;
+    sum += w14_15 * tex2D_linearize(texture, tex_uv - (14.0 + w14_15_ratio) * dxdy).rgb;
+    sum += w12_13 * tex2D_linearize(texture, tex_uv - (12.0 + w12_13_ratio) * dxdy).rgb;
+    sum += w10_11 * tex2D_linearize(texture, tex_uv - (10.0 + w10_11_ratio) * dxdy).rgb;
+    sum += w8_9 * tex2D_linearize(texture, tex_uv - (8.0 + w8_9_ratio) * dxdy).rgb;
+    sum += w6_7 * tex2D_linearize(texture, tex_uv - (6.0 + w6_7_ratio) * dxdy).rgb;
+    sum += w4_5 * tex2D_linearize(texture, tex_uv - (4.0 + w4_5_ratio) * dxdy).rgb;
+    sum += w2_3 * tex2D_linearize(texture, tex_uv - (2.0 + w2_3_ratio) * dxdy).rgb;
+    sum += w0_1 * tex2D_linearize(texture, tex_uv - w0_1_ratio * dxdy).rgb;
+    sum += w0_1 * tex2D_linearize(texture, tex_uv + w0_1_ratio * dxdy).rgb;
+    sum += w2_3 * tex2D_linearize(texture, tex_uv + (2.0 + w2_3_ratio) * dxdy).rgb;
+    sum += w4_5 * tex2D_linearize(texture, tex_uv + (4.0 + w4_5_ratio) * dxdy).rgb;
+    sum += w6_7 * tex2D_linearize(texture, tex_uv + (6.0 + w6_7_ratio) * dxdy).rgb;
+    sum += w8_9 * tex2D_linearize(texture, tex_uv + (8.0 + w8_9_ratio) * dxdy).rgb;
+    sum += w10_11 * tex2D_linearize(texture, tex_uv + (10.0 + w10_11_ratio) * dxdy).rgb;
+    sum += w12_13 * tex2D_linearize(texture, tex_uv + (12.0 + w12_13_ratio) * dxdy).rgb;
+    sum += w14_15 * tex2D_linearize(texture, tex_uv + (14.0 + w14_15_ratio) * dxdy).rgb;
+    sum += w16_17 * tex2D_linearize(texture, tex_uv + (16.0 + w16_17_ratio) * dxdy).rgb;
+    sum += w18_19 * tex2D_linearize(texture, tex_uv + (18.0 + w18_19_ratio) * dxdy).rgb;
+    sum += w20_21 * tex2D_linearize(texture, tex_uv + (20.0 + w20_21_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
+}
+
+float3 tex2Dblur31fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
+{
+    //  Requires:   Same as tex2Dblur11()
+    //  Returns:    A 1D 31x Gaussian blurred texture lookup using 16 linear
+    //              taps.  It may be mipmapped depending on settings and dxdy.
+    //  First get the texel weights and normalization factor as above.
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float w6 = exp(-36.0 * denom_inv);
+    const float w7 = exp(-49.0 * denom_inv);
+    const float w8 = exp(-64.0 * denom_inv);
+    const float w9 = exp(-81.0 * denom_inv);
+    const float w10 = exp(-100.0 * denom_inv);
+    const float w11 = exp(-121.0 * denom_inv);
+    const float w12 = exp(-144.0 * denom_inv);
+    const float w13 = exp(-169.0 * denom_inv);
+    const float w14 = exp(-196.0 * denom_inv);
+    const float w15 = exp(-225.0 * denom_inv);
+    //const float weight_sum_inv = 1.0 /
+    //    (w0 + 2.0 * (w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 +
+    //        w9 + w10 + w11 + w12 + w13 + w14 + w15));
+    const float weight_sum_inv = get_fast_gaussian_weight_sum_inv(sigma);
+    //  Calculate combined weights and linear sample ratios between texel pairs.
+    //  The center texel (with weight w0) is used twice, so halve its weight.
+    const float w0_1 = w0 * 0.5 + w1;
+    const float w2_3 = w2 + w3;
+    const float w4_5 = w4 + w5;
+    const float w6_7 = w6 + w7;
+    const float w8_9 = w8 + w9;
+    const float w10_11 = w10 + w11;
+    const float w12_13 = w12 + w13;
+    const float w14_15 = w14 + w15;
+    const float w0_1_ratio = w1/w0_1;
+    const float w2_3_ratio = w3/w2_3;
+    const float w4_5_ratio = w5/w4_5;
+    const float w6_7_ratio = w7/w6_7;
+    const float w8_9_ratio = w9/w8_9;
+    const float w10_11_ratio = w11/w10_11;
+    const float w12_13_ratio = w13/w12_13;
+    const float w14_15_ratio = w15/w14_15;
+    //  Statically normalize weights, sum weighted samples, and return:
+    float3 sum = float3(0.0);
+    sum += w14_15 * tex2D_linearize(texture, tex_uv - (14.0 + w14_15_ratio) * dxdy).rgb;
+    sum += w12_13 * tex2D_linearize(texture, tex_uv - (12.0 + w12_13_ratio) * dxdy).rgb;
+    sum += w10_11 * tex2D_linearize(texture, tex_uv - (10.0 + w10_11_ratio) * dxdy).rgb;
+    sum += w8_9 * tex2D_linearize(texture, tex_uv - (8.0 + w8_9_ratio) * dxdy).rgb;
+    sum += w6_7 * tex2D_linearize(texture, tex_uv - (6.0 + w6_7_ratio) * dxdy).rgb;
+    sum += w4_5 * tex2D_linearize(texture, tex_uv - (4.0 + w4_5_ratio) * dxdy).rgb;
+    sum += w2_3 * tex2D_linearize(texture, tex_uv - (2.0 + w2_3_ratio) * dxdy).rgb;
+    sum += w0_1 * tex2D_linearize(texture, tex_uv - w0_1_ratio * dxdy).rgb;
+    sum += w0_1 * tex2D_linearize(texture, tex_uv + w0_1_ratio * dxdy).rgb;
+    sum += w2_3 * tex2D_linearize(texture, tex_uv + (2.0 + w2_3_ratio) * dxdy).rgb;
+    sum += w4_5 * tex2D_linearize(texture, tex_uv + (4.0 + w4_5_ratio) * dxdy).rgb;
+    sum += w6_7 * tex2D_linearize(texture, tex_uv + (6.0 + w6_7_ratio) * dxdy).rgb;
+    sum += w8_9 * tex2D_linearize(texture, tex_uv + (8.0 + w8_9_ratio) * dxdy).rgb;
+    sum += w10_11 * tex2D_linearize(texture, tex_uv + (10.0 + w10_11_ratio) * dxdy).rgb;
+    sum += w12_13 * tex2D_linearize(texture, tex_uv + (12.0 + w12_13_ratio) * dxdy).rgb;
+    sum += w14_15 * tex2D_linearize(texture, tex_uv + (14.0 + w14_15_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
+}
+
+float3 tex2Dblur25fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
+{
+    //  Requires:   Same as tex2Dblur11()
+    //  Returns:    A 1D 25x Gaussian blurred texture lookup using 1 nearest
+    //              neighbor and 12 linear taps.  It may be mipmapped depending
+    //              on settings and dxdy.
+    //  First get the texel weights and normalization factor as above.
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float w6 = exp(-36.0 * denom_inv);
+    const float w7 = exp(-49.0 * denom_inv);
+    const float w8 = exp(-64.0 * denom_inv);
+    const float w9 = exp(-81.0 * denom_inv);
+    const float w10 = exp(-100.0 * denom_inv);
+    const float w11 = exp(-121.0 * denom_inv);
+    const float w12 = exp(-144.0 * denom_inv);
+    //const float weight_sum_inv = 1.0 / (w0 + 2.0 * (
+    //    w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8 + w9 + w10 + w11 + w12));
+    const float weight_sum_inv = get_fast_gaussian_weight_sum_inv(sigma);
+    //  Calculate combined weights and linear sample ratios between texel pairs.
+    const float w1_2 = w1 + w2;
+    const float w3_4 = w3 + w4;
+    const float w5_6 = w5 + w6;
+    const float w7_8 = w7 + w8;
+    const float w9_10 = w9 + w10;
+    const float w11_12 = w11 + w12;
+    const float w1_2_ratio = w2/w1_2;
+    const float w3_4_ratio = w4/w3_4;
+    const float w5_6_ratio = w6/w5_6;
+    const float w7_8_ratio = w8/w7_8;
+    const float w9_10_ratio = w10/w9_10;
+    const float w11_12_ratio = w12/w11_12;
+    //  Statically normalize weights, sum weighted samples, and return:
+    float3 sum = float3(0.0);
+    sum += w11_12 * tex2D_linearize(texture, tex_uv - (11.0 + w11_12_ratio) * dxdy).rgb;
+    sum += w9_10 * tex2D_linearize(texture, tex_uv - (9.0 + w9_10_ratio) * dxdy).rgb;
+    sum += w7_8 * tex2D_linearize(texture, tex_uv - (7.0 + w7_8_ratio) * dxdy).rgb;
+    sum += w5_6 * tex2D_linearize(texture, tex_uv - (5.0 + w5_6_ratio) * dxdy).rgb;
+    sum += w3_4 * tex2D_linearize(texture, tex_uv - (3.0 + w3_4_ratio) * dxdy).rgb;
+    sum += w1_2 * tex2D_linearize(texture, tex_uv - (1.0 + w1_2_ratio) * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1_2 * tex2D_linearize(texture, tex_uv + (1.0 + w1_2_ratio) * dxdy).rgb;
+    sum += w3_4 * tex2D_linearize(texture, tex_uv + (3.0 + w3_4_ratio) * dxdy).rgb;
+    sum += w5_6 * tex2D_linearize(texture, tex_uv + (5.0 + w5_6_ratio) * dxdy).rgb;
+    sum += w7_8 * tex2D_linearize(texture, tex_uv + (7.0 + w7_8_ratio) * dxdy).rgb;
+    sum += w9_10 * tex2D_linearize(texture, tex_uv + (9.0 + w9_10_ratio) * dxdy).rgb;
+    sum += w11_12 * tex2D_linearize(texture, tex_uv + (11.0 + w11_12_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
+}
+
+float3 tex2Dblur17fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
+{
+    //  Requires:   Same as tex2Dblur11()
+    //  Returns:    A 1D 17x Gaussian blurred texture lookup using 1 nearest
+    //              neighbor and 8 linear taps.  It may be mipmapped depending
+    //              on settings and dxdy.
+    //  First get the texel weights and normalization factor as above.
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0 = 1.0;
+    const float w1 = exp(-1.0 * denom_inv);
+    const float w2 = exp(-4.0 * denom_inv);
+    const float w3 = exp(-9.0 * denom_inv);
+    const float w4 = exp(-16.0 * denom_inv);
+    const float w5 = exp(-25.0 * denom_inv);
+    const float w6 = exp(-36.0 * denom_inv);
+    const float w7 = exp(-49.0 * denom_inv);
+    const float w8 = exp(-64.0 * denom_inv);
+    //const float weight_sum_inv = 1.0 / (w0 + 2.0 * (
+    //    w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8));
+    const float weight_sum_inv = get_fast_gaussian_weight_sum_inv(sigma);
+    //  Calculate combined weights and linear sample ratios between texel pairs.
+    const float w1_2 = w1 + w2;
+    const float w3_4 = w3 + w4;
+    const float w5_6 = w5 + w6;
+    const float w7_8 = w7 + w8;
+    const float w1_2_ratio = w2/w1_2;
+    const float w3_4_ratio = w4/w3_4;
+    const float w5_6_ratio = w6/w5_6;
+    const float w7_8_ratio = w8/w7_8;
+    //  Statically normalize weights, sum weighted samples, and return:
+    float3 sum = float3(0.0);
+    sum += w7_8 * tex2D_linearize(texture, tex_uv - (7.0 + w7_8_ratio) * dxdy).rgb;
+    sum += w5_6 * tex2D_linearize(texture, tex_uv - (5.0 + w5_6_ratio) * dxdy).rgb;
+    sum += w3_4 * tex2D_linearize(texture, tex_uv - (3.0 + w3_4_ratio) * dxdy).rgb;
+    sum += w1_2 * tex2D_linearize(texture, tex_uv - (1.0 + w1_2_ratio) * dxdy).rgb;
+    sum += w0 * tex2D_linearize(texture, tex_uv).rgb;
+    sum += w1_2 * tex2D_linearize(texture, tex_uv + (1.0 + w1_2_ratio) * dxdy).rgb;
+    sum += w3_4 * tex2D_linearize(texture, tex_uv + (3.0 + w3_4_ratio) * dxdy).rgb;
+    sum += w5_6 * tex2D_linearize(texture, tex_uv + (5.0 + w5_6_ratio) * dxdy).rgb;
+    sum += w7_8 * tex2D_linearize(texture, tex_uv + (7.0 + w7_8_ratio) * dxdy).rgb;
+    return sum * weight_sum_inv;
+}
+
+
+////////////////////  ARBITRARILY RESIZABLE ONE-PASS BLURS  ////////////////////
+
+float3 tex2Dblur3x3resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy, const float sigma)
+{
+    //  Requires:   Global requirements must be met (see file description).
+    //  Returns:    A 3x3 Gaussian blurred mipmapped texture lookup of the
+    //              resized input.
+    //  Description:
+    //  This is the only arbitrarily resizable one-pass blur; tex2Dblur5x5resize
+    //  would perform like tex2Dblur9x9, MUCH slower than tex2Dblur5resize.
+    const float denom_inv = 0.5/(sigma*sigma);
+    //  Load each sample.  We need all 3x3 samples.  Quad-pixel communication
+    //  won't help either: This should perform like tex2Dblur5x5, but sharing a
+    //  4x4 sample field would perform more like tex2Dblur8x8shared (worse).
+    const float2 sample4_uv = tex_uv;
+    const float2 dx = float2(dxdy.x, 0.0);
+    const float2 dy = float2(0.0, dxdy.y);
+    const float2 sample1_uv = sample4_uv - dy;
+    const float2 sample7_uv = sample4_uv + dy;
+    const float3 sample0 = tex2D_linearize(texture, sample1_uv - dx).rgb;
+    const float3 sample1 = tex2D_linearize(texture, sample1_uv).rgb;
+    const float3 sample2 = tex2D_linearize(texture, sample1_uv + dx).rgb;
+    const float3 sample3 = tex2D_linearize(texture, sample4_uv - dx).rgb;
+    const float3 sample4 = tex2D_linearize(texture, sample4_uv).rgb;
+    const float3 sample5 = tex2D_linearize(texture, sample4_uv + dx).rgb;
+    const float3 sample6 = tex2D_linearize(texture, sample7_uv - dx).rgb;
+    const float3 sample7 = tex2D_linearize(texture, sample7_uv).rgb;
+    const float3 sample8 = tex2D_linearize(texture, sample7_uv + dx).rgb;
+    //  Statically compute Gaussian sample weights:
+    const float w4 = 1.0;
+    const float w1_3_5_7 = exp(-LENGTH_SQ(float2(1.0, 0.0)) * denom_inv);
+    const float w0_2_6_8 = exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
+    const float weight_sum_inv = 1.0/(w4 + 4.0 * (w1_3_5_7 + w0_2_6_8));
+    //  Weight and sum the samples:
+    const float3 sum = w4 * sample4 +
+        w1_3_5_7 * (sample1 + sample3 + sample5 + sample7) +
+        w0_2_6_8 * (sample0 + sample2 + sample6 + sample8);
+    return sum * weight_sum_inv;
+}
+
+
+////////////////////////////  FASTER ONE-PASS BLURS  ///////////////////////////
 
 float3 tex2Dblur9x9(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Perform a 1-pass 9x9 blur with 5x5 bilinear samples.
     //  Requires:   Same as tex2Dblur9()
@@ -528,56 +861,56 @@ float3 tex2Dblur9x9(const sampler2D texture, const float2 tex_uv,
     //  these offsets based on the relative 1D Gaussian weights of the texels
     //  in question.  (w1off means "Gaussian weight for the texel 1.0 texels
     //  away from the pixel center," etc.).
-    static const float denom_inv = blur9_exp_denom_inv;
-    static const float w1off = exp(-1.0 * denom_inv);
-    static const float w2off = exp(-4.0 * denom_inv);
-    static const float w3off = exp(-9.0 * denom_inv);
-    static const float w4off = exp(-16.0 * denom_inv);
-    static const float texel1to2ratio = w2off/(w1off + w2off);
-    static const float texel3to4ratio = w4off/(w3off + w4off);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w1off = exp(-1.0 * denom_inv);
+    const float w2off = exp(-4.0 * denom_inv);
+    const float w3off = exp(-9.0 * denom_inv);
+    const float w4off = exp(-16.0 * denom_inv);
+    const float texel1to2ratio = w2off/(w1off + w2off);
+    const float texel3to4ratio = w4off/(w3off + w4off);
     //  Statically compute texel offsets from the fragment center to each
     //  bilinear sample in the bottom-right quadrant, including x-axis-aligned:
-    static const float2 sample1R_texel_offset = float2(1.0, 0.0) + float2(texel1to2ratio, 0.0);
-    static const float2 sample2R_texel_offset = float2(3.0, 0.0) + float2(texel3to4ratio, 0.0);
-    static const float2 sample3d_texel_offset = float2(1.0, 1.0) + float2(texel1to2ratio, texel1to2ratio);
-    static const float2 sample4d_texel_offset = float2(3.0, 1.0) + float2(texel3to4ratio, texel1to2ratio);
-    static const float2 sample5d_texel_offset = float2(1.0, 3.0) + float2(texel1to2ratio, texel3to4ratio);
-    static const float2 sample6d_texel_offset = float2(3.0, 3.0) + float2(texel3to4ratio, texel3to4ratio);
+    const float2 sample1R_texel_offset = float2(1.0, 0.0) + float2(texel1to2ratio, 0.0);
+    const float2 sample2R_texel_offset = float2(3.0, 0.0) + float2(texel3to4ratio, 0.0);
+    const float2 sample3d_texel_offset = float2(1.0, 1.0) + float2(texel1to2ratio, texel1to2ratio);
+    const float2 sample4d_texel_offset = float2(3.0, 1.0) + float2(texel3to4ratio, texel1to2ratio);
+    const float2 sample5d_texel_offset = float2(1.0, 3.0) + float2(texel1to2ratio, texel3to4ratio);
+    const float2 sample6d_texel_offset = float2(3.0, 3.0) + float2(texel3to4ratio, texel3to4ratio);
 
     //  CALCULATE KERNEL WEIGHTS FOR ALL SAMPLES:
     //  Statically compute Gaussian texel weights for the bottom-right quadrant.
     //  Read underscores as "and."
-    static const float w1R1 = w1off;
-    static const float w1R2 = w2off;
-    static const float w2R1 = w3off;
-    static const float w2R2 = w4off;
-    static const float w3d1 =     exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
-    static const float w3d2_3d3 = exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
-    static const float w3d4 =     exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
-    static const float w4d1_5d1 = exp(-LENGTH_SQ(float2(3.0, 1.0)) * denom_inv);
-    static const float w4d2_5d3 = exp(-LENGTH_SQ(float2(4.0, 1.0)) * denom_inv);
-    static const float w4d3_5d2 = exp(-LENGTH_SQ(float2(3.0, 2.0)) * denom_inv);
-    static const float w4d4_5d4 = exp(-LENGTH_SQ(float2(4.0, 2.0)) * denom_inv);
-    static const float w6d1 =     exp(-LENGTH_SQ(float2(3.0, 3.0)) * denom_inv);
-    static const float w6d2_6d3 = exp(-LENGTH_SQ(float2(4.0, 3.0)) * denom_inv);
-    static const float w6d4 =     exp(-LENGTH_SQ(float2(4.0, 4.0)) * denom_inv);
+    const float w1R1 = w1off;
+    const float w1R2 = w2off;
+    const float w2R1 = w3off;
+    const float w2R2 = w4off;
+    const float w3d1 =     exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
+    const float w3d2_3d3 = exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
+    const float w3d4 =     exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
+    const float w4d1_5d1 = exp(-LENGTH_SQ(float2(3.0, 1.0)) * denom_inv);
+    const float w4d2_5d3 = exp(-LENGTH_SQ(float2(4.0, 1.0)) * denom_inv);
+    const float w4d3_5d2 = exp(-LENGTH_SQ(float2(3.0, 2.0)) * denom_inv);
+    const float w4d4_5d4 = exp(-LENGTH_SQ(float2(4.0, 2.0)) * denom_inv);
+    const float w6d1 =     exp(-LENGTH_SQ(float2(3.0, 3.0)) * denom_inv);
+    const float w6d2_6d3 = exp(-LENGTH_SQ(float2(4.0, 3.0)) * denom_inv);
+    const float w6d4 =     exp(-LENGTH_SQ(float2(4.0, 4.0)) * denom_inv);
     //  Statically add texel weights in each sample to get sample weights:
-    static const float w0 = 1.0;
-    static const float w1 = w1R1 + w1R2;
-    static const float w2 = w2R1 + w2R2;
-    static const float w3 = w3d1 + 2.0 * w3d2_3d3 + w3d4;
-    static const float w4 = w4d1_5d1 + w4d2_5d3 + w4d3_5d2 + w4d4_5d4;
-    static const float w5 = w4;
-    static const float w6 = w6d1 + 2.0 * w6d2_6d3 + w6d4;
+    const float w0 = 1.0;
+    const float w1 = w1R1 + w1R2;
+    const float w2 = w2R1 + w2R2;
+    const float w3 = w3d1 + 2.0 * w3d2_3d3 + w3d4;
+    const float w4 = w4d1_5d1 + w4d2_5d3 + w4d3_5d2 + w4d4_5d4;
+    const float w5 = w4;
+    const float w6 = w6d1 + 2.0 * w6d2_6d3 + w6d4;
     //  Get the weight sum inverse (normalization factor):
-    static const float weight_sum_inv =
+    const float weight_sum_inv =
         1.0/(w0 + 4.0 * (w1 + w2 + w3 + w4 + w5 + w6));
 
     //  LOAD TEXTURE SAMPLES:
     //  Load all 25 samples (1 nearest, 8 linear, 16 bilinear) using symmetry:
-    static const float2 mirror_x = float2(-1.0, 1.0);
-    static const float2 mirror_y = float2(1.0, -1.0);
-    static const float2 mirror_xy = float2(-1.0, -1.0);
+    const float2 mirror_x = float2(-1.0, 1.0);
+    const float2 mirror_y = float2(1.0, -1.0);
+    const float2 mirror_xy = float2(-1.0, -1.0);
     const float2 dxdy_mirror_x = dxdy * mirror_x;
     const float2 dxdy_mirror_y = dxdy * mirror_y;
     const float2 dxdy_mirror_xy = dxdy * mirror_xy;
@@ -610,18 +943,18 @@ float3 tex2Dblur9x9(const sampler2D texture, const float2 tex_uv,
 
     //  SUM WEIGHTED SAMPLES:
     //  Statically normalize weights (so total = 1.0), and sum weighted samples.
-    float3 sum = (w0 * weight_sum_inv) * sample0C;
-    sum += (w1 * weight_sum_inv) * (sample1R + sample1D + sample1L + sample1U);
-    sum += (w2 * weight_sum_inv) * (sample2R + sample2D + sample2L + sample2U);
-    sum += (w3 * weight_sum_inv) * (sample3d + sample3c + sample3b + sample3a);
-    sum += (w4 * weight_sum_inv) * (sample4d + sample4c + sample4b + sample4a);
-    sum += (w5 * weight_sum_inv) * (sample5d + sample5c + sample5b + sample5a);
-    sum += (w6 * weight_sum_inv) * (sample6d + sample6c + sample6b + sample6a);
-    return sum;
+    float3 sum = w0 * sample0C;
+    sum += w1 * (sample1R + sample1D + sample1L + sample1U);
+    sum += w2 * (sample2R + sample2D + sample2L + sample2U);
+    sum += w3 * (sample3d + sample3c + sample3b + sample3a);
+    sum += w4 * (sample4d + sample4c + sample4b + sample4a);
+    sum += w5 * (sample5d + sample5c + sample5b + sample5a);
+    sum += w6 * (sample6d + sample6c + sample6b + sample6a);
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur7x7(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Perform a 1-pass 7x7 blur with 5x5 bilinear samples.
     //  Requires:   Same as tex2Dblur9()
@@ -648,47 +981,47 @@ float3 tex2Dblur7x7(const sampler2D texture, const float2 tex_uv,
 
     //  COMPUTE TEXTURE COORDS:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur9x9).
-    static const float denom_inv = blur7_exp_denom_inv;
-    static const float w0off = 1.0;
-    static const float w1off = exp(-1.0 * denom_inv);
-    static const float w2off = exp(-4.0 * denom_inv);
-    static const float w3off = exp(-9.0 * denom_inv);
-    static const float texel0to1ratio = w1off/(w0off * 0.5 + w1off);
-    static const float texel2to3ratio = w3off/(w2off + w3off);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off = 1.0;
+    const float w1off = exp(-1.0 * denom_inv);
+    const float w2off = exp(-4.0 * denom_inv);
+    const float w3off = exp(-9.0 * denom_inv);
+    const float texel0to1ratio = w1off/(w0off * 0.5 + w1off);
+    const float texel2to3ratio = w3off/(w2off + w3off);
     //  Statically compute texel offsets from the fragment center to each
     //  bilinear sample in the bottom-right quadrant, including axis-aligned:
-    static const float2 sample1d_texel_offset = float2(texel0to1ratio, texel0to1ratio);
-    static const float2 sample2d_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
-    static const float2 sample3d_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
-    static const float2 sample4d_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
+    const float2 sample1d_texel_offset = float2(texel0to1ratio, texel0to1ratio);
+    const float2 sample2d_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
+    const float2 sample3d_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
+    const float2 sample4d_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
 
     //  CALCULATE KERNEL WEIGHTS FOR ALL SAMPLES:
     //  Statically compute Gaussian texel weights for the bottom-right quadrant.
     //  Read underscores as "and."
-    static const float w1abcd = 1.0;
-    static const float w1bd2_1cd3 = exp(-LENGTH_SQ(float2(1.0, 0.0)) * denom_inv);
-    static const float w2bd1_3cd1 = exp(-LENGTH_SQ(float2(2.0, 0.0)) * denom_inv);
-    static const float w2bd2_3cd2 = exp(-LENGTH_SQ(float2(3.0, 0.0)) * denom_inv);
-    static const float w1d4 =       exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
-    static const float w2d3_3d2 =   exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
-    static const float w2d4_3d4 =   exp(-LENGTH_SQ(float2(3.0, 1.0)) * denom_inv);
-    static const float w4d1 =       exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
-    static const float w4d2_4d3 =   exp(-LENGTH_SQ(float2(3.0, 2.0)) * denom_inv);
-    static const float w4d4 =       exp(-LENGTH_SQ(float2(3.0, 3.0)) * denom_inv);
+    const float w1abcd = 1.0;
+    const float w1bd2_1cd3 = exp(-LENGTH_SQ(float2(1.0, 0.0)) * denom_inv);
+    const float w2bd1_3cd1 = exp(-LENGTH_SQ(float2(2.0, 0.0)) * denom_inv);
+    const float w2bd2_3cd2 = exp(-LENGTH_SQ(float2(3.0, 0.0)) * denom_inv);
+    const float w1d4 =       exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
+    const float w2d3_3d2 =   exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
+    const float w2d4_3d4 =   exp(-LENGTH_SQ(float2(3.0, 1.0)) * denom_inv);
+    const float w4d1 =       exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
+    const float w4d2_4d3 =   exp(-LENGTH_SQ(float2(3.0, 2.0)) * denom_inv);
+    const float w4d4 =       exp(-LENGTH_SQ(float2(3.0, 3.0)) * denom_inv);
     //  Statically add texel weights in each sample to get sample weights.
     //  Split weights for shared texels between samples sharing them:
-    static const float w1 = w1abcd * 0.25 + w1bd2_1cd3 + w1d4;
-    static const float w2_3 = (w2bd1_3cd1 + w2bd2_3cd2) * 0.5 + w2d3_3d2 + w2d4_3d4;
-    static const float w4 = w4d1 + 2.0 * w4d2_4d3 + w4d4;
+    const float w1 = w1abcd * 0.25 + w1bd2_1cd3 + w1d4;
+    const float w2_3 = (w2bd1_3cd1 + w2bd2_3cd2) * 0.5 + w2d3_3d2 + w2d4_3d4;
+    const float w4 = w4d1 + 2.0 * w4d2_4d3 + w4d4;
     //  Get the weight sum inverse (normalization factor):
-    static const float weight_sum_inv =
+    const float weight_sum_inv =
         1.0/(4.0 * (w1 + 2.0 * w2_3 + w4));
 
     //  LOAD TEXTURE SAMPLES:
     //  Load all 16 samples using symmetry:
-    static const float2 mirror_x = float2(-1.0, 1.0);
-    static const float2 mirror_y = float2(1.0, -1.0);
-    static const float2 mirror_xy = float2(-1.0, -1.0);
+    const float2 mirror_x = float2(-1.0, 1.0);
+    const float2 mirror_y = float2(1.0, -1.0);
+    const float2 mirror_xy = float2(-1.0, -1.0);
     const float2 dxdy_mirror_x = dxdy * mirror_x;
     const float2 dxdy_mirror_y = dxdy * mirror_y;
     const float2 dxdy_mirror_xy = dxdy * mirror_xy;
@@ -712,15 +1045,15 @@ float3 tex2Dblur7x7(const sampler2D texture, const float2 tex_uv,
     //  SUM WEIGHTED SAMPLES:
     //  Statically normalize weights (so total = 1.0), and sum weighted samples.
     float3 sum = float3(0.0);
-    sum += (w1 * weight_sum_inv) * (sample1a + sample1b + sample1c + sample1d);
-    sum += (w2_3 * weight_sum_inv) * (sample2a + sample2b + sample2c + sample2d);
-    sum += (w2_3 * weight_sum_inv) * (sample3a + sample3b + sample3c + sample3d);
-    sum += (w4 * weight_sum_inv) * (sample4a + sample4b + sample4c + sample4d);
-    return sum;
+    sum += w1 * (sample1a + sample1b + sample1c + sample1d);
+    sum += w2_3 * (sample2a + sample2b + sample2c + sample2d);
+    sum += w2_3 * (sample3a + sample3b + sample3c + sample3d);
+    sum += w4 * (sample4a + sample4b + sample4c + sample4d);
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur5x5(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Perform a 1-pass 5x5 blur with 3x3 bilinear samples.
     //  Requires:   Same as tex2Dblur9()
@@ -741,35 +1074,35 @@ float3 tex2Dblur5x5(const sampler2D texture, const float2 tex_uv,
 
     //  COMPUTE TEXTURE COORDS:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur9x9).
-    static const float denom_inv = blur5_exp_denom_inv;
-    static const float w1off = exp(-1.0 * denom_inv);
-    static const float w2off = exp(-4.0 * denom_inv);
-    static const float texel1to2ratio = w2off/(w1off + w2off);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w1off = exp(-1.0 * denom_inv);
+    const float w2off = exp(-4.0 * denom_inv);
+    const float texel1to2ratio = w2off/(w1off + w2off);
     //  Statically compute texel offsets from the fragment center to each
     //  bilinear sample in the bottom-right quadrant, including x-axis-aligned:
-    static const float2 sample1R_texel_offset = float2(1.0, 0.0) + float2(texel1to2ratio, 0.0);
-    static const float2 sample2d_texel_offset = float2(1.0, 1.0) + float2(texel1to2ratio, texel1to2ratio);
+    const float2 sample1R_texel_offset = float2(1.0, 0.0) + float2(texel1to2ratio, 0.0);
+    const float2 sample2d_texel_offset = float2(1.0, 1.0) + float2(texel1to2ratio, texel1to2ratio);
 
     //  CALCULATE KERNEL WEIGHTS FOR ALL SAMPLES:
     //  Statically compute Gaussian texel weights for the bottom-right quadrant.
     //  Read underscores as "and."
-    static const float w1R1 = w1off;
-    static const float w1R2 = w2off;
-    static const float w2d1 =   exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
-    static const float w2d2_3 = exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
-    static const float w2d4 =   exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
+    const float w1R1 = w1off;
+    const float w1R2 = w2off;
+    const float w2d1 =   exp(-LENGTH_SQ(float2(1.0, 1.0)) * denom_inv);
+    const float w2d2_3 = exp(-LENGTH_SQ(float2(2.0, 1.0)) * denom_inv);
+    const float w2d4 =   exp(-LENGTH_SQ(float2(2.0, 2.0)) * denom_inv);
     //  Statically add texel weights in each sample to get sample weights:
-    static const float w0 = 1.0;
-    static const float w1 = w1R1 + w1R2;
-    static const float w2 = w2d1 + 2.0 * w2d2_3 + w2d4;
+    const float w0 = 1.0;
+    const float w1 = w1R1 + w1R2;
+    const float w2 = w2d1 + 2.0 * w2d2_3 + w2d4;
     //  Get the weight sum inverse (normalization factor):
-    static const float weight_sum_inv = 1.0/(w0 + 4.0 * (w1 + w2));
+    const float weight_sum_inv = 1.0/(w0 + 4.0 * (w1 + w2));
 
     //  LOAD TEXTURE SAMPLES:
     //  Load all 9 samples (1 nearest, 4 linear, 4 bilinear) using symmetry:
-    static const float2 mirror_x = float2(-1.0, 1.0);
-    static const float2 mirror_y = float2(1.0, -1.0);
-    static const float2 mirror_xy = float2(-1.0, -1.0);
+    const float2 mirror_x = float2(-1.0, 1.0);
+    const float2 mirror_y = float2(1.0, -1.0);
+    const float2 mirror_xy = float2(-1.0, -1.0);
     const float2 dxdy_mirror_x = dxdy * mirror_x;
     const float2 dxdy_mirror_y = dxdy * mirror_y;
     const float2 dxdy_mirror_xy = dxdy * mirror_xy;
@@ -785,14 +1118,14 @@ float3 tex2Dblur5x5(const sampler2D texture, const float2 tex_uv,
 
     //  SUM WEIGHTED SAMPLES:
     //  Statically normalize weights (so total = 1.0), and sum weighted samples.
-    float3 sum = (w0 * weight_sum_inv) * sample0C;
-    sum += (w1 * weight_sum_inv) * (sample1R + sample1D + sample1L + sample1U);
-    sum += (w2 * weight_sum_inv) * (sample2a + sample2b + sample2c + sample2d);
-    return sum;
+    float3 sum = w0 * sample0C;
+    sum += w1 * (sample1R + sample1D + sample1L + sample1U);
+    sum += w2 * (sample2a + sample2b + sample2c + sample2d);
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur3x3(const sampler2D texture, const float2 tex_uv,
-    const float2 dxdy)
+    const float2 dxdy, const float sigma)
 {
     //  Perform a 1-pass 3x3 blur with 5x5 bilinear samples.
     //  Requires:   Same as tex2Dblur9()
@@ -812,19 +1145,19 @@ float3 tex2Dblur3x3(const sampler2D texture, const float2 tex_uv,
 
     //  COMPUTE TEXTURE COORDS:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur9x9).
-    static const float denom_inv = blur3_exp_denom_inv;
-    static const float w0off = 1.0;
-    static const float w1off = exp(-1.0 * denom_inv);
-    static const float texel0to1ratio = w1off/(w0off * 0.5 + w1off);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off = 1.0;
+    const float w1off = exp(-1.0 * denom_inv);
+    const float texel0to1ratio = w1off/(w0off * 0.5 + w1off);
     //  Statically compute texel offsets from the fragment center to each
     //  bilinear sample in the bottom-right quadrant, including axis-aligned:
-    static const float2 sample0d_texel_offset = float2(texel0to1ratio, texel0to1ratio);
+    const float2 sample0d_texel_offset = float2(texel0to1ratio, texel0to1ratio);
 
     //  LOAD TEXTURE SAMPLES:
     //  Load all 4 samples using symmetry:
-    static const float2 mirror_x = float2(-1.0, 1.0);
-    static const float2 mirror_y = float2(1.0, -1.0);
-    static const float2 mirror_xy = float2(-1.0, -1.0);
+    const float2 mirror_x = float2(-1.0, 1.0);
+    const float2 mirror_y = float2(1.0, -1.0);
+    const float2 mirror_xy = float2(-1.0, -1.0);
     const float2 dxdy_mirror_x = dxdy * mirror_x;
     const float2 dxdy_mirror_y = dxdy * mirror_y;
     const float2 dxdy_mirror_xy = dxdy * mirror_xy;
@@ -842,7 +1175,8 @@ float3 tex2Dblur3x3(const sampler2D texture, const float2 tex_uv,
 //////////////////  LINEAR ONE-PASS BLURS WITH SHARED SAMPLES  /////////////////
 
 float3 tex2Dblur12x12shared(const sampler2D texture,
-    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector,
+    const float sigma)
 {
     //  Perform a 1-pass mipmapped blur with shared samples across a pixel quad.
     //  Requires:   1.) Same as tex2Dblur9()
@@ -919,36 +1253,36 @@ float3 tex2Dblur12x12shared(const sampler2D texture,
     //  and [4, 5] away from the fragment, and reuse them independently for both
     //  dimensions.  Use the sample field center as the estimated destination,
     //  but nudge the result closer to halfway between texels to blur error.
-    static const float denom_inv = blur12_exp_denom_inv;
-    static const float w0off   = 1.0;
-    static const float w0_5off = exp(-(0.5*0.5) * denom_inv);
-    static const float w1off   = exp(-(1.0*1.0) * denom_inv);
-    static const float w1_5off = exp(-(1.5*1.5) * denom_inv);
-    static const float w2off   = exp(-(2.0*2.0) * denom_inv);
-    static const float w2_5off = exp(-(2.5*2.5) * denom_inv);
-    static const float w3_5off = exp(-(3.5*3.5) * denom_inv);
-    static const float w4_5off = exp(-(4.5*4.5) * denom_inv);
-    static const float w5_5off = exp(-(5.5*5.5) * denom_inv);
-    static const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
-    static const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
-    static const float texel4to5ratio = lerp(w5_5off/(w4_5off + w5_5off), 0.5, error_blurring);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off   = 1.0;
+    const float w0_5off = exp(-(0.5*0.5) * denom_inv);
+    const float w1off   = exp(-(1.0*1.0) * denom_inv);
+    const float w1_5off = exp(-(1.5*1.5) * denom_inv);
+    const float w2off   = exp(-(2.0*2.0) * denom_inv);
+    const float w2_5off = exp(-(2.5*2.5) * denom_inv);
+    const float w3_5off = exp(-(3.5*3.5) * denom_inv);
+    const float w4_5off = exp(-(4.5*4.5) * denom_inv);
+    const float w5_5off = exp(-(5.5*5.5) * denom_inv);
+    const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
+    const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
+    const float texel4to5ratio = lerp(w5_5off/(w4_5off + w5_5off), 0.5, error_blurring);
     //  We don't share sample0*, so use the nearest destination fragment:
-    static const float texel0to1ratio_nearest = w1off/(w0off + w1off);
-    static const float texel1to2ratio_nearest = w2off/(w1off + w2off);
+    const float texel0to1ratio_nearest = w1off/(w0off + w1off);
+    const float texel1to2ratio_nearest = w2off/(w1off + w2off);
     //  Statically compute texel offsets from the bottom-right fragment to each
     //  bilinear sample in the bottom-right quadrant:
-    static const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
-    static const float2 sample2_texel_offset = float2(4.0, 0.0) + float2(texel4to5ratio, texel0to1ratio);
-    static const float2 sample3_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
-    static const float2 sample4_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
-    static const float2 sample5_texel_offset = float2(4.0, 2.0) + float2(texel4to5ratio, texel2to3ratio);
-    static const float2 sample6_texel_offset = float2(0.0, 4.0) + float2(texel0to1ratio, texel4to5ratio);
-    static const float2 sample7_texel_offset = float2(2.0, 4.0) + float2(texel2to3ratio, texel4to5ratio);
-    static const float2 sample8_texel_offset = float2(4.0, 4.0) + float2(texel4to5ratio, texel4to5ratio);
+    const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
+    const float2 sample2_texel_offset = float2(4.0, 0.0) + float2(texel4to5ratio, texel0to1ratio);
+    const float2 sample3_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
+    const float2 sample4_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
+    const float2 sample5_texel_offset = float2(4.0, 2.0) + float2(texel4to5ratio, texel2to3ratio);
+    const float2 sample6_texel_offset = float2(0.0, 4.0) + float2(texel0to1ratio, texel4to5ratio);
+    const float2 sample7_texel_offset = float2(2.0, 4.0) + float2(texel2to3ratio, texel4to5ratio);
+    const float2 sample8_texel_offset = float2(4.0, 4.0) + float2(texel4to5ratio, texel4to5ratio);
 
     //  CALCULATE KERNEL WEIGHTS:
     //  Statically compute bilinear sample weights at each destination fragment
@@ -963,67 +1297,67 @@ float3 tex2Dblur12x12shared(const sampler2D texture,
         exp(-LENGTH_SQ(float2(xoff + 1.0, yoff)) * denom_inv) + \
         exp(-LENGTH_SQ(float2(xoff, yoff + 1.0)) * denom_inv) + \
         exp(-LENGTH_SQ(float2(xoff + 1.0, yoff + 1.0)) * denom_inv))
-    static const float w8diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -6.0);
-    static const float w7diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -6.0);
-    static const float w6diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -6.0);
-    static const float w6adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -6.0);
-    static const float w7adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -6.0);
-    static const float w8adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -6.0);
-    static const float w5diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -4.0);
-    static const float w4diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
-    static const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
-    static const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
-    static const float w4adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
-    static const float w5adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -4.0);
-    static const float w2diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -2.0);
-    static const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
-    static const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
-    static const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
-    static const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
-    static const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -2.0);
-    static const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 0.0);
-    static const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
-    static const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
-    static const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
-    static const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
-    static const float w2curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 0.0);
-    static const float w5adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 2.0);
-    static const float w4adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
-    static const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
-    static const float w3curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
-    static const float w4curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
-    static const float w5curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 2.0);
-    static const float w8adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 4.0);
-    static const float w7adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 4.0);
-    static const float w6adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 4.0);
-    static const float w6curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 4.0);
-    static const float w7curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 4.0);
-    static const float w8curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 4.0);
+    const float w8diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -6.0);
+    const float w7diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -6.0);
+    const float w6diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -6.0);
+    const float w6adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -6.0);
+    const float w7adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -6.0);
+    const float w8adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -6.0);
+    const float w5diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -4.0);
+    const float w4diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
+    const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
+    const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
+    const float w4adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
+    const float w5adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -4.0);
+    const float w2diag = GET_TEXEL_QUAD_WEIGHTS(-6.0, -2.0);
+    const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
+    const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
+    const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
+    const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
+    const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -2.0);
+    const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 0.0);
+    const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
+    const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
+    const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
+    const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
+    const float w2curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 0.0);
+    const float w5adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 2.0);
+    const float w4adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
+    const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
+    const float w3curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
+    const float w4curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
+    const float w5curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 2.0);
+    const float w8adjx = GET_TEXEL_QUAD_WEIGHTS(-6.0, 4.0);
+    const float w7adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 4.0);
+    const float w6adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 4.0);
+    const float w6curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 4.0);
+    const float w7curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 4.0);
+    const float w8curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 4.0);
     #undef GET_TEXEL_QUAD_WEIGHTS
     //  Statically pack weights for runtime:
-    static const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
-    static const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
-    static const float4 w2 = float4(w2curr, w2adjx, w2adjy, w2diag);
-    static const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
-    static const float4 w4 = float4(w4curr, w4adjx, w4adjy, w4diag);
-    static const float4 w5 = float4(w5curr, w5adjx, w5adjy, w5diag);
-    static const float4 w6 = float4(w6curr, w6adjx, w6adjy, w6diag);
-    static const float4 w7 = float4(w7curr, w7adjx, w7adjy, w7diag);
-    static const float4 w8 = float4(w8curr, w8adjx, w8adjy, w8diag);
+    const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
+    const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
+    const float4 w2 = float4(w2curr, w2adjx, w2adjy, w2diag);
+    const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
+    const float4 w4 = float4(w4curr, w4adjx, w4adjy, w4diag);
+    const float4 w5 = float4(w5curr, w5adjx, w5adjy, w5diag);
+    const float4 w6 = float4(w6curr, w6adjx, w6adjy, w6diag);
+    const float4 w7 = float4(w7curr, w7adjx, w7adjy, w7diag);
+    const float4 w8 = float4(w8curr, w8adjx, w8adjy, w8diag);
     //  Get the weight sum inverse (normalization factor):
-    static const float4 weight_sum4 = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8;
-    static const float2 weight_sum2 = weight_sum4.xy + weight_sum4.zw;
-    static const float weight_sum = weight_sum2.x + weight_sum2.y;
-    static const float weight_sum_inv = 1.0/(weight_sum);
+    const float4 weight_sum4 = w0 + w1 + w2 + w3 + w4 + w5 + w6 + w7 + w8;
+    const float2 weight_sum2 = weight_sum4.xy + weight_sum4.zw;
+    const float weight_sum = weight_sum2.x + weight_sum2.y;
+    const float weight_sum_inv = 1.0/(weight_sum);
 
     //  LOAD TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Get a uv vector from texel 0q0 of this quadrant to texel 0q3:
     const float2 dxdy_curr = dxdy * quad_vector.xy;
     //  Load bilinear samples for the current quadrant (for this fragment):
-    const float3 sample0curr = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0curr_texel_offset).xy).rgb;
-    const float3 sample0adjx = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjx_texel_offset).xy).rgb;
-    const float3 sample0adjy = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjy_texel_offset).xy).rgb;
-    const float3 sample0diag = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0diag_texel_offset).xy).rgb;
+    const float3 sample0curr = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0curr_texel_offset).rgb;
+    const float3 sample0adjx = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjx_texel_offset).rgb;
+    const float3 sample0adjy = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjy_texel_offset).rgb;
+    const float3 sample0diag = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0diag_texel_offset).rgb;
     const float3 sample1curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample1_texel_offset)).rgb;
     const float3 sample2curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample2_texel_offset)).rgb;
     const float3 sample3curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample3_texel_offset)).rgb;
@@ -1055,20 +1389,21 @@ float3 tex2Dblur12x12shared(const sampler2D texture,
     //  Fill each row of a matrix with an rgb sample and pre-multiply by the
     //  weights to obtain a weighted result:
     float3 sum = float3(0.0);
-    sum += mul(w0 * weight_sum_inv, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
-    sum += mul(w1 * weight_sum_inv, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
-    sum += mul(w2 * weight_sum_inv, float4x3(sample2curr, sample2adjx, sample2adjy, sample2diag));
-    sum += mul(w3 * weight_sum_inv, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
-    sum += mul(w4 * weight_sum_inv, float4x3(sample4curr, sample4adjx, sample4adjy, sample4diag));
-    sum += mul(w5 * weight_sum_inv, float4x3(sample5curr, sample5adjx, sample5adjy, sample5diag));
-    sum += mul(w6 * weight_sum_inv, float4x3(sample6curr, sample6adjx, sample6adjy, sample6diag));
-    sum += mul(w7 * weight_sum_inv, float4x3(sample7curr, sample7adjx, sample7adjy, sample7diag));
-    sum += mul(w8 * weight_sum_inv, float4x3(sample8curr, sample8adjx, sample8adjy, sample8diag));
-    return sum;
+    sum += mul(w0, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
+    sum += mul(w1, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
+    sum += mul(w2, float4x3(sample2curr, sample2adjx, sample2adjy, sample2diag));
+    sum += mul(w3, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
+    sum += mul(w4, float4x3(sample4curr, sample4adjx, sample4adjy, sample4diag));
+    sum += mul(w5, float4x3(sample5curr, sample5adjx, sample5adjy, sample5diag));
+    sum += mul(w6, float4x3(sample6curr, sample6adjx, sample6adjy, sample6diag));
+    sum += mul(w7, float4x3(sample7curr, sample7adjx, sample7adjy, sample7diag));
+    sum += mul(w8, float4x3(sample8curr, sample8adjx, sample8adjy, sample8diag));
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur10x10shared(const sampler2D texture,
-    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector,
+    const float sigma)
 {
     //  Perform a 1-pass mipmapped blur with shared samples across a pixel quad.
     //  Requires:   Same as tex2Dblur12x12shared()
@@ -1089,36 +1424,36 @@ float3 tex2Dblur10x10shared(const sampler2D texture,
 
     //  COMPUTE COORDS FOR TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur12x12shared).
-    static const float denom_inv = blur10_exp_denom_inv;
-    static const float w0off   = 1.0;
-    static const float w0_5off = exp(-(0.5*0.5) * denom_inv);
-    static const float w1off   = exp(-(1.0*1.0) * denom_inv);
-    static const float w1_5off = exp(-(1.5*1.5) * denom_inv);
-    static const float w2off   = exp(-(2.0*2.0) * denom_inv);
-    static const float w2_5off = exp(-(2.5*2.5) * denom_inv);
-    static const float w3_5off = exp(-(3.5*3.5) * denom_inv);
-    static const float w4_5off = exp(-(4.5*4.5) * denom_inv);
-    static const float w5_5off = exp(-(5.5*5.5) * denom_inv);
-    static const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
-    static const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
-    static const float texel4to5ratio = lerp(w5_5off/(w4_5off + w5_5off), 0.5, error_blurring);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off   = 1.0;
+    const float w0_5off = exp(-(0.5*0.5) * denom_inv);
+    const float w1off   = exp(-(1.0*1.0) * denom_inv);
+    const float w1_5off = exp(-(1.5*1.5) * denom_inv);
+    const float w2off   = exp(-(2.0*2.0) * denom_inv);
+    const float w2_5off = exp(-(2.5*2.5) * denom_inv);
+    const float w3_5off = exp(-(3.5*3.5) * denom_inv);
+    const float w4_5off = exp(-(4.5*4.5) * denom_inv);
+    const float w5_5off = exp(-(5.5*5.5) * denom_inv);
+    const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
+    const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
+    const float texel4to5ratio = lerp(w5_5off/(w4_5off + w5_5off), 0.5, error_blurring);
     //  We don't share sample0*, so use the nearest destination fragment:
-    static const float texel0to1ratio_nearest = w1off/(w0off + w1off);
-    static const float texel1to2ratio_nearest = w2off/(w1off + w2off);
+    const float texel0to1ratio_nearest = w1off/(w0off + w1off);
+    const float texel1to2ratio_nearest = w2off/(w1off + w2off);
     //  Statically compute texel offsets from the bottom-right fragment to each
     //  bilinear sample in the bottom-right quadrant:
-    static const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
-    static const float2 sample2_texel_offset = float2(4.0, 0.0) + float2(texel4to5ratio, texel0to1ratio);
-    static const float2 sample3_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
-    static const float2 sample4_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
-    static const float2 sample5_texel_offset = float2(4.0, 2.0) + float2(texel4to5ratio, texel2to3ratio);
-    static const float2 sample6_texel_offset = float2(0.0, 4.0) + float2(texel0to1ratio, texel4to5ratio);
-    static const float2 sample7_texel_offset = float2(2.0, 4.0) + float2(texel2to3ratio, texel4to5ratio);
-    static const float2 sample8_texel_offset = float2(4.0, 4.0) + float2(texel4to5ratio, texel4to5ratio);
+    const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
+    const float2 sample2_texel_offset = float2(4.0, 0.0) + float2(texel4to5ratio, texel0to1ratio);
+    const float2 sample3_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
+    const float2 sample4_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
+    const float2 sample5_texel_offset = float2(4.0, 2.0) + float2(texel4to5ratio, texel2to3ratio);
+    const float2 sample6_texel_offset = float2(0.0, 4.0) + float2(texel0to1ratio, texel4to5ratio);
+    const float2 sample7_texel_offset = float2(2.0, 4.0) + float2(texel2to3ratio, texel4to5ratio);
+    const float2 sample8_texel_offset = float2(4.0, 4.0) + float2(texel4to5ratio, texel4to5ratio);
 
     //  CALCULATE KERNEL WEIGHTS:
     //  Statically compute bilinear sample weights at each destination fragment
@@ -1132,54 +1467,54 @@ float3 tex2Dblur10x10shared(const sampler2D texture,
     //      8adjx, 2adjx, 5adjx,
     //      6adjy, 7adjy, 8adjy,
     //      2diag, 5diag, 6diag, 7diag, 8diag
-    static const float w4diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
-    static const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
-    static const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
-    static const float w4adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
-    static const float w5adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -4.0);
-    static const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
-    static const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
-    static const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
-    static const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
-    static const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -2.0);
-    static const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
-    static const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
-    static const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
-    static const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
-    static const float w2curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 0.0);
-    static const float w4adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
-    static const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
-    static const float w3curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
-    static const float w4curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
-    static const float w5curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 2.0);
-    static const float w7adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 4.0);
-    static const float w6adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 4.0);
-    static const float w6curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 4.0);
-    static const float w7curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 4.0);
-    static const float w8curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 4.0);
+    const float w4diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
+    const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
+    const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
+    const float w4adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
+    const float w5adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -4.0);
+    const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
+    const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
+    const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
+    const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
+    const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(4.0, -2.0);
+    const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
+    const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
+    const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
+    const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
+    const float w2curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 0.0);
+    const float w4adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
+    const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
+    const float w3curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
+    const float w4curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
+    const float w5curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 2.0);
+    const float w7adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 4.0);
+    const float w6adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 4.0);
+    const float w6curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 4.0);
+    const float w7curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 4.0);
+    const float w8curr = GET_TEXEL_QUAD_WEIGHTS(4.0, 4.0);
     #undef GET_TEXEL_QUAD_WEIGHTS
     //  Get the weight sum inverse (normalization factor):
-    static const float weight_sum_inv = 1.0/(w0curr + w1curr + w2curr + w3curr +
+    const float weight_sum_inv = 1.0/(w0curr + w1curr + w2curr + w3curr +
         w4curr + w5curr + w6curr + w7curr + w8curr +
         w0adjx + w1adjx + w3adjx + w4adjx + w6adjx + w7adjx +
         w0adjy + w1adjy + w2adjy + w3adjy + w4adjy + w5adjy +
         w0diag + w1diag + w3diag + w4diag);
     //  Statically pack most weights for runtime.  Note the mixed packing:
-    static const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
-    static const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
-    static const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
-    static const float4 w4 = float4(w4curr, w4adjx, w4adjy, w4diag);
-    static const float4 w2and5 = float4(w2curr, w2adjy, w5curr, w5adjy);
-    static const float4 w6and7 = float4(w6curr, w6adjx, w7curr, w7adjx);
+    const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
+    const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
+    const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
+    const float4 w4 = float4(w4curr, w4adjx, w4adjy, w4diag);
+    const float4 w2and5 = float4(w2curr, w2adjy, w5curr, w5adjy);
+    const float4 w6and7 = float4(w6curr, w6adjx, w7curr, w7adjx);
 
     //  LOAD TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Get a uv vector from texel 0q0 of this quadrant to texel 0q3:
     const float2 dxdy_curr = dxdy * quad_vector.xy;
     //  Load bilinear samples for the current quadrant (for this fragment):
-    const float3 sample0curr = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0curr_texel_offset).xy).rgb;
-    const float3 sample0adjx = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjx_texel_offset).xy).rgb;
-    const float3 sample0adjy = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjy_texel_offset).xy).rgb;
-    const float3 sample0diag = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0diag_texel_offset).xy).rgb;
+    const float3 sample0curr = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0curr_texel_offset).rgb;
+    const float3 sample0adjx = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjx_texel_offset).rgb;
+    const float3 sample0adjy = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjy_texel_offset).rgb;
+    const float3 sample0diag = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0diag_texel_offset).rgb;
     const float3 sample1curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample1_texel_offset)).rgb;
     const float3 sample2curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample2_texel_offset)).rgb;
     const float3 sample3curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample3_texel_offset)).rgb;
@@ -1209,20 +1544,21 @@ float3 tex2Dblur10x10shared(const sampler2D texture,
     //  Fill each row of a matrix with an rgb sample and pre-multiply by the
     //  weights to obtain a weighted result.  First do the simple ones:
     float3 sum = float3(0.0);
-    sum += mul(w0 * weight_sum_inv, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
-    sum += mul(w1 * weight_sum_inv, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
-    sum += mul(w3 * weight_sum_inv, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
-    sum += mul(w4 * weight_sum_inv, float4x3(sample4curr, sample4adjx, sample4adjy, sample4diag));
+    sum += mul(w0, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
+    sum += mul(w1, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
+    sum += mul(w3, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
+    sum += mul(w4, float4x3(sample4curr, sample4adjx, sample4adjy, sample4diag));
     //  Now do the mixed-sample ones:
-    sum += mul(w2and5 * weight_sum_inv, float4x3(sample2curr, sample2adjy, sample5curr, sample5adjy));
-    sum += mul(w6and7 * weight_sum_inv, float4x3(sample6curr, sample6adjx, sample7curr, sample7adjx));
-    sum += (w8curr * weight_sum_inv) * sample8curr;
+    sum += mul(w2and5, float4x3(sample2curr, sample2adjy, sample5curr, sample5adjy));
+    sum += mul(w6and7, float4x3(sample6curr, sample6adjx, sample7curr, sample7adjx));
+    sum += w8curr * sample8curr;
     //  Normalize the sum (so the weights add to 1.0) and return:
-    return sum;
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur8x8shared(const sampler2D texture,
-    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector,
+    const float sigma)
 {
     //  Perform a 1-pass mipmapped blur with shared samples across a pixel quad.
     //  Requires:   Same as tex2Dblur12x12shared()
@@ -1251,31 +1587,31 @@ float3 tex2Dblur8x8shared(const sampler2D texture,
     //      1c3 1c2 0c3 0c2 0d2 0d3 1d2 1d3
     //      3c1 3c0 2c1 2c0 2d0 2d1 3d0 4d1
     //      3c3 3c2 2c3 2c2 2d2 2d3 3d2 4d3
-
+    
     //  COMPUTE COORDS FOR TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur12x12shared).
-    static const float denom_inv = blur8_exp_denom_inv;
-    static const float w0off   = 1.0;
-    static const float w0_5off = exp(-(0.5*0.5) * denom_inv);
-    static const float w1off   = exp(-(1.0*1.0) * denom_inv);
-    static const float w1_5off = exp(-(1.5*1.5) * denom_inv);
-    static const float w2off   = exp(-(2.0*2.0) * denom_inv);
-    static const float w2_5off = exp(-(2.5*2.5) * denom_inv);
-    static const float w3_5off = exp(-(3.5*3.5) * denom_inv);
-    static const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
-    static const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off   = 1.0;
+    const float w0_5off = exp(-(0.5*0.5) * denom_inv);
+    const float w1off   = exp(-(1.0*1.0) * denom_inv);
+    const float w1_5off = exp(-(1.5*1.5) * denom_inv);
+    const float w2off   = exp(-(2.0*2.0) * denom_inv);
+    const float w2_5off = exp(-(2.5*2.5) * denom_inv);
+    const float w3_5off = exp(-(3.5*3.5) * denom_inv);
+    const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
+    const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
     //  We don't share sample0*, so use the nearest destination fragment:
-    static const float texel0to1ratio_nearest = w1off/(w0off + w1off);
-    static const float texel1to2ratio_nearest = w2off/(w1off + w2off);
+    const float texel0to1ratio_nearest = w1off/(w0off + w1off);
+    const float texel1to2ratio_nearest = w2off/(w1off + w2off);
     //  Statically compute texel offsets from the bottom-right fragment to each
     //  bilinear sample in the bottom-right quadrant:
-    static const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
-    static const float2 sample2_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
-    static const float2 sample3_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
+    const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
+    const float2 sample2_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
+    const float2 sample3_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
 
     //  CALCULATE KERNEL WEIGHTS:
     //  Statically compute bilinear sample weights at each destination fragment
@@ -1285,42 +1621,42 @@ float3 tex2Dblur8x8shared(const sampler2D texture,
         exp(-LENGTH_SQ(float2(xoff + 1.0, yoff)) * denom_inv) + \
         exp(-LENGTH_SQ(float2(xoff, yoff + 1.0)) * denom_inv) + \
         exp(-LENGTH_SQ(float2(xoff + 1.0, yoff + 1.0)) * denom_inv))
-    static const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
-    static const float w2diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
-    static const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
-    static const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
-    static const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
-    static const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
-    static const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
-    static const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
-    static const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
-    static const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
-    static const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
-    static const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
-    static const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
-    static const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
-    static const float w2curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
-    static const float w3curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
+    const float w3diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -4.0);
+    const float w2diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -4.0);
+    const float w2adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -4.0);
+    const float w3adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -4.0);
+    const float w1diag = GET_TEXEL_QUAD_WEIGHTS(-4.0, -2.0);
+    const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
+    const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
+    const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
+    const float w1adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 0.0);
+    const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
+    const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
+    const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
+    const float w3adjx = GET_TEXEL_QUAD_WEIGHTS(-4.0, 2.0);
+    const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
+    const float w2curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
+    const float w3curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
     #undef GET_TEXEL_QUAD_WEIGHTS
     //  Statically pack weights for runtime:
-    static const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
-    static const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
-    static const float4 w2 = float4(w2curr, w2adjx, w2adjy, w2diag);
-    static const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
+    const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
+    const float4 w1 = float4(w1curr, w1adjx, w1adjy, w1diag);
+    const float4 w2 = float4(w2curr, w2adjx, w2adjy, w2diag);
+    const float4 w3 = float4(w3curr, w3adjx, w3adjy, w3diag);
     //  Get the weight sum inverse (normalization factor):
-    static const float4 weight_sum4 = w0 + w1 + w2 + w3;
-    static const float2 weight_sum2 = weight_sum4.xy + weight_sum4.zw;
-    static const float weight_sum = weight_sum2.x + weight_sum2.y;
-    static const float weight_sum_inv = 1.0/(weight_sum);
+    const float4 weight_sum4 = w0 + w1 + w2 + w3;
+    const float2 weight_sum2 = weight_sum4.xy + weight_sum4.zw;
+    const float weight_sum = weight_sum2.x + weight_sum2.y;
+    const float weight_sum_inv = 1.0/(weight_sum);
 
     //  LOAD TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Get a uv vector from texel 0q0 of this quadrant to texel 0q3:
     const float2 dxdy_curr = dxdy * quad_vector.xy;
     //  Load bilinear samples for the current quadrant (for this fragment):
-    const float3 sample0curr = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0curr_texel_offset).xy).rgb;
-    const float3 sample0adjx = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjx_texel_offset).xy).rgb;
-    const float3 sample0adjy = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjy_texel_offset).xy).rgb;
-    const float3 sample0diag = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0diag_texel_offset).xy).rgb;
+    const float3 sample0curr = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0curr_texel_offset).rgb;
+    const float3 sample0adjx = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjx_texel_offset).rgb;
+    const float3 sample0adjy = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjy_texel_offset).rgb;
+    const float3 sample0diag = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0diag_texel_offset).rgb;
     const float3 sample1curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample1_texel_offset)).rgb;
     const float3 sample2curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample2_texel_offset)).rgb;
     const float3 sample3curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample3_texel_offset)).rgb;
@@ -1337,15 +1673,16 @@ float3 tex2Dblur8x8shared(const sampler2D texture,
     //  Fill each row of a matrix with an rgb sample and pre-multiply by the
     //  weights to obtain a weighted result:
     float3 sum = float3(0.0);
-    sum += mul(w0 * weight_sum_inv, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
-    sum += mul(w1 * weight_sum_inv, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
-    sum += mul(w2 * weight_sum_inv, float4x3(sample2curr, sample2adjx, sample2adjy, sample2diag));
-    sum += mul(w3 * weight_sum_inv, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
-    return sum;
+    sum += mul(w0, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
+    sum += mul(w1, float4x3(sample1curr, sample1adjx, sample1adjy, sample1diag));
+    sum += mul(w2, float4x3(sample2curr, sample2adjx, sample2adjy, sample2diag));
+    sum += mul(w3, float4x3(sample3curr, sample3adjx, sample3adjy, sample3diag));
+    return sum * weight_sum_inv;
 }
 
 float3 tex2Dblur6x6shared(const sampler2D texture,
-    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector,
+    const float sigma)
 {
     //  Perform a 1-pass mipmapped blur with shared samples across a pixel quad.
     //  Requires:   Same as tex2Dblur12x12shared()
@@ -1366,28 +1703,28 @@ float3 tex2Dblur6x6shared(const sampler2D texture,
 
     //  COMPUTE COORDS FOR TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Statically compute bilinear sampling offsets (details in tex2Dblur12x12shared).
-    static const float denom_inv = blur6_exp_denom_inv;
-    static const float w0off   = 1.0;
-    static const float w0_5off = exp(-(0.5*0.5) * denom_inv);
-    static const float w1off   = exp(-(1.0*1.0) * denom_inv);
-    static const float w1_5off = exp(-(1.5*1.5) * denom_inv);
-    static const float w2off   = exp(-(2.0*2.0) * denom_inv);
-    static const float w2_5off = exp(-(2.5*2.5) * denom_inv);
-    static const float w3_5off = exp(-(3.5*3.5) * denom_inv);
-    static const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
-    static const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
+    const float denom_inv = 0.5/(sigma*sigma);
+    const float w0off   = 1.0;
+    const float w0_5off = exp(-(0.5*0.5) * denom_inv);
+    const float w1off   = exp(-(1.0*1.0) * denom_inv);
+    const float w1_5off = exp(-(1.5*1.5) * denom_inv);
+    const float w2off   = exp(-(2.0*2.0) * denom_inv);
+    const float w2_5off = exp(-(2.5*2.5) * denom_inv);
+    const float w3_5off = exp(-(3.5*3.5) * denom_inv);
+    const float texel0to1ratio = lerp(w1_5off/(w0_5off + w1_5off), 0.5, error_blurring);
+    const float texel2to3ratio = lerp(w3_5off/(w2_5off + w3_5off), 0.5, error_blurring);
     //  We don't share sample0*, so use the nearest destination fragment:
-    static const float texel0to1ratio_nearest = w1off/(w0off + w1off);
-    static const float texel1to2ratio_nearest = w2off/(w1off + w2off);
+    const float texel0to1ratio_nearest = w1off/(w0off + w1off);
+    const float texel1to2ratio_nearest = w2off/(w1off + w2off);
     //  Statically compute texel offsets from the bottom-right fragment to each
     //  bilinear sample in the bottom-right quadrant:
-    static const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
-    static const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
-    static const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
-    static const float2 sample2_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
-    static const float2 sample3_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
+    const float2 sample0curr_texel_offset = float2(0.0, 0.0) + float2(texel0to1ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjx_texel_offset = float2(-1.0, 0.0) + float2(-texel1to2ratio_nearest, texel0to1ratio_nearest);
+    const float2 sample0adjy_texel_offset = float2(0.0, -1.0) + float2(texel0to1ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample0diag_texel_offset = float2(-1.0, -1.0) + float2(-texel1to2ratio_nearest, -texel1to2ratio_nearest);
+    const float2 sample1_texel_offset = float2(2.0, 0.0) + float2(texel2to3ratio, texel0to1ratio);
+    const float2 sample2_texel_offset = float2(0.0, 2.0) + float2(texel0to1ratio, texel2to3ratio);
+    const float2 sample3_texel_offset = float2(2.0, 2.0) + float2(texel2to3ratio, texel2to3ratio);
 
     //  CALCULATE KERNEL WEIGHTS:
     //  Statically compute bilinear sample weights at each destination fragment
@@ -1401,30 +1738,30 @@ float3 tex2Dblur6x6shared(const sampler2D texture,
     //      1adjx, 3adjx
     //      2adjy, 3adjy
     //      1diag, 2diag, 3diag
-    static const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
-    static const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
-    static const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
-    static const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
-    static const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
-    static const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
-    static const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
-    static const float w2curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
-    static const float w3curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
+    const float w0diag = GET_TEXEL_QUAD_WEIGHTS(-2.0, -2.0);
+    const float w0adjy = GET_TEXEL_QUAD_WEIGHTS(0.0, -2.0);
+    const float w1adjy = GET_TEXEL_QUAD_WEIGHTS(2.0, -2.0);
+    const float w0adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 0.0);
+    const float w0curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 0.0);
+    const float w1curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 0.0);
+    const float w2adjx = GET_TEXEL_QUAD_WEIGHTS(-2.0, 2.0);
+    const float w2curr = GET_TEXEL_QUAD_WEIGHTS(0.0, 2.0);
+    const float w3curr = GET_TEXEL_QUAD_WEIGHTS(2.0, 2.0);
     #undef GET_TEXEL_QUAD_WEIGHTS
     //  Get the weight sum inverse (normalization factor):
-    static const float weight_sum_inv = 1.0/(w0curr + w1curr + w2curr + w3curr +
+    const float weight_sum_inv = 1.0/(w0curr + w1curr + w2curr + w3curr +
         w0adjx + w2adjx + w0adjy + w1adjy + w0diag);
     //  Statically pack some weights for runtime:
-    static const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
+    const float4 w0 = float4(w0curr, w0adjx, w0adjy, w0diag);
 
     //  LOAD TEXTURE SAMPLES THIS FRAGMENT IS RESPONSIBLE FOR:
     //  Get a uv vector from texel 0q0 of this quadrant to texel 0q3:
     const float2 dxdy_curr = dxdy * quad_vector.xy;
     //  Load bilinear samples for the current quadrant (for this fragment):
-    const float3 sample0curr = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0curr_texel_offset).xy).rgb;
-    const float3 sample0adjx = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjx_texel_offset).xy).rgb;
-    const float3 sample0adjy = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0adjy_texel_offset).xy).rgb;
-    const float3 sample0diag = tex2D_linearize(texture, (tex_uv + dxdy_curr * sample0diag_texel_offset).xy).rgb;
+    const float3 sample0curr = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0curr_texel_offset).rgb;
+    const float3 sample0adjx = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjx_texel_offset).rgb;
+    const float3 sample0adjy = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0adjy_texel_offset).rgb;
+    const float3 sample0diag = tex2D_linearize(texture, tex_uv.xy + dxdy_curr * sample0diag_texel_offset).rgb;
     const float3 sample1curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample1_texel_offset)).rgb;
     const float3 sample2curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample2_texel_offset)).rgb;
     const float3 sample3curr = tex2Dlod_linearize(texture, tex_uv + uv2_to_uv4(dxdy_curr * sample3_texel_offset)).rgb;
@@ -1440,14 +1777,140 @@ float3 tex2Dblur6x6shared(const sampler2D texture,
     //  weights to obtain a weighted result for sample1*, and handle the rest
     //  of the weights more directly/verbosely:
     float3 sum = float3(0.0);
-    sum += mul(w0 * weight_sum_inv, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
-    sum += (w1curr * weight_sum_inv) * sample1curr +
-            (w1adjy * weight_sum_inv) * sample1adjy +
-            (w2curr * weight_sum_inv) * sample2curr +
-            (w2adjx * weight_sum_inv) * sample2adjx +
-            (w3curr * weight_sum_inv) * sample3curr;
-    return sum;
+    sum += mul(w0, float4x3(sample0curr, sample0adjx, sample0adjy, sample0diag));
+    sum += w1curr * sample1curr + w1adjy * sample1adjy + w2curr * sample2curr +
+            w2adjx * sample2adjx + w3curr * sample3curr;
+    return sum * weight_sum_inv;
+}
+
+
+///////////////////////  MAX OPTIMAL SIGMA BLUR WRAPPERS  //////////////////////
+
+//  The following blurs are static wrappers around the dynamic blurs above.
+//  HOPEFULLY, the compiler will be smart enough to do constant-folding.
+
+//  Resizable separable blurs:
+inline float3 tex2Dblur11resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur11resize(texture, tex_uv, dxdy, blur11_std_dev);
+}
+inline float3 tex2Dblur9resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur9resize(texture, tex_uv, dxdy, blur9_std_dev);
+}
+inline float3 tex2Dblur7resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur7resize(texture, tex_uv, dxdy, blur7_std_dev);
+}
+inline float3 tex2Dblur5resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur5resize(texture, tex_uv, dxdy, blur5_std_dev);
+}
+inline float3 tex2Dblur3resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur3resize(texture, tex_uv, dxdy, blur3_std_dev);
+}
+//  Fast separable blurs:
+inline float3 tex2Dblur11fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur11fast(texture, tex_uv, dxdy, blur11_std_dev);
+}
+inline float3 tex2Dblur9fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur9fast(texture, tex_uv, dxdy, blur9_std_dev);
+}
+inline float3 tex2Dblur7fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur7fast(texture, tex_uv, dxdy, blur7_std_dev);
+}
+inline float3 tex2Dblur5fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur5fast(texture, tex_uv, dxdy, blur5_std_dev);
+}
+inline float3 tex2Dblur3fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur3fast(texture, tex_uv, dxdy, blur3_std_dev);
+}
+//  Huge, "fast" separable blurs:
+inline float3 tex2Dblur43fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur43fast(texture, tex_uv, dxdy, blur43_std_dev);
+}
+inline float3 tex2Dblur31fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur31fast(texture, tex_uv, dxdy, blur31_std_dev);
+}
+inline float3 tex2Dblur25fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur25fast(texture, tex_uv, dxdy, blur25_std_dev);
+}
+inline float3 tex2Dblur17fast(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur17fast(texture, tex_uv, dxdy, blur17_std_dev);
+}
+//  Resizable one-pass blurs:
+inline float3 tex2Dblur3x3resize(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur3x3resize(texture, tex_uv, dxdy, blur3_std_dev);
+}
+//  "Fast" one-pass blurs:
+inline float3 tex2Dblur9x9(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur9x9(texture, tex_uv, dxdy, blur9_std_dev);
+}
+inline float3 tex2Dblur7x7(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur7x7(texture, tex_uv, dxdy, blur7_std_dev);
+}
+inline float3 tex2Dblur5x5(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur5x5(texture, tex_uv, dxdy, blur5_std_dev);
+}
+inline float3 tex2Dblur3x3(const sampler2D texture, const float2 tex_uv,
+    const float2 dxdy)
+{
+    return tex2Dblur3x3(texture, tex_uv, dxdy, blur3_std_dev);
+}
+//  "Fast" shared-sample one-pass blurs:
+inline float3 tex2Dblur12x12shared(const sampler2D texture,
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+{
+    return tex2Dblur12x12shared(texture, tex_uv, dxdy, quad_vector, blur12_std_dev);
+}
+inline float3 tex2Dblur10x10shared(const sampler2D texture,
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+{
+    return tex2Dblur10x10shared(texture, tex_uv, dxdy, quad_vector, blur10_std_dev);
+}
+inline float3 tex2Dblur8x8shared(const sampler2D texture,
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+{
+    return tex2Dblur8x8shared(texture, tex_uv, dxdy, quad_vector, blur8_std_dev);
+}
+inline float3 tex2Dblur6x6shared(const sampler2D texture,
+    const float4 tex_uv, const float2 dxdy, const float4 quad_vector)
+{
+    return tex2Dblur6x6shared(texture, tex_uv, dxdy, quad_vector, blur6_std_dev);
 }
 
 
 #endif  //  BLUR_FUNCTIONS_H
+
