@@ -1,0 +1,88 @@
+/*
+   Hyllian - Retro Shader - 2013
+
+   A re-implementation from the original made by Hyllian and DOLLS!
+   
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+/*
+	VERTEX_SHADER
+*/
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+	uniform float4x4 modelViewProj,
+
+	out float4 oPosition	: POSITION,
+	out float4 oColor	: COLOR,
+	out float2 otexCoord	: TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+/*
+	FRAGMENT SHADER
+*/
+
+
+
+struct output
+{
+	float4 color	: COLOR;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+// This value must be between 0.0 (totally black) and 1.0 (nearest neighbor)
+#pragma parameter RETRO_PIXEL_SIZE "Retro Pixel Size" 0.84 0.0 1.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float RETRO_PIXEL_SIZE;
+#else
+#define RETRO_PIXEL_SIZE  0.84
+#endif
+
+output main_fragment(float2 texCoord: TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN)
+{
+    // Reading the texel
+    float3 E = pow(tex2D(decal, texCoord).xyz, float3(2.4));
+
+    float2 fp = frac(texCoord*IN.texture_size);
+    float2 ps = IN.video_size/IN.output_size;
+
+    float2 f = clamp(clamp(fp + 0.5*ps, 0.0, 1.0) - RETRO_PIXEL_SIZE, 0.0, ps)/ps;
+
+    float max_coord = max(f.x, f.y);
+
+    float3 res = lerp(E*(1.04+fp.x*fp.y), E*0.36, max_coord);
+
+    // Product interpolation
+    output OUT;
+    OUT.color = float4(clamp( pow(res, float3(1.0 / 2.2)), 0.0, 1.0 ), 1.0);
+    return OUT;
+}

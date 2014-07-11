@@ -52,17 +52,24 @@ void main_vertex
 }
 
 #pragma parameter SCANLINE_BASE_BRIGHTNESS "Scanline Base Brightness" 0.95 0.0 1.0 0.01
+#pragma parameter SCANLINE_SINE_COMP_A "Scanline Sine Comp A" 0.05 0.0 0.10 0.01
+#pragma parameter SCANLINE_SINE_COMP_B "Scanline Sine Comp B" 0.15 0.0 1.0 0.05
 
 #ifdef PARAMETER_UNIFORM
 uniform float SCANLINE_BASE_BRIGHTNESS;
+uniform float SCANLINE_SINE_COMP_A;
+uniform float SCANLINE_SINE_COMP_B;
 #else
 #define SCANLINE_BASE_BRIGHTNESS 0.95
+#define SCANLINE_SINE_COMP_A 0.05
+#define SCANLINE_SINE_COMP_B 0.15
 #endif
 
-const float2 sine_comp = float2(0.05, 0.15);
 
 float4 main_fragment (in sine_coord co : TEXCOORD2, float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
+   
+   float2 sine_comp = float2(SCANLINE_SINE_COMP_A, SCANLINE_SINE_COMP_B);
    float3 res = tex2D(s0, tex).xyz;
    float3 scanline = res * (SCANLINE_BASE_BRIGHTNESS + dot(sine_comp * sin(tex * co.omega), float2(1.0, 1.0)));
    return float4(scanline.x, scanline.y, scanline.z, 1.0);

@@ -48,7 +48,7 @@
          //#define DOTMASK
          
          //Enable if using several shaders. 
-         //Disabling it reduces moiré for single pass.
+         //Disabling it reduces moirï¿½ for single pass.
          #define MULTIPASS
          
             // Macros.
@@ -226,8 +226,11 @@
                     OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
         OUT.texCoord = texCoord;
 
-
+        #ifdef INTERLACED
                     OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/200.0),1.0,2.0));
+        #else
+                    OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/1000.0),1.0,2.0));
+        #endif
 
                     // The size of one texel, in texture-coordinates.
                     OUT.one = OUT.ilfac / ORIG.texture_size;
@@ -306,11 +309,8 @@
                     // Of all the pixels that are mapped onto the texel we are
                     // currently rendering, which pixel are we currently rendering?
                     float2 ilfloat = float2(0.0,VAR.ilfac.y > 1.5 ? fmod(float(IN.frame_count),2.0) : 0.0);
-          #ifdef INTERLACED
+
                     float2 ratio_scale = (xy * IN.texture_size - float2(0.5) + ilfloat)/VAR.ilfac;
-          #else
-                float2 ratio_scale = xy * IN.texture_size - float2(0.5);
-          #endif
           
             #ifdef OVERSAMPLE
                     //float filter = fwidth(ratio_scale.y);
@@ -319,11 +319,7 @@
                     float2 uv_ratio = frac(ratio_scale);
 
                     // Snap to the center of the underlying texel.
-          #ifdef INTERLACED
                     xy = (floor(ratio_scale)*VAR.ilfac + float2(0.5) - ilfloat) / IN.texture_size;
-          #else
-                xy = (floor(ratio_scale) + float2(0.5)) / IN.texture_size;
-          #endif
 
                     // Calculate Lanczos scaling coefficients describing the effect
                     // of various neighbour texels in a scanline on the current
