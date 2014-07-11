@@ -166,7 +166,7 @@
 //  limitation, we need to define derived constants using functions.
 
 //  Set device gamma constants, but allow users to override them:
-#ifdef OVERRIDE DEVICE_GAMMA
+#ifdef OVERRIDE_DEVICE_GAMMA
     //  The user promises to globally define the appropriate constants:
     inline float get_crt_gamma()    {   return crt_gamma;   }
     inline float get_gba_gamma()    {   return gba_gamma;   }
