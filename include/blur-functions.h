@@ -144,7 +144,6 @@
 //                                                  tex2Dblur31fast
 //                                                  tex2Dblur43fast
 //                                                  tex2Dblur3x3resize
-//                                                  tex2Dblur10lod_same_size
 
 
 /////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////

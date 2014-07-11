@@ -1,5 +1,5 @@
-#ifndef VERTEX_SHADER_BLUR_ONE_PASS_H
-#define VERTEX_SHADER_BLUR_ONE_PASS_H
+#ifndef VERTEX_SHADER_BLUR_RESIZE_HORIZONTAL_H
+#define VERTEX_SHADER_BLUR_RESIZE_HORIZONTAL_H
 
 /////////////////////////////////  MIT LICENSE  ////////////////////////////////
 
@@ -11,7 +11,7 @@
 //  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
 //  sell copies of the Software, and to permit persons to whom the Software is
 //  furnished to do so, subject to the following conditions:
-//
+//  
 //  The above copyright notice and this permission notice shall be included in
 //  all copies or substantial portions of the Software.
 //
@@ -74,18 +74,21 @@ out_vertex main_vertex
 	//  Get the uv sample distance between output pixels.  Blurs are not generic
     //  Gaussian resizers, and correct blurs require:
     //  1.) IN.output_size == IN.video_size * 2^m, where m is an integer <= 0.
-    //  2.) mipmap_inputN = "true" for this pass in .cgp preset if m < 0
-    //  3.) filter_linearN = "true" for all one-pass blurs
-    //  Gaussian resizers would upsize using the distance between input texels
-    //  (not output pixels), but we avoid this and consistently blur at the
-    //  destination size.  Otherwise, combining statically calculated weights
-    //  with bilinear sample exploitation would result in terrible artifacts.
+    //  2.) mipmap_inputN = "true" for this pass in .cgp preset if m != 0
+    //  3.) filter_linearN = "true" except for 1x scale nearest neighbor blurs
+    //  Arbitrary upsizing will be acceptable if filter_linearN = "true", and
+    //  arbitrary downsizing will be acceptable if mipmap_inputN = "true" too.
+    //  Only the "resize" blurs can manage this though, and they still aren't
+    //  proper Gaussian resizers (because they sample between texels and always
+    //  blur after resizing, not during).
     const float2 dxdy_scale = IN.video_size/IN.output_size;
-	OUT.blur_dxdy = dxdy_scale/IN.texture_size;
+	const float2 dxdy = dxdy_scale/IN.texture_size;
+    //  This blur is horizontal-only, so zero out the vertical offset:
+	OUT.blur_dxdy = float2(dxdy.x, 0.0);
 
 	return OUT;
 }
 
 
-#endif  //  VERTEX_SHADER_BLUR_ONE_PASS_H
+#endif  //  VERTEX_SHADER_BLUR_RESIZE_HORIZONTAL_H
 

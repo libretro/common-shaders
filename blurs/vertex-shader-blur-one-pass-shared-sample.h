@@ -72,17 +72,16 @@ out_vertex main_vertex
     const float4 out_position = mul(modelViewProj, position);
 	OUT.position = out_position;
 
-	//  Get the uv sample distance between output pixels.  Statically weighted
-    //  blurs are not generic resizers though, and correct blurs require:
+	//  Get the uv sample distance between output pixels.  Blurs are not generic
+    //  Gaussian resizers, and correct blurs require:
     //  1.) IN.output_size == IN.video_size * 2^m, where m is an integer <= 0.
     //  2.) mipmap_inputN = "true" for this pass in .cgp preset if m < 0
     //  3.) filter_linearN = "true" for all one-pass blurs
     //  4.) #define DRIVERS_ALLOW_TEX2DLOD for shared-sample blurs
-    //  Generic resizers would upsize using the distance between input texels
-    //  (not output pixels), but we avoid this and leave the blur kernel small:
-    //  Otherwise, combining statically calculated weights with bilinear sample
-    //  exploitation would result in terrible artifacts.  If you want to upsize
-    //  and blur, use blurNnearest() or a Gaussian resize with dynamic weights.
+    //  Gaussian resizers would upsize using the distance between input texels
+    //  (not output pixels), but we avoid this and consistently blur at the
+    //  destination size.  Otherwise, combining statically calculated weights
+    //  with bilinear sample exploitation would result in terrible artifacts.
     const float2 dxdy_scale = IN.video_size/IN.output_size;
 	OUT.blur_dxdy = dxdy_scale/IN.texture_size;
 
