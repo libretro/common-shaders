@@ -59,12 +59,39 @@ loading the shader, be sure to read the next section, entitled...
 ////                    FREQUENTLY EXPECTED QUESTIONS:                      ////
 ////////////////////////////////////////////////////////////////////////////////
 
-1.) WHY IS EVERYTHING SO SLOW?!?:
-This will be a problem for all but monster GPU's.  Out of the box, the default
-user-settings.h file disables any features which might cause compilation failure
-on AMD/ATI GPU's, or anything other than nVidia GPU's actually.  Despite the
-name of the options, this is not a problem with your card or drivers; it's a
-shortcoming in the Cg shader compiler's nVidia-centric profile setups.
+1.) WHY IS THE SHADER CRASHING WHEN I LOAD IT?!?
+Are you using integrated graphics, like Intel HD 4000?  Out of the box,
+crt-royale is configured for maximum configurability and compatibility with
+dedicated nVidia and AMD/ATI GPU's.  Some of the highest quality features will
+crash on Intel GPU's (etc.), which have tighter register and instruction limits.
+(Most people won't read the README, and I didn't want AMD/nVidia users to see
+worse results out of the box without ever knowing anything was wrong.)
+
+If you're seeing C6001 or C6002 errors, you can fix them in one of two ways:
+a.) Open user-settings.h and uncomment (remove "//" in front of) the line with:
+    #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+b.) Replace crt-royale/user-settings.h with one of the Intel-specific settings
+    files from the crt-royale/crt-royale-settings-files folder.  These files
+    have INTEGRATED_GRAPHICS_COMPATIBILITY_MODE enabled by default.
+
+Integrated graphics compatibility mode will disable these three features:
+* PHOSPHOR_MASK_MANUALLY_RESIZE: The phosphor mask will be softer.
+  (This may be reenabled in a later release.)
+* RUNTIME_GEOMETRY_MODE: You must change the screen geometry/curvature using
+  the geom_mode_static setting in user-settings.h.
+* The high-quality 4x4 Gaussian resize for the bloom approximation
+
+I've tested this solution on Intel HD 4000 graphics, and it should work for that
+GPU at least, but please let me know if you're still having problems!
+
+--------------------------------------------------------------------------------
+
+2.) WHY IS EVERYTHING SO SLOW?!?:
+Out of the box, this will be a problem for all but monster GPU's.  The default
+user-settings.h file disables any features and optimizations which might cause
+compilation failure on AMD/ATI GPU's.  Despite the name of the options, this is
+not a problem with your card or drivers; it's a shortcoming in the Cg shader
+compiler's nVidia-centric profile setups.
 
 Uncommenting the following #define macros at the top of user-settings.h will
 help performance a good deal on compatible nVidia cards:
@@ -129,7 +156,7 @@ worth trying even on ATI.
 
 --------------------------------------------------------------------------------
 
-2.) WHY IS EVERYTHING STILL SO SLOW?!?:
+3.) WHY IS EVERYTHING STILL SO SLOW?!?:
 For maximum quality and configurability out of the box, almost all shader
 parameters are enabled by default (except for the disproportionately expensive
 runtime subpixel offsets).  Some are more expensive than others.  Commenting
@@ -164,7 +191,7 @@ Then load crt-royale-fake-bloom.cgp.  It should be far more playable.
 
 --------------------------------------------------------------------------------
 
-3.) WHY WON'T MY SHADER BLOOM MY PHOSPHORS ENOUGH?
+4.) WHY WON'T MY SHADER BLOOM MY PHOSPHORS ENOUGH?
 First, see the discussion about dynamic branching above, in 1.
 If you don't have dynamic branches, you can either uncomment the lines that
 let the shader pessimistically use larger blurs than it's guaranteed to need
@@ -173,7 +200,7 @@ doesn't have this problem. :)
 
 --------------------------------------------------------------------------------
 
-4.) WHY CAN'T I MAKE MY PHOSPHORS ANY BIGGER?
+5.) WHY CAN'T I MAKE MY PHOSPHORS ANY BIGGER?
 By default, the phosphor mask is Lanczos-resized in earlier passes to your
 specified dot pitch (mask_sample_mode = 0).  This gives a much sharper result
 than mipmapped hardware sampling (mask_sample_mode = 1), but it can be much
@@ -193,21 +220,29 @@ a.) Set mask_sample_mode to 1 in your shader params (if enabled) or set
     mask_sample_mode_static to 1 in your user-settings.h file.  This will use
     hardware sampling, which is softer but has no limitations.
 b.) To increase the limit with manual mask-resizing (best quality), you need to
-    do three things:
+    do five things:
     1.) Go into your .cgp file and find the MASK_RESIZE pass (the horizontal
         mask resizing pass) and the one before it (the vertical mask resizing
         pass).  Find the viewport-relative scales, which should say 0.0625, and
         change them to 0.125 or even 0.25.
-    2.) Go into user-cgp-constants.h and change mask_resize_viewport_scale from
-        0.0625 to the new value you changed it to.  This is necessary, because
-        we can't pass that value from the .cgp file to the shader, and the
-        shader can't calculate the viewport size (a necessary value) without it.
-    3.) Reload your .cgp file.
-I REALLY wish there was an easier way to do that.
+    2.) Still in your .cgp file, also make sure your mask_*_texture_small
+        filenames point to LUT textures that are larger than your final desired
+        onscreen size (upsizing is not currently permitted).
+    3.) Go into user-cgp-constants.h and change mask_resize_viewport_scale from
+        0.0625 to the new value you changed it to in step 1.  This is necessary,
+        because we can't pass that value from the .cgp file to the shader, and
+        the shader can't compute the viewport size (necessary) without it.
+    4.) Still in user-cgp-constants.h, update mask_texture_small_size and
+        mask_triads_per_tile appropriately if you changed your LUT texture in
+        step 2.
+    5.) Reload your .cgp file.
+I REALLY wish there was an easier way to do that, but my hands are tied until
+.cgp files are allowed to pass more information to .cg shaders (which would
+require major updates to the cg2glsl script).
 
 --------------------------------------------------------------------------------
 
-5.) WHY CAN'T I MAKE MY PHOSPHORS ANY SMALLER THAN 2 PIXELS PER TRIAD?
+6.) WHY CAN'T I MAKE MY PHOSPHORS ANY SMALLER THAN 2 PIXELS PER TRIAD?
 This is controlled by mask_min_allowed_triad_size in your user-settings.h file.
 Set it to 1.0 instead of 2.0 (anything lower than 1 is pointless), and you're
 set.  It defaults to 2.0 to make mask resizing twice as fast when dynamic
@@ -221,7 +256,7 @@ implement yet.
 
 --------------------------------------------------------------------------------
 
-6.) WHY AM I GETTING ERRORS?
+7.) I AM NOT RUNNING INTEGRATED GRAPHICS.  WHY AM I GETTING ERRORS?
 First recheck the top of your user-settings.h to make sure incompatible driver
 options are commented out (disabled).  If they're all disabled and you're still
 having problems, you've probably found a bug.  There are bound to be a number of
@@ -231,7 +266,7 @@ top, so let me know!
 
 --------------------------------------------------------------------------------
 
-7.) HOW DO I SET GEOMETRY/CURVATURE/ETC.?
+8.) HOW DO I SET GEOMETRY/CURVATURE/ETC.?
 If RUNTIME_SHADER_PARAMS_ENABLE and RUNTIME_GEOMETRY_MODE are both #defined (not
 commented out) in user-settings.cgp, you can find these options in your shader
 parameters (in Retroarch's RGUI for instance) under e.g. geom_mode.  Otherwise,
@@ -239,7 +274,7 @@ you can set the corresponding e.g. geom_mode_static options in user-settings.h.
 
 --------------------------------------------------------------------------------
 
-8.) WHY DON'T MY SHADER PARAMETERS STICK?
+9.) WHY DON'T MY SHADER PARAMETERS STICK?
 This is a bit confusing, at least in the version of Retroarch I'm using.
 In the Shader Options menu, Parameters (Current) controls what's on your screen
 right now, whereas Parameters (RGUI) seems to control what gets saved to a
@@ -247,8 +282,14 @@ shader preset (in your base shaders directory) with Save As Shader Preset.
 
 --------------------------------------------------------------------------------
 
-9.) WHY DID YOU SLOW THE SHADER DOWN WITH ALL OF THESE FEATURES I DON'T WANT?
-    WHY DIDN'T YOU MAKE THE DEFAULTS MORE TO MY LIKING?
+10.) WHY DID YOU SLOW THE SHADER DOWN WITH ALL OF THESE FEATURES I DON'T WANT?
+     WHY DIDN'T YOU MAKE THE DEFAULTS MORE TO MY LIKING?
+
+The default settings tend to best match flat ~13" slot mask TV's with sharp
+scanlines.  Real CRT's however vary a lot in their characteristics (and many are
+softer in more ways than one), so it's impossible to make the default settings
+look like everyone's favorite CRT.  Moreover, it's impossible to decide which
+of the slower features and options are superfluous:
 
 Some people love curvature, and some people hate it.  Some people love
 scanlines, and some people hate them.  Some people love phosphors, and some
@@ -259,9 +300,14 @@ probably someone else's most critical feature.  This is why there are so many
 options, why the shader is so complicated, and why it's impossible to please
 everyone out of the box...unfortunately.
 
+That said, if you spend some time tweaking the settings, you're bound to get a
+picture you like.  Once you've made up your mind, you can save the settings to
+a user-settings.h file and disable shader parameters and other slow options to
+get the kind of performance you want.
+
 --------------------------------------------------------------------------------
 
-10.) WHY DIDN'T YOU INCLUDE A SHADER PRESET WITH NTSC SUPPORT?  WHY DIDN'T YOU
+11.) WHY DIDN'T YOU INCLUDE A SHADER PRESET WITH NTSC SUPPORT?  WHY DIDN'T YOU
      INCLUDE MORE CANNED PRESETS WITH DIFFERENT OPTIONS?  WHY CAN'T I SELECT
      FROM ONE OF SEVERAL USER SETTINGS FILES WITHOUT MANUAL FILE RENAMING?
 
@@ -294,7 +340,7 @@ keep it hidden on my hard drive.
 
 --------------------------------------------------------------------------------
 
-11.) WHY DO SO MANY VALUES IN USER_SETTINGS.H HAVE A _STATIC SUFFIX?
+12.) WHY DO SO MANY VALUES IN USER_SETTINGS.H HAVE A _STATIC SUFFIX?
 
 The "_static" suffix is there to prevent naming conflicts with runtime shader
 parameters: The shader usually uses a version without the suffix, which is
@@ -305,7 +351,7 @@ corresponding runtime version.  Basically, you can ignore the suffix. :)
 
 --------------------------------------------------------------------------------
 
-12.) ARE THERE ANY BROKEN SETTINGS I SHOULD BE AWARE OF?
+13.) ARE THERE ANY BROKEN SETTINGS I SHOULD BE AWARE OF?
      WHAT IF I WANT TO CHANGE SETTINGS IN THE .CGP FILE?
 
 As far as I know, all of the options in user-settings.h and the runtime shader
@@ -340,7 +386,7 @@ section at the top.
 
 --------------------------------------------------------------------------------
 
-13.) WHY DO I HAVE BANDING IN THE DARK COLORS?
+14.) WHY DO I HAVE BANDING IN THE DARK COLORS?
 
 Either something is broken that I didn't expect, or you set levels_autodim_temp
 too low, or your platform doesn't support sRGB framebuffers.  I don't expect any
@@ -349,7 +395,7 @@ but if yours does, let me know.
 
 --------------------------------------------------------------------------------
 
-14.) WHAT ARE THE MOST COMMON DOT PITCHES FOR CRT TELEVISIONS?
+15.) WHAT ARE THE MOST COMMON DOT PITCHES FOR CRT TELEVISIONS?
      WHAT KIND OF RESOLUTION WOULD I NEED FOR A REAL SHADOW MASK?
 
 The most demanding CRT we're ever likely to emulate is a Sony PVM-20M4U:
@@ -379,9 +425,9 @@ this in a future update.
 
 --------------------------------------------------------------------------------
 
-15.) IS THIS PHOSPHOR BLOOM REALISTIC?
+16.) IS THIS PHOSPHOR BLOOM REALISTIC?
 
-No.
+Probably not:
 
 Realistically, the "phosphor bloom" blurs bright phosphors significantly more
 than your eyes would bloom the brighter phosphors on a real CRT.  This extra
@@ -398,14 +444,15 @@ ready at the moment.  Sorry Hyllian. ;)
 
 --------------------------------------------------------------------------------
 
-16.) SO WHAT DO YOU PLAN ON ADDING IN THE FUTURE?
+17.) SO WHAT DO YOU PLAN ON ADDING IN THE FUTURE?
 
 I'd like to add these relatively soon:
 1.) A combined ntsc-crt-royale.cgp and ntsc-crt-royale-fake-bloom.cgp.
 2.) More presets, especially if maister or squarepusher find a way to make the
 Cg to GLSL compiler process .cgp files (which will allows .cgp's to pass
 arbitrary #defines to the .cg shader passes).
-3.) More efficient and flexible phosphor mask resampling.
+3.) More efficient and flexible phosphor mask resampling.  Hopefully, this will
+    make it possible to manually resize the mask on Intel HD Graphics as well.
 4.) Make it more easy and convenient to use and experiment with mask_sample_mode
     2 (direct 1:1 tiling of an input texture) by using a separate LUT texture
     with its own parameters in user-cgp-constants.h, etc.  I haven't done this

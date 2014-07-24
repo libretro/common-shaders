@@ -42,9 +42,9 @@ static const float gba_gamma = 3.5; //  Irrelevant but necessary to define.
     uniform float crt_gamma;
     uniform float lcd_gamma;
     uniform float levels_contrast;
-    uniform float levels_underestimate;
     uniform float halation_weight;
     uniform float diffusion_weight;
+    uniform float bloom_underestimate_levels;
     uniform float bloom_excess;
     uniform float beam_min_sigma;
     uniform float beam_max_sigma;
@@ -103,9 +103,9 @@ static const float gba_gamma = 3.5; //  Irrelevant but necessary to define.
     static const float crt_gamma = max(0.0, crt_gamma_static);
     static const float lcd_gamma = max(0.0, lcd_gamma_static);
     static const float levels_contrast = clamp(levels_contrast_static, 0.0, 4.0);
-    static const float levels_underestimate = max(FIX_ZERO(0.0), levels_underestimate_static);
     static const float halation_weight = clamp(halation_weight_static, 0.0, 1.0);
     static const float diffusion_weight = clamp(diffusion_weight_static, 0.0, 1.0);
+    static const float bloom_underestimate_levels = max(FIX_ZERO(0.0), bloom_underestimate_levels_static);
     static const float bloom_excess = clamp(bloom_excess_static, 0.0, 1.0);
     static const float beam_min_sigma = max(FIX_ZERO(0.0), beam_min_sigma_static);
     static const float beam_max_sigma = max(beam_min_sigma, beam_max_sigma_static);
