@@ -11,7 +11,7 @@
     //#define ACCOMODATE_POSSIBLE_DYNAMIC_LOOPS
     //#define DRIVERS_ALLOW_TEX2DLOD
     //#define DRIVERS_ALLOW_TEX2DBIAS
-    //#define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+    #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
 
 
 ////////////////////////////  USER CODEPATH OPTIONS  ///////////////////////////
@@ -42,7 +42,7 @@
     static const float diffusion_weight_static = 0.075;         //  range [0, 1]
     static const float bloom_underestimate_levels_static = 0.8; //  range [0, 5]
     static const float bloom_excess_static = 0.0;               //  range [0, 1]
-    static const float bloom_approx_filter_static = 2.0;
+    static const float bloom_approx_filter_static = 0.0;
     static const float beam_num_scanlines = 3.0;                //  range [2, 6]
     static const bool beam_generalized_gaussian = true;
     static const float beam_antialias_level = 1.0;              //  range [0, 2]

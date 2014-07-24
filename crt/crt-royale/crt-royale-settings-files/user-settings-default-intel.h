@@ -63,7 +63,7 @@
 //      (This may be reenabled in a later release.)
 //  2.) RUNTIME_GEOMETRY_MODE
 //  3.) The high-quality 4x4 Gaussian resize for the bloom approximation
-    //#define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+    #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
 
 
 ////////////////////////////  USER CODEPATH OPTIONS  ///////////////////////////
@@ -74,25 +74,25 @@
 //  Enable runtime shader parameters in the Retroarch (etc.) GUI?  They override
 //  many of the options in this file and allow real-time tuning, but many of
 //  them are slower.  Disabling them and using this text file will boost FPS.
-//#define RUNTIME_SHADER_PARAMS_ENABLE
+#define RUNTIME_SHADER_PARAMS_ENABLE
 //  Specify the phosphor bloom sigma at runtime?  This option is 10% slower, but
 //  it's the only way to do a wide-enough full bloom with a runtime dot pitch.
-//#define RUNTIME_PHOSPHOR_BLOOM_SIGMA
+#define RUNTIME_PHOSPHOR_BLOOM_SIGMA
 //  Specify antialiasing weight parameters at runtime?  (Costs ~20% with cubics)
-//#define RUNTIME_ANTIALIAS_WEIGHTS
+#define RUNTIME_ANTIALIAS_WEIGHTS
 //  Specify subpixel offsets at runtime? (WARNING: EXTREMELY EXPENSIVE!)
 //#define RUNTIME_ANTIALIAS_SUBPIXEL_OFFSETS
 //  Make beam_horiz_filter and beam_horiz_linear_rgb_weight into runtime shader
 //  parameters?  This will require more math or dynamic branching.
-//#define RUNTIME_SCANLINES_HORIZ_FILTER_COLORSPACE
+#define RUNTIME_SCANLINES_HORIZ_FILTER_COLORSPACE
 //  Specify the tilt at runtime?  This makes things about 3% slower.
-//#define RUNTIME_GEOMETRY_TILT
+#define RUNTIME_GEOMETRY_TILT
 //  Specify the geometry mode at runtime?
-//#define RUNTIME_GEOMETRY_MODE
+#define RUNTIME_GEOMETRY_MODE
 //  Specify the phosphor mask type (aperture grille, slot mask, shadow mask) and
 //  mode (Lanczos-resize, hardware resize, or tile 1:1) at runtime, even without
 //  dynamic branches?  This is cheap if mask_resize_viewport_scale is small.
-//#define FORCE_RUNTIME_PHOSPHOR_MASK_MODE_TYPE_SELECT
+#define FORCE_RUNTIME_PHOSPHOR_MASK_MODE_TYPE_SELECT
 
 //  PHOSPHOR MASK:
 //  Manually resize the phosphor mask for best results (slower)?  Disabling this
@@ -104,7 +104,7 @@
 //  detect the right blur if the triad size is static or our profile allows
 //  dynamic branches, but otherwise we use the largest blur the user indicates
 //  they might need:
-    //#define PHOSPHOR_BLOOM_TRIADS_LARGER_THAN_3_PIXELS
+    #define PHOSPHOR_BLOOM_TRIADS_LARGER_THAN_3_PIXELS
     //#define PHOSPHOR_BLOOM_TRIADS_LARGER_THAN_6_PIXELS
     //#define PHOSPHOR_BLOOM_TRIADS_LARGER_THAN_9_PIXELS
     //#define PHOSPHOR_BLOOM_TRIADS_LARGER_THAN_12_PIXELS
@@ -172,10 +172,10 @@
     //      4 scanlines, max_beam_sigma = 0.5723; distortions begin ~0.70; 134.7 FPS pure; 117.2 FPS generalized
     //      5 scanlines, max_beam_sigma = 0.7591; distortions begin ~0.89; 131.6 FPS pure; 112.1 FPS generalized
     //      6 scanlines, max_beam_sigma = 0.9483; distortions begin ~1.08; 127.9 FPS pure; 105.6 FPS generalized
-    static const float beam_num_scanlines = 2.0;                //  range [2, 6]
+    static const float beam_num_scanlines = 3.0;                //  range [2, 6]
     //  A generalized Gaussian beam varies shape with color too, now just width.
     //  It's slower but more flexible (static option only for now).
-    static const bool beam_generalized_gaussian = false;
+    static const bool beam_generalized_gaussian = true;
     //  What kind of scanline antialiasing do you want?
     //  0: Sample weights at 1x; 1: Sample weights at 3x; 2: Compute an integral
     //  Integrals are slow (especially for generalized Gaussians) and rarely any
@@ -215,7 +215,7 @@
     //  Simulate scanline misconvergence?  This needs 3x horizontal texture
     //  samples and 3x texture samples of BLOOM_APPROX and HALATION_BLUR in
     //  later passes (static option only for now).
-    static const bool beam_misconvergence = false;
+    static const bool beam_misconvergence = true;
     //  Convergence offsets in x/y directions for R/G/B scanline beams in units
     //  of scanlines.  Positive offsets go right/down; ranges [-2, 2]
     static const float2 convergence_offsets_r_static = float2(0.1, 0.2);
@@ -241,12 +241,12 @@
     //  6: Cubic* (separable), 7: Cubic* (cylindrical, poor)
     //  8: Lanczos Sinc (separable), 9: Lanczos Jinc (cylindrical, poor)
     //      * = Especially slow with RUNTIME_ANTIALIAS_WEIGHTS
-    static const float aa_filter = 8.0;                     //  range [0, 9]
+    static const float aa_filter = 6.0;                     //  range [0, 9]
     //  Flip the sample grid on odd/even frames (static option only for now)?
     static const bool aa_temporal = false;
     //  Use RGB subpixel offsets for antialiasing?  The pixel is at green, and
     //  the blue offset is the negative r offset; range [0, 0.5]
-    static const float2 aa_subpixel_r_offset_static = float2(0.0, 0.0);//float2(0.0);
+    static const float2 aa_subpixel_r_offset_static = float2(-1.0/3.0, 0.0);//float2(0.0);
     //  Cubics: See http://www.imagemagick.org/Usage/filter/#mitchell
     //  1.) "Keys cubics" with B = 1 - 2C are considered the highest quality.
     //  2.) C = 0.5 (default) is Catmull-Rom; higher C's apply sharpening.
@@ -295,7 +295,7 @@
     //  faster, but the limit IS enforced (static option only, forever);
     //      range [1, mask_texture_small_size/mask_triads_per_tile]
     //  TODO: Make this 1.0 and compensate with smarter sampling!
-    static const float mask_min_allowed_triad_size = mask_specify_num_triads_static;
+    static const float mask_min_allowed_triad_size = 2.0;
 
 //  GEOMETRY:
     //  Geometry mode:
@@ -342,7 +342,7 @@
     //  Compute a proper pixel-space to texture-space matrix even without ddx()/
     //  ddy()?  This is ~8.5% slower but improves antialiasing/subpixel filtering
     //  with strong curvature (static option only for now).
-    static const bool geom_force_correct_tangent_matrix = false;
+    static const bool geom_force_correct_tangent_matrix = true;
 
 //  BORDERS:
     //  Rounded border size in texture uv coords:

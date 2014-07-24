@@ -63,7 +63,7 @@
 //      (This may be reenabled in a later release.)
 //  2.) RUNTIME_GEOMETRY_MODE
 //  3.) The high-quality 4x4 Gaussian resize for the bloom approximation
-    //#define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+    #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
 
 
 ////////////////////////////  USER CODEPATH OPTIONS  ///////////////////////////

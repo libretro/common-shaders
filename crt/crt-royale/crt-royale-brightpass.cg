@@ -128,14 +128,15 @@ float4 main_fragment(in out_vertex VAR, uniform input IN,
     //  Assume neighbors will blur 100% of their intensity (blur_ratio = 1.0),
     //  because it actually gets better results (on top of being very simple),
     //  but adjust all intensities for the user's desired underestimate factor:
-    const float3 area_contrib_underestimate = levels_underestimate *
-        max_area_contribution_approx;
-    const float3 intensity_underestimate = levels_underestimate * intensity;
+    const float3 area_contrib_underestimate =
+        bloom_underestimate_levels * max_area_contribution_approx;
+    const float3 intensity_underestimate =
+        bloom_underestimate_levels * intensity;
     //  Calculate the blur_ratio, the ratio of intensity we want to blur:
     #ifdef BRIGHTPASS_AREA_BASED
         //  This area-based version changes blur_ratio more smoothly and blurs
         //  more, clipping less but offering less phosphor differentiation:
-        const float3 phosphor_blur_underestimate = levels_underestimate *
+        const float3 phosphor_blur_underestimate = bloom_underestimate_levels *
             phosphor_blur_approx;
         const float3 soft_intensity = max(intensity_underestimate,
             phosphor_blur_underestimate * mask_amplify);

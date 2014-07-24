@@ -67,6 +67,21 @@
 
 //////////////////////////////  DERIVED SETTINGS  //////////////////////////////
 
+//  Intel HD 4000 GPU's can't handle manual mask resizing (for now), setting the
+//  geometry mode at runtime, or a 4x4 true Gaussian resize:
+#ifdef INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+    #ifdef PHOSPHOR_MASK_MANUALLY_RESIZE
+        #undef PHOSPHOR_MASK_MANUALLY_RESIZE
+    #endif
+    #ifdef RUNTIME_GEOMETRY_MODE
+        #undef RUNTIME_GEOMETRY_MODE
+    #endif
+    static const float bloom_approx_filter =
+        min(bloom_approx_filter_static, 1.0);
+#else
+    static const float bloom_approx_filter = bloom_approx_filter_static;
+#endif
+
 //  Disable slow runtime paths if static parameters are used.  Most of these
 //  won't be a problem anyway once the params are disabled, but some will.
 #ifndef RUNTIME_SHADER_PARAMS_ENABLE

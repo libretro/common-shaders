@@ -30,9 +30,9 @@
 #pragma parameter crt_gamma "crt_gamma" 2.5 1.0 5.0 0.025
 #pragma parameter lcd_gamma "lcd_gamma" 2.2 1.0 5.0 0.025
 #pragma parameter levels_contrast "levels_contrast" 1.0 0.0 4.0 0.015625
-#pragma parameter levels_underestimate "levels_underestimate" 0.8 0.0 1.0 0.005
 #pragma parameter halation_weight "halation_weight" 0.0 0.0 1.0 0.005
 #pragma parameter diffusion_weight "diffusion_weight" 0.075 0.0 1.0 0.005
+#pragma parameter bloom_underestimate_levels "bloom_underestimate_levels" 0.8 0.0 5.0 0.01
 #pragma parameter bloom_excess "bloom_excess" 0.0 0.0 1.0 0.005
 #pragma parameter beam_min_sigma "beam_min_sigma" 0.02 0.005 1.0 0.005
 #pragma parameter beam_max_sigma "beam_max_sigma" 0.3 0.005 1.0 0.005
