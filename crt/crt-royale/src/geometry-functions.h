@@ -22,7 +22,7 @@
 
 //////////////////////////////////  INCLUDES  //////////////////////////////////
 
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "derived-settings-and-constants.h"
 #include "bind-shader-params.h"
 
@@ -388,7 +388,7 @@ float3 get_ideal_global_eye_pos(const float3x3 local_to_global,
     const float len_sq = dot(high_view, high_view);
     const float fov = abs(acos(dot(high_view, low_view)/len_sq));
     //  Trigonometry/similar triangles say distance = geom_radius/sin(fov/2):
-    const float3 eye_z_spherical = geom_radius/sin(fov*0.5);
+    const float eye_z_spherical = geom_radius/sin(fov*0.5);
     const float3 eye_pos = geom_mode < 2.5 ?
         float3(0.0, 0.0, eye_z_spherical) :
         float3(0.0, 0.0, max(geom_view_dist, eye_z_spherical));

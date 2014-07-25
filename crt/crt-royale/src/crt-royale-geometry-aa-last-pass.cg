@@ -21,7 +21,7 @@
 
 #define LAST_PASS
 #define SIMULATE_CRT_ON_LCD
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "derived-settings-and-constants.h"
 #include "bind-shader-params.h"
 
@@ -44,7 +44,7 @@
 
 //////////////////////////////////  INCLUDES  //////////////////////////////////
 
-#include "../../include/gamma-management.h"
+#include "../../../include/gamma-management.h"
 #include "tex2Dantialias.h"
 #include "geometry-functions.h"
 

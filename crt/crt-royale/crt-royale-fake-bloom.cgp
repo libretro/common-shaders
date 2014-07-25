@@ -51,7 +51,7 @@ mask_shadow_texture_large_mipmap = "true"   # Essential for hardware-resized mas
 
 # Pass0: Linearize the input based on CRT gamma and bob interlaced fields.
 # (Bobbing ensures we can immediately blur without getting artifacts.)
-shader0 = "crt-royale-first-pass-linearize-crt-gamma-bob-fields.cg"
+shader0 = "src/crt-royale-first-pass-linearize-crt-gamma-bob-fields.cg"
 alias0 = "ORIG_LINEARIZED"
 filter_linear0 = "false"
 scale_type0 = "source"
@@ -64,7 +64,7 @@ srgb_framebuffer0 = "true"
 # it reduces our samples from vertical*horizontal to vertical+horizontal.
 # This has to come right after ORIG_LINEARIZED, because there's no
 # "original_source" scale_type we can use later.
-shader1 = "crt-royale-scanlines-vertical-interlacing.cg"
+shader1 = "src/crt-royale-scanlines-vertical-interlacing.cg"
 alias1 = "VERTICAL_SCANLINES"
 filter_linear1 = "true"
 scale_type_x1 = "source"
@@ -86,7 +86,7 @@ srgb_framebuffer1 = "true"
 #     may be a good thing for people who like to crank it up).
 # Note the 4:3 aspect ratio assumes the input has cropped geom_overscan (so it's
 # *intended* for an ~4:3 aspect ratio).
-shader2 = "crt-royale-bloom-approx-fake-bloom.cg"
+shader2 = "src/crt-royale-bloom-approx-fake-bloom.cg"
 alias2 = "BLOOM_APPROX"
 filter_linear2 = "true"
 scale_type2 = "absolute"
@@ -146,7 +146,7 @@ srgb_framebuffer4 = "true"
 #   scale_y5 = 4.0/3.0 * 2.0/(341.33333 / 8.0) = 0.0625
 # IMPORTANT: The scales MUST be calculated in this way.  If you wish to change
 # geom_max_aspect_ratio, update that constant in user-cgp-constants.h!
-shader5 = "crt-royale-mask-resize-vertical.cg"
+shader5 = "src/crt-royale-mask-resize-vertical.cg"
 filter_linear5 = "true"
 scale_type_x5 = "absolute"
 scale_x5 = "64"
@@ -156,7 +156,7 @@ scale_y5 = "0.0625" # Safe for >= 341.333 horizontal triads at viewport size
 
 # Pass6: Lanczos-resize the phosphor mask horizontally.  scale_x6 = scale_y5.
 # TODO: Check again if the shaders actually require equal scales.
-shader6 = "crt-royale-mask-resize-horizontal.cg"
+shader6 = "src/crt-royale-mask-resize-horizontal.cg"
 alias6 = "MASK_RESIZE"
 filter_linear6 = "false"
 scale_type_x6 = "viewport"
@@ -167,7 +167,7 @@ scale_y6 = "1.0"
 
 # Pass7: Resample (misconverged) scanlines horizontally, apply halation, and
 # apply the phosphor mask, then fake a phosphor bloom, all in one pass.
-shader7 = "crt-royale-scanlines-horizontal-apply-mask-fake-bloom.cg"
+shader7 = "src/crt-royale-scanlines-horizontal-apply-mask-fake-bloom.cg"
 alias7 = "MASKED_SCANLINES"
 filter_linear7 = "true" # This could just as easily be nearest neighbor.
 scale_type7 = "viewport"
@@ -176,7 +176,7 @@ scale7 = "1.0"
 srgb_framebuffer7 = "true"
 
 # Pass 8: Compute curvature/AA:
-shader8 = "crt-royale-geometry-aa-last-pass.cg"
+shader8 = "src/crt-royale-geometry-aa-last-pass.cg"
 filter_linear8 = "true"
 scale_type8 = "viewport"
 mipmap_input8 = "true"

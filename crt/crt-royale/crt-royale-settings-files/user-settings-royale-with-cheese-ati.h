@@ -53,6 +53,18 @@
 //  in this profile
     //#define DRIVERS_ALLOW_TEX2DBIAS
 
+//  Integrated graphics compatibility: Integrated graphics like Intel HD 4000
+//  impose stricter limitations on register counts and instructions.  Enable
+//  INTEGRATED_GRAPHICS_COMPATIBILITY_MODE if you still see error C6001 or:
+//  error C6002: Instruction limit of 1024 exceeded: 1523 instructions needed
+//  to compile program.
+//  Enabling integrated graphics compatibility mode will automatically disable:
+//  1.) PHOSPHOR_MASK_MANUALLY_RESIZE: The phosphor mask will be softer.
+//      (This may be reenabled in a later release.)
+//  2.) RUNTIME_GEOMETRY_MODE
+//  3.) The high-quality 4x4 Gaussian resize for the bloom approximation
+    //#define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+
 
 ////////////////////////////  USER CODEPATH OPTIONS  ///////////////////////////
 
@@ -118,10 +130,6 @@
 //  LEVELS MANAGEMENT:
     //  Control the final multiplicative image contrast:
     static const float levels_contrast_static = 1.0;            //  range [0, 4)
-    //  Underestimate brightness: Bright areas bloom more, but we can base the
-    //  bloom brightpass on a lower brightness to sharpen phosphors.  Low values
-    //  clip more, but >= 0.8 leaves colors mostly undistorted.
-    static const float levels_underestimate_static = 0.8;       //  range [0, 1]
     //  We auto-dim to avoid clipping between passes and restore brightness
     //  later.  Control the dim factor here: Lower values clip less but crush
     //  blacks more (static only for now).
@@ -134,7 +142,11 @@
     //  Refractive diffusion weight: How much light should spread/diffuse from
     //  refracting through the CRT glass?
     static const float diffusion_weight_static = 0.075;         //  range [0, 1]
-    //  Bloom dimmer colors more than necessary for a softer phosphor bloom?
+    //  Underestimate brightness: Bright areas bloom more, but we can base the
+    //  bloom brightpass on a lower brightness to sharpen phosphors, or a higher
+    //  brightness to soften them.  Low values clip, but >= 0.8 looks okay.
+    static const float bloom_underestimate_levels_static = 0.8; //  range [0, 5]
+    //  Blur all colors more than necessary for a softer phosphor bloom?
     static const float bloom_excess_static = 0.0;               //  range [0, 1]
     //  The BLOOM_APPROX pass approximates a phosphor blur early on with a small
     //  blurred resize of the input (convergence offsets are applied as well).
@@ -147,7 +159,7 @@
     //      mask_num_triads_desired.
     //  2.) True 4x4 Gaussian resize: Slowest, technically correct.
     //  These options are more pronounced for the fast, unbloomed shader version.
-    static const float bloom_approx_filter = 2.0;
+    static const float bloom_approx_filter_static = 2.0;
 
 //  ELECTRON BEAM SCANLINE DISTRIBUTION:
     //  How many scanlines should contribute light to each pixel?  Using more
