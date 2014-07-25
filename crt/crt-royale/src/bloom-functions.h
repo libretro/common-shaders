@@ -29,9 +29,9 @@
 //////////////////////////////////  INCLUDES  //////////////////////////////////
 
 //  We need to calculate the correct blur sigma using some .cgp constants:
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "derived-settings-and-constants.h"
-#include "../../include/blur-functions.h"
+#include "../../../include/blur-functions.h"
 
 
 ///////////////////////////////  BLOOM CONSTANTS  //////////////////////////////

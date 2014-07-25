@@ -60,26 +60,28 @@ loading the shader, be sure to read the next section, entitled...
 ////////////////////////////////////////////////////////////////////////////////
 
 1.) WHY IS THE SHADER CRASHING WHEN I LOAD IT?!?
-Are you using integrated graphics, like Intel HD 4000?  Out of the box,
-crt-royale is configured for maximum configurability and compatibility with
-dedicated nVidia and AMD/ATI GPU's.  Some of the highest quality features will
-crash on Intel GPU's (etc.), which have tighter register and instruction limits.
-(Most people won't read the README, and I didn't want AMD/nVidia users to see
-worse results out of the box without ever knowing anything was wrong.)
+Do you get C6001 or C6002 errors with integrated graphics, like Intel HD 4000?
+If so, please try one of the following .cgp presets:
+* crt-royale-intel.cgp
+* crt-royale-fake-bloom-intel.cgp
+These load .cg wrappers that #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
+(also available in user-settings.h) before loading the main .cg shader files.
 
-If you're seeing C6001 or C6002 errors, you can fix them in one of two ways:
-a.) Open user-settings.h and uncomment (remove "//" in front of) the line with:
-    #define INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
-b.) Replace crt-royale/user-settings.h with one of the Intel-specific settings
-    files from the crt-royale/crt-royale-settings-files folder.  These files
-    have INTEGRATED_GRAPHICS_COMPATIBILITY_MODE enabled by default.
-
-Integrated graphics compatibility mode will disable these three features:
+Integrated graphics compatibility mode will disable these three features, which
+currently require more registers or instructions than Intel GPU's allow:
 * PHOSPHOR_MASK_MANUALLY_RESIZE: The phosphor mask will be softer.
   (This may be reenabled in a later release.)
 * RUNTIME_GEOMETRY_MODE: You must change the screen geometry/curvature using
   the geom_mode_static setting in user-settings.h.
 * The high-quality 4x4 Gaussian resize for the bloom approximation
+
+Using Intel-specific .cgp files is equivalent to #defining
+INTEGRATED_GRAPHICS_COMPATIBILITY_MODE in your user-settings.h.  Out of the box,
+user-settings.h is configured for maximum configurability and compatibility with
+dedicated nVidia and AMD/ATI GPU's.  Compatibility mode is disabled by default
+to avoid silently degrading quality for AMD/ATI and nVidia users, so Intel-
+specific .cgp's are a convenient way for Intel users to play with the shader
+without editing text files.
 
 I've tested this solution on Intel HD 4000 graphics, and it should work for that
 GPU at least, but please let me know if you're still having problems!

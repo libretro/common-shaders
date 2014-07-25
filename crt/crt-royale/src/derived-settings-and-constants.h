@@ -28,7 +28,7 @@
 
 //////////////////////////////////  INCLUDES  //////////////////////////////////
 
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "user-cgp-constants.h"
 
 
@@ -68,7 +68,10 @@
 //////////////////////////////  DERIVED SETTINGS  //////////////////////////////
 
 //  Intel HD 4000 GPU's can't handle manual mask resizing (for now), setting the
-//  geometry mode at runtime, or a 4x4 true Gaussian resize:
+//  geometry mode at runtime, or a 4x4 true Gaussian resize.  Disable
+//  incompatible settings ASAP.  (INTEGRATED_GRAPHICS_COMPATIBILITY_MODE may be
+//  #defined by either user-settings.h or a wrapper .cg that #includes the
+//  current .cg pass.)
 #ifdef INTEGRATED_GRAPHICS_COMPATIBILITY_MODE
     #ifdef PHOSPHOR_MASK_MANUALLY_RESIZE
         #undef PHOSPHOR_MASK_MANUALLY_RESIZE
@@ -76,8 +79,10 @@
     #ifdef RUNTIME_GEOMETRY_MODE
         #undef RUNTIME_GEOMETRY_MODE
     #endif
+    //  Mode 2 (4x4 Gaussian resize) won't work, and mode 1 (3x3 blur) is
+    //  inferior in most cases, so replace 2.0 with 0.0:
     static const float bloom_approx_filter =
-        min(bloom_approx_filter_static, 1.0);
+        bloom_approx_filter_static > 1.5 ? 0.0 : bloom_approx_filter_static;
 #else
     static const float bloom_approx_filter = bloom_approx_filter_static;
 #endif

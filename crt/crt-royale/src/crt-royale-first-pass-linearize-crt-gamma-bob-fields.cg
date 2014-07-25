@@ -77,9 +77,9 @@
 
 //////////////////////////////////  INCLUDES  //////////////////////////////////
 
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "bind-shader-params.h"
-#include "../../include/gamma-management.h"
+#include "../../../include/gamma-management.h"
 #include "scanline-functions.h"
 
 

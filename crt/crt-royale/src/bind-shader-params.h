@@ -22,7 +22,7 @@
 
 /////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
 
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "derived-settings-and-constants.h"
 
 //  Override some parameters for gamma-management.h and tex2Dantialias.h:

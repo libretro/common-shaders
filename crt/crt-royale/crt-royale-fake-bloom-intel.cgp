@@ -10,13 +10,13 @@
 # Shader passes also need to know certain scales set in this .cgp, but their
 # compilation model doesn't currently allow the .cgp file to tell them.  Make
 # sure to set the following constants in user-cgp-constants.h accordingly too:
-# 1.) bloom_approx_scale_x = scale_x2
+# 1.) bloom_approx_scale_x_for_fake = scale_x2
 # 2.) mask_resize_viewport_scale = float2(scale_x6, scale_y5)
 # Finally, shader passes need to know the value of geom_max_aspect_ratio used to
 # calculate scale_y5 (among other values):
 # 1.) geom_max_aspect_ratio = (geom_max_aspect_ratio used to calculate scale_y5)
 
-shaders = "12"
+shaders = "7"
 
 # Set an identifier, filename, and sampling traits for the phosphor mask texture.
 # Load an aperture grille, slot mask, and an EDP shadow mask, and load a small
@@ -86,12 +86,12 @@ srgb_framebuffer1 = "true"
 #     may be a good thing for people who like to crank it up).
 # Note the 4:3 aspect ratio assumes the input has cropped geom_overscan (so it's
 # *intended* for an ~4:3 aspect ratio).
-shader2 = "src/crt-royale-bloom-approx.cg"
+shader2 = "src/crt-royale-bloom-approx-fake-bloom-intel.cg"
 alias2 = "BLOOM_APPROX"
 filter_linear2 = "true"
 scale_type2 = "absolute"
-scale_x2 = "320"
-scale_y2 = "240"
+scale_x2 = "400"
+scale_y2 = "300"
 srgb_framebuffer2 = "true"
 
 # Pass3: Vertically blur the input for halation and refractive diffusion.
@@ -113,94 +113,22 @@ scale_type4 = "source"
 scale4 = "1.0"
 srgb_framebuffer4 = "true"
 
-# Pass5: Lanczos-resize the phosphor mask vertically.  Set the absolute
-# scale_x5 == mask_texture_small_size.x (see IMPORTANT above).  Larger scales
-# will blur, and smaller scales could get nasty.  The vertical size must be
-# based on the viewport size and calculated carefully to avoid artifacts later.
-# First calculate the minimum number of mask tiles we need to draw.
-# Since curvature is computed after the scanline masking pass:
-#   num_resized_mask_tiles = 2.0;
-# If curvature were computed in the scanline masking pass (it's not):
-#   max_mask_texel_border = ~3.0 * (1/3.0 + 4.0*sqrt(2.0) + 0.5 + 1.0);
-#   max_mask_tile_border = max_mask_texel_border/
-#       (min_resized_phosphor_triad_size * mask_triads_per_tile);
-#   num_resized_mask_tiles = max(2.0, 1.0 + max_mask_tile_border * 2.0);
-#   At typical values (triad_size >= 2.0, mask_triads_per_tile == 8):
-#       num_resized_mask_tiles = ~3.8
-# Triad sizes are given in horizontal terms, so we need geom_max_aspect_ratio
-# to relate them to vertical resolution.  The widest we expect is:
-#   geom_max_aspect_ratio = 4.0/3.0  # Note: Shader passes need to know this!
-# The fewer triads we tile across the screen, the larger each triad will be as a
-# fraction of the viewport size, and the larger scale_y5 must be to draw a full
-# num_resized_mask_tiles.  Therefore, we must decide the smallest number of
-# triads we'll guarantee can be displayed on screen.  We'll set this according
-# to 3-pixel triads at 768p resolution (the lowest anyone's likely to use):
-#   min_allowed_viewport_triads = 768.0*geom_max_aspect_ratio / 3.0 = 341.333333
-# Now calculate the viewport scale that ensures we can draw resized_mask_tiles:
-#   min_scale_x = resized_mask_tiles * mask_triads_per_tile /
-#       min_allowed_viewport_triads
-#   scale_y5 = geom_max_aspect_ratio * min_scale_x
-#   # Some code might depend on equal scales:
-#   scale_x6 = scale_y5
-# Given our default geom_max_aspect_ratio and min_allowed_viewport_triads:
-#   scale_y5 = 4.0/3.0 * 2.0/(341.33333 / 8.0) = 0.0625
-# IMPORTANT: The scales MUST be calculated in this way.  If you wish to change
-# geom_max_aspect_ratio, update that constant in user-cgp-constants.h!
-shader5 = "src/crt-royale-mask-resize-vertical.cg"
-filter_linear5 = "true"
-scale_type_x5 = "absolute"
-scale_x5 = "64"
-scale_type_y5 = "viewport"
-scale_y5 = "0.0625" # Safe for >= 341.333 horizontal triads at viewport size
-#srgb_framebuffer5 = "false" # mask_texture is already assumed linear
+# Pass5: Resample (misconverged) scanlines horizontally, apply halation, and
+# apply the phosphor mask, then fake a phosphor bloom, all in one pass.
+shader5 = "src/crt-royale-scanlines-horizontal-apply-mask-fake-bloom-intel.cg"
+alias5 = "MASKED_SCANLINES"
+filter_linear5 = "true" # This could just as easily be nearest neighbor.
+scale_type5 = "viewport"
+scale5 = "1.0"
+#float_framebuffer5 = "true"
+srgb_framebuffer5 = "true"
 
-# Pass6: Lanczos-resize the phosphor mask horizontally.  scale_x6 = scale_y5.
-# TODO: Check again if the shaders actually require equal scales.
-shader6 = "src/crt-royale-mask-resize-horizontal.cg"
-alias6 = "MASK_RESIZE"
-filter_linear6 = "false"
-scale_type_x6 = "viewport"
-scale_x6 = "0.0625"
-scale_type_y6 = "source"
-scale_y6 = "1.0"
-#srgb_framebuffer6 = "false" # mask_texture is already assumed linear
+# Pass 6: Compute curvature/AA:
+shader6 = "src/crt-royale-geometry-aa-last-pass-intel.cg"
+filter_linear6 = "true"
+scale_type6 = "viewport"
+mipmap_input6 = "true"
+texture_wrap_mode6 = "clamp_to_edge"
 
-# Pass7: Resample (misconverged) scanlines horizontally, apply halation, and
-# apply the phosphor mask.
-shader7 = "src/crt-royale-scanlines-horizontal-apply-mask.cg"
-alias7 = "MASKED_SCANLINES"
-filter_linear7 = "true" # This could just as easily be nearest neighbor.
-scale_type7 = "viewport"
-scale7 = "1.0"
-#float_framebuffer7 = "true"
-srgb_framebuffer7 = "true"
 
-# Pass 8: Compute a brightpass.  This will require reading the final mask.
-shader8 = "src/crt-royale-brightpass.cg"
-alias8 = "BRIGHTPASS"
-filter_linear8 = "true" # This could just as easily be nearest neighbor.
-scale_type8 = "viewport"
-scale8 = "1.0"
-srgb_framebuffer8 = "true"
-
-# Pass 9: Blur the brightpass vertically
-shader9 = "src/crt-royale-bloom-vertical.cg"
-filter_linear9 = "true" # This could just as easily be nearest neighbor.
-scale_type9 = "source"
-scale9 = "1.0"
-srgb_framebuffer9 = "true"
-
-# Pass 10: Blur the brightpass horizontally and combine it with the dimpass:
-shader10 = "src/crt-royale-bloom-horizontal-reconstitute.cg"
-filter_linear10 = "true"
-scale_type10 = "source"
-scale10 = "1.0"
-srgb_framebuffer10 = "true"
-
-# Pass 11: Compute curvature/AA:
-shader11 = "src/crt-royale-geometry-aa-last-pass.cg"
-filter_linear11 = "true"
-scale_type11 = "viewport"
-mipmap_input11 = "true"
-texture_wrap_mode11 = "clamp_to_edge"
 

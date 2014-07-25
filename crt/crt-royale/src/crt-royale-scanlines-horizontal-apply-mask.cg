@@ -19,7 +19,7 @@
 
 /////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
 
-#include "user-settings.h"
+#include "../user-settings.h"
 #include "derived-settings-and-constants.h"
 #include "bind-shader-params.h"
 
@@ -29,7 +29,7 @@
 #include "scanline-functions.h"
 #include "phosphor-mask-resizing.h"
 #include "bloom-functions.h"
-#include "../../include/gamma-management.h"
+#include "../../../include/gamma-management.h"
 
 
 ///////////////////////////////////  HELPERS  //////////////////////////////////
@@ -236,7 +236,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN,
         //      fully blurred low-res image, and the biggest implication are:
         //  2.) If mask_amplify is incorrect, results deteriorate more quickly.
         //  3.) The inaccurate blurring hurts quality in high-contrast areas.
-        //  4.) The levels_underestimate parameter seems less sensitive.
+        //  4.) The bloom_underestimate_levels parameter seems less sensitive.
         //  Reverse the auto-dimming and amplify to compensate for mask dimming:
         #define PHOSPHOR_BLOOM_FAKE_WITH_SIMPLE_BLEND
         #ifdef PHOSPHOR_BLOOM_FAKE_WITH_SIMPLE_BLEND
@@ -265,7 +265,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN,
         //  full brightness, not minimal blurring.  To fix it, base blend_ratio
         //  on a max area intensity only so it varies more smoothly:
         const float3 phosphor_blur_underestimate =
-            phosphor_blur_approx * levels_underestimate;
+            phosphor_blur_approx * bloom_underestimate_levels;
         const float3 area_max_underestimate =
             phosphor_blur_underestimate * mask_amplify;
         #ifdef PHOSPHOR_BLOOM_FAKE_WITH_SIMPLE_BLEND
@@ -280,7 +280,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN,
             //  for the phosphor blur and a more brightpass-like blend-ratio for
             //  the phosphor emission, but I haven't found a way to make the
             //  brightness correct across the whole color range, especially with
-            //  different levels_underestimate values.)
+            //  different bloom_underestimate_levels values.)
             const float desired_triad_size = lerp(mask_triad_size_desired,
                 IN.output_size.x/mask_num_triads_desired,
                 mask_specify_num_triads);
@@ -290,8 +290,8 @@ float4 main_fragment(in out_vertex VAR, uniform input IN,
             const float3 max_area_contribution_approx =
                 max(float3(0.0), phosphor_blur_approx -
                 center_weight * phosphor_emission);
-            const float3 area_contrib_underestimate = levels_underestimate *
-                max_area_contribution_approx;
+            const float3 area_contrib_underestimate =
+                bloom_underestimate_levels * max_area_contribution_approx;
             const float3 blend_ratio_temp =
                 ((float3(1.0) - area_contrib_underestimate) /
                 area_max_underestimate - float3(1.0)) / (center_weight - 1.0);
