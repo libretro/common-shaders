@@ -21,7 +21,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-half3  dt = half3(1,1,1);
+float3  dt = float3(1,1,1);
 
 /*
    The AdvancedAA shader is well used to:
@@ -129,15 +129,15 @@ struct VERTEX_INPUT
 output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
    output OUT;
-   half3 c00 = tex2D(decal, VAR.t1.zw).xyz; 
-   half3 c10 = tex2D(decal, VAR.t3.xy).xyz;
-   half3 c20 = tex2D(decal, VAR.t3.zw).xyz;
-   half3 c01 = tex2D(decal, VAR.t1.xy).xyz;
-   half3 c11 = tex2D(decal, VAR.CT).xyz;
-   half3 c21 = tex2D(decal, VAR.t2.xy).xyz;
-   half3 c02 = tex2D(decal, VAR.t2.zw).xyz;
-   half3 c12 = tex2D(decal, VAR.t4.xy).xyz;
-   half3 c22 = tex2D(decal, VAR.t4.zw).xyz;
+   float3 c00 = tex2D(decal, VAR.t1.zw).xyz; 
+   float3 c10 = tex2D(decal, VAR.t3.xy).xyz;
+   float3 c20 = tex2D(decal, VAR.t3.zw).xyz;
+   float3 c01 = tex2D(decal, VAR.t1.xy).xyz;
+   float3 c11 = tex2D(decal, VAR.CT).xyz;
+   float3 c21 = tex2D(decal, VAR.t2.xy).xyz;
+   float3 c02 = tex2D(decal, VAR.t2.zw).xyz;
+   float3 c12 = tex2D(decal, VAR.t4.xy).xyz;
+   float3 c22 = tex2D(decal, VAR.t4.zw).xyz;
 
    float d1=dot(abs(c00-c22),dt)+0.0001;
    float d2=dot(abs(c20-c02),dt)+0.0001;

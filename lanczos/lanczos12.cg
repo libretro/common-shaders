@@ -23,8 +23,8 @@
 
 */
 
-const half     halfpi     = 1.5707963267948966192313216916398;
-const half         pi     = 3.1415926535897932384626433832795;
+const float     floatpi     = 1.5707963267948966192313216916398;
+const float         pi     = 3.1415926535897932384626433832795;
 
 
 /* Default Vertex shader */
@@ -63,18 +63,18 @@ struct input
 
 float l(float x)
 { 
-   if (x==0.0) return pi*halfpi;
+   if (x==0.0) return pi*floatpi;
    else
-      return sin(x*halfpi)*sin(x*pi)/(x*x);
+      return sin(x*floatpi)*sin(x*pi)/(x*x);
 }
 
 output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {
    float2 ps = float2(0.999/IN.texture_size.x, 0.999/IN.texture_size.y);
 
-   half2 crd[4][4];  half3 pix[4][4];
+   float2 crd[4][4];  float3 pix[4][4];
 
-   half2 dx = half2(ps.x,0.0); half2 dy = half2(0.0,ps.y);
+   float2 dx = float2(ps.x,0.0); float2 dy = float2(0.0,ps.y);
 
    float2 pixcoord  = tex/ps;
    float2 fract     = frac(pixcoord);

@@ -25,13 +25,13 @@
 */
 
 /* Default Vertex shader */
-const static half3 dt = half3(1.0, 1.0, 1.0);
+const static float3 dt = float3(1.0, 1.0, 1.0);
 
 struct input
 {
-	half2 video_size;
-	half2 texture_size;
-	half2 output_size;
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
 	float frame_count;
 	float frame_direction;
 	float frame_rotation;
@@ -39,85 +39,85 @@ struct input
 
 
 struct out_vertex {
-	half4 position : POSITION;
-	half2 texCoord : TEXCOORD0;
-	half4 t1 : TEXCOORD1;
-	half4 t2 : TEXCOORD2;
-	half4 t3 : TEXCOORD3;
-	half4 t4 : TEXCOORD4;
-	half4 t5 : TEXCOORD5;
-	half4 t6 : TEXCOORD6;
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float4 t6 : TEXCOORD6;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
-	half2 tex      : TEXCOORD0,
+	float4 position	: POSITION,
+	float2 tex      : TEXCOORD0,
 
-   	uniform half4x4 modelViewProj,
+   	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
-   half x = 0.5 * (1.0 / IN.texture_size.x);
-   half y = 0.5 * (1.0 / IN.texture_size.y);
-   half2 dg1 = half2( x, y);
-   half2 dg2 = half2(-x, y);
-   half2 sd1 = dg1*0.5;
-   half2 sd2 = dg2*0.5;
-   half2 ddx = half2(x,0.0);
-   half2 ddy = half2(0.0,y);
+   float x = 0.5 * (1.0 / IN.texture_size.x);
+   float y = 0.5 * (1.0 / IN.texture_size.y);
+   float2 dg1 = float2( x, y);
+   float2 dg2 = float2(-x, y);
+   float2 sd1 = dg1*0.5;
+   float2 sd2 = dg2*0.5;
+   float2 ddx = float2(x,0.0);
+   float2 ddy = float2(0.0,y);
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
 		tex,
-		half4(tex-sd1,tex-ddy),
-		half4(tex-sd2,tex+ddx),
-		half4(tex+sd1,tex+ddy),
-		half4(tex+sd2,tex-ddx),
-		half4(tex-dg1,tex-dg2),
-		half4(tex+dg1,tex+dg2)
+		float4(tex-sd1,tex-ddy),
+		float4(tex-sd2,tex+ddx),
+		float4(tex+sd1,tex+ddy),
+		float4(tex+sd2,tex-ddx),
+		float4(tex-dg1,tex-dg2),
+		float4(tex+dg1,tex+dg2)
 	};
 
 	return OUT;
 }
 
 
- const half mx = 1.0;      // start smoothing wt.
- const half k = -1.10;      // wt. decrease factor
- const half max_w = 0.75;    // max filter weigth
- const half min_w = 0.03;    // min filter weigth
- const half lum_add = 0.33;  // effects smoothing
+ const float mx = 1.0;      // start smoothing wt.
+ const float k = -1.10;      // wt. decrease factor
+ const float max_w = 0.75;    // max filter weigth
+ const float min_w = 0.03;    // min filter weigth
+ const float lum_add = 0.33;  // effects smoothing
 
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
  {
 
-   half3 c  = tex2D(decal, VAR.texCoord).xyz;
-   half3 i1 = tex2D(decal, VAR.t1.xy).xyz; 
-   half3 i2 = tex2D(decal, VAR.t2.xy).xyz; 
-   half3 i3 = tex2D(decal, VAR.t3.xy).xyz; 
-   half3 i4 = tex2D(decal, VAR.t4.xy).xyz; 
-   half3 o1 = tex2D(decal, VAR.t5.xy).xyz; 
-   half3 o3 = tex2D(decal, VAR.t6.xy).xyz; 
-   half3 o2 = tex2D(decal, VAR.t5.zw).xyz;
-   half3 o4 = tex2D(decal, VAR.t6.zw).xyz;
-   half3 s1 = tex2D(decal, VAR.t1.zw).xyz; 
-   half3 s2 = tex2D(decal, VAR.t2.zw).xyz; 
-   half3 s3 = tex2D(decal, VAR.t3.zw).xyz; 
-   half3 s4 = tex2D(decal, VAR.t4.zw).xyz;  
+   float3 c  = tex2D(decal, VAR.texCoord).xyz;
+   float3 i1 = tex2D(decal, VAR.t1.xy).xyz; 
+   float3 i2 = tex2D(decal, VAR.t2.xy).xyz; 
+   float3 i3 = tex2D(decal, VAR.t3.xy).xyz; 
+   float3 i4 = tex2D(decal, VAR.t4.xy).xyz; 
+   float3 o1 = tex2D(decal, VAR.t5.xy).xyz; 
+   float3 o3 = tex2D(decal, VAR.t6.xy).xyz; 
+   float3 o2 = tex2D(decal, VAR.t5.zw).xyz;
+   float3 o4 = tex2D(decal, VAR.t6.zw).xyz;
+   float3 s1 = tex2D(decal, VAR.t1.zw).xyz; 
+   float3 s2 = tex2D(decal, VAR.t2.zw).xyz; 
+   float3 s3 = tex2D(decal, VAR.t3.zw).xyz; 
+   float3 s4 = tex2D(decal, VAR.t4.zw).xyz;  
 
-   half ko1=dot(abs(o1-c),dt);
-   half ko2=dot(abs(o2-c),dt);
-   half ko3=dot(abs(o3-c),dt);
-   half ko4=dot(abs(o4-c),dt);
+   float ko1=dot(abs(o1-c),dt);
+   float ko2=dot(abs(o2-c),dt);
+   float ko3=dot(abs(o3-c),dt);
+   float ko4=dot(abs(o4-c),dt);
 
-   half k1=min(dot(abs(i1-i3),dt),max(ko1,ko3));
-   half k2=min(dot(abs(i2-i4),dt),max(ko2,ko4));
+   float k1=min(dot(abs(i1-i3),dt),max(ko1,ko3));
+   float k2=min(dot(abs(i2-i4),dt),max(ko2,ko4));
 
-   half w1 = k2; if(ko3<ko1) w1*=ko3/ko1;
-   half w2 = k1; if(ko4<ko2) w2*=ko4/ko2;
-   half w3 = k2; if(ko1<ko3) w3*=ko1/ko3;
-   half w4 = k1; if(ko2<ko4) w4*=ko2/ko4;
+   float w1 = k2; if(ko3<ko1) w1*=ko3/ko1;
+   float w2 = k1; if(ko4<ko2) w2*=ko4/ko2;
+   float w3 = k2; if(ko1<ko3) w3*=ko1/ko3;
+   float w4 = k1; if(ko2<ko4) w4*=ko2/ko4;
 
    c=(w1*o1+w2*o2+w3*o3+w4*o4+0.001*c)/(w1+w2+w3+w4+0.001);
    w1 = k*dot(abs(i1-c)+abs(i3-c),dt)/(0.125*dot(i1+i3,dt)+lum_add);
@@ -130,5 +130,5 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
    w3 = clamp(w3+mx,min_w,max_w); 
    w4 = clamp(w4+mx,min_w,max_w);
 
-   return half4((w1*(i1+i3)+w2*(i2+i4)+w3*(s1+s3)+w4*(s2+s4)+c)/(2.0*(w1+w2+w3+w4)+1.0), 1.0);
+   return float4((w1*(i1+i3)+w2*(i2+i4)+w3*(s1+s3)+w4*(s2+s4)+c)/(2.0*(w1+w2+w3+w4)+1.0), 1.0);
  }

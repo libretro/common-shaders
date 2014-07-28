@@ -42,10 +42,10 @@ uniform float XBR_EQ_THRESHOLD;
 //#define CORNER_B
 #define CORNER_C
 
-const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
 
 
-float RGBtoYUV(half3 color)
+float RGBtoYUV(float3 color)
 {
   return dot(color, XBR_Y_WEIGHT*yuv[0]);
 }
@@ -71,9 +71,9 @@ float weighted_distance(float a, float b, float c, float d, float e, float f, fl
 
 struct input
 {
-  half2 video_size;
+  float2 video_size;
   float2 texture_size;
-  half2 output_size;
+  float2 output_size;
   float frame_count;
   float frame_direction;
   float frame_rotation;
@@ -81,18 +81,18 @@ struct input
 
 
 struct out_vertex {
-  half4 position : POSITION;
+  float4 position : POSITION;
   float2 texCoord : TEXCOORD0;
-  half4 t1 : TEXCOORD1;
+  float4 t1 : TEXCOORD1;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-  half4 position  : POSITION,
+  float4 position  : POSITION,
   float2 texCoord1 : TEXCOORD0,
 
-     uniform half4x4 modelViewProj,
+     uniform float4x4 modelViewProj,
   uniform input IN
 )
 {
@@ -100,16 +100,16 @@ out_vertex main_vertex
 
   OUT.position = mul(modelViewProj, position);
 
-  half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-  half dx = ps.x;
-  half dy = ps.y;
+  float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+  float dx = ps.x;
+  float dy = ps.y;
 
 	// This line fix a bug in ATI cards.
 	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
   OUT.texCoord = texCoord;
-  OUT.t1.xy = half2(  0,-dy); // B
-  OUT.t1.zw = half2(-dx,  0); // D
+  OUT.t1.xy = float2(  0,-dy); // B
+  OUT.t1.zw = float2(-dx,  0); // D
 
   return OUT;
 }
@@ -126,7 +126,7 @@ out_vertex main_vertex
 */
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
   bool edr, px; // px = pixel, edr = edge detection rule
   bool interp_restriction_lv1;
@@ -139,19 +139,19 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
   float2 g1 = dir*VAR.t1.xy;
   float2 g2 = dir*VAR.t1.zw;
 
-  half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
-  half3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
-  half3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
-  half3 E = tex2D(decal, VAR.texCoord       ).xyz;
-  half3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
-  half3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
-  half3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
-  half3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
+  float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+  float3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
+  float3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
+  float3 E = tex2D(decal, VAR.texCoord       ).xyz;
+  float3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
+  float3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
+  float3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
+  float3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
 
-  half3 F4 = tex2D(decal,VAR.texCoord    -2.0*g2   ).xyz;
-  half3 I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
-  half3 H5 = tex2D(decal,VAR.texCoord -2.0*g1      ).xyz;
-  half3 I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
+  float3 F4 = tex2D(decal,VAR.texCoord    -2.0*g2   ).xyz;
+  float3 I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
+  float3 H5 = tex2D(decal,VAR.texCoord -2.0*g1      ).xyz;
+  float3 I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
 
   float b = RGBtoYUV( B );
   float c = RGBtoYUV( C );
@@ -183,8 +183,8 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 
   px = (df(e,f) <= df(e,h));
 
-  half3 res = nc ? px ? F : H : E;
+  float3 res = nc ? px ? F : H : E;
 
-  return half4(res, 1.0);
+  return float4(res, 1.0);
 }
 

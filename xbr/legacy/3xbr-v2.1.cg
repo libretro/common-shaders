@@ -25,7 +25,7 @@
 */
 const static float3 dtt = float3(65536,255,1);
 
-float reduce(half3 color)
+float reduce(float3 color)
 {
 	return dot(color, dtt);
 }
@@ -139,26 +139,26 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	// Reading the texels
 
-	half3 A = tex2D(decal, VAR.t1.zw).xyz;
-	half3 B = tex2D(decal, VAR.t3.xy).xyz;
-	half3 C = tex2D(decal, VAR.t3.zw).xyz;
-	half3 D = tex2D(decal, VAR.t1.xy).xyz;
-	half3 E0 = tex2D(decal, VAR.texCoord).xyz;
-	half3 F = tex2D(decal, VAR.t2.xy).xyz;
-	half3 G = tex2D(decal, VAR.t2.zw).xyz;
-	half3 H = tex2D(decal, VAR.t4.xy).xyz;
-	half3 I = tex2D(decal, VAR.t4.zw).xyz;
+	float3 A = tex2D(decal, VAR.t1.zw).xyz;
+	float3 B = tex2D(decal, VAR.t3.xy).xyz;
+	float3 C = tex2D(decal, VAR.t3.zw).xyz;
+	float3 D = tex2D(decal, VAR.t1.xy).xyz;
+	float3 E0 = tex2D(decal, VAR.texCoord).xyz;
+	float3 F = tex2D(decal, VAR.t2.xy).xyz;
+	float3 G = tex2D(decal, VAR.t2.zw).xyz;
+	float3 H = tex2D(decal, VAR.t4.xy).xyz;
+	float3 I = tex2D(decal, VAR.t4.zw).xyz;
 
-	half3  A1 = tex2D(decal, VAR.t5.xy).xyz;
-	half3  C1 = tex2D(decal, VAR.t5.zw).xyz;
-	half3  A0 = tex2D(decal, VAR.t6.xy).xyz;
-	half3  G0 = tex2D(decal, VAR.t6.zw).xyz;
-	half3  C4 = tex2D(decal, VAR.t7.xy).xyz;
-	half3  I4 = tex2D(decal, VAR.t7.zw).xyz;
-	half3  G5 = tex2D(decal, VAR.t8.xy).xyz;
-	half3  I5 = tex2D(decal, VAR.t8.zw).xyz;
+	float3  A1 = tex2D(decal, VAR.t5.xy).xyz;
+	float3  C1 = tex2D(decal, VAR.t5.zw).xyz;
+	float3  A0 = tex2D(decal, VAR.t6.xy).xyz;
+	float3  G0 = tex2D(decal, VAR.t6.zw).xyz;
+	float3  C4 = tex2D(decal, VAR.t7.xy).xyz;
+	float3  I4 = tex2D(decal, VAR.t7.zw).xyz;
+	float3  G5 = tex2D(decal, VAR.t8.xy).xyz;
+	float3  I5 = tex2D(decal, VAR.t8.zw).xyz;
 
-	half3 E[9];
+	float3 E[9];
 	
 	E[0] = E[1] = E[2] = E0;
 	E[3] = E[4] = E[5] = E0;

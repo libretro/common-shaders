@@ -33,15 +33,15 @@ http://www.gnu.org/copyleft/gpl.html
 /* Default Vertex shader */
 void main_vertex
 (
- half4 position	: POSITION,
- half4 color	: COLOR,
- half2 texCoord : TEXCOORD0,
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
 
  uniform float4x4 modelViewProj,
 
- out half4 oPosition : POSITION,
- out half4 oColor    : COLOR,
- out half2 otexCoord : TEXCOORD
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD
  )
 {
    oPosition = mul(modelViewProj, position);
@@ -51,14 +51,14 @@ void main_vertex
 
 struct output
 {
-   half4 color : COLOR;
+   float4 color : COLOR;
 };
 
 struct input
 {
-  half2 video_size;
-  half2 texture_size;
-  half2 output_size;
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
   float frame_count;
   float frame_direction;
   float frame_rotation;
@@ -123,7 +123,7 @@ float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
 }
 
 
-output main_fragment (half2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {	
         float2 stepxy = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
         float2 pos = tex.xy + stepxy * 0.5;

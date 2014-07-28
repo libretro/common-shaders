@@ -24,15 +24,15 @@
 
 struct input
 {
-	half2 video_size;
+	float2 video_size;
 	float2 texture_size;
-	half2 output_size;
+	float2 output_size;
 };
 
 
 struct out_vertex {
-	half4 position : POSITION;
-	half4 color    : COLOR;
+	float4 position : POSITION;
+	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float2 t1;
 };
@@ -40,11 +40,11 @@ struct out_vertex {
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
-	half4 color	: COLOR,
+	float4 position	: POSITION,
+	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
-   	uniform half4x4 modelViewProj,
+   	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
@@ -69,16 +69,16 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
-	half3 B  = TEX( 0,-1).rgb;
-	half3 D  = TEX(-1, 0).rgb;
-	half3 E  = TEX( 0, 0).rgb;
-	half3 F  = TEX( 1, 0).rgb;
-	half3 H  = TEX( 0, 1).rgb;
+	float3 B  = TEX( 0,-1).rgb;
+	float3 D  = TEX(-1, 0).rgb;
+	float3 E  = TEX( 0, 0).rgb;
+	float3 F  = TEX( 1, 0).rgb;
+	float3 H  = TEX( 0, 1).rgb;
 
-	half3 res = max(E, max(max(F, D), max(B, H)));
+	float3 res = max(E, max(max(F, D), max(B, H)));
 
-	return half4(res, 1.0);
+	return float4(res, 1.0);
 }
 

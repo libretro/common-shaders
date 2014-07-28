@@ -46,13 +46,13 @@ uniform float CONTRAST;
 #define CONTRAST 3.0
 #endif
 
-const static half3 dt = half3(1.0, 1.0, 1.0);
+const static float3 dt = float3(1.0, 1.0, 1.0);
 
 struct input
 {
-	half2 video_size;
+	float2 video_size;
 	float2 texture_size;
-	half2 output_size;
+	float2 output_size;
 	float frame_count;
 	float frame_direction;
 	float frame_rotation;
@@ -60,44 +60,44 @@ struct input
 
 
 struct out_vertex {
-	half4 position : POSITION;
+	float4 position : POSITION;
 	float2 texCoord : TEXCOORD0;
-	half4 t1 : TEXCOORD1;
-	half4 t2 : TEXCOORD2;
-	half4 t3 : TEXCOORD3;
-	half4 t4 : TEXCOORD4;
-	half4 t5 : TEXCOORD5;
-	half4 t6 : TEXCOORD6;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float4 t6 : TEXCOORD6;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
+	float4 position	: POSITION,
 	float2 texCoord  : TEXCOORD0,
 
-   	uniform half4x4 modelViewProj,
+   	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
    /* messy I know but we need to make it possible to have it default to input resolution x/y in case RESOLUTION_X is 0.0 */
-	half2 ps = half2(1.0/((RESOLUTION_X == 0) ? RESOLUTION_X_DEF : RESOLUTION_X), 1.0/((RESOLUTION_Y == 0) ? RESOLUTION_Y_DEF : RESOLUTION_Y));
+	float2 ps = float2(1.0/((RESOLUTION_X == 0) ? RESOLUTION_X_DEF : RESOLUTION_X), 1.0/((RESOLUTION_Y == 0) ? RESOLUTION_Y_DEF : RESOLUTION_Y));
 
-	half dx = ps.x;
-	half dy = ps.y;
-	half sx = ps.x * 0.5;
-	half sy = ps.y * 0.5;
+	float dx = ps.x;
+	float dy = ps.y;
+	float sx = ps.x * 0.5;
+	float sy = ps.y * 0.5;
 
 
 	out_vertex OUT = { 
 		mul(modelViewProj, position),
 		texCoord,
-		half4(texCoord,texCoord) + half4(-dx, -dy, dx, -dy), // outer diag. texels
-		half4(texCoord,texCoord) + half4(dx, dy, -dx, dy),
-		half4(texCoord,texCoord) + half4(-sx, -sy, sx, -sy), // inner diag. texels
-		half4(texCoord,texCoord) + half4(sx, sy, -sx, sy),
-		half4(texCoord,texCoord) + half4(-dx, 0, dx, 0), // inner hor/vert texels
-		half4(texCoord,texCoord) + half4(0, -dy, 0, dy)
+		float4(texCoord,texCoord) + float4(-dx, -dy, dx, -dy), // outer diag. texels
+		float4(texCoord,texCoord) + float4(dx, dy, -dx, dy),
+		float4(texCoord,texCoord) + float4(-sx, -sy, sx, -sy), // inner diag. texels
+		float4(texCoord,texCoord) + float4(sx, sy, -sx, sy),
+		float4(texCoord,texCoord) + float4(-dx, 0, dx, 0), // inner hor/vert texels
+		float4(texCoord,texCoord) + float4(0, -dy, 0, dy)
 	};
 
 
@@ -105,32 +105,32 @@ out_vertex main_vertex
 }
 
 
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 
-  half3 c11 = tex2D(decal, VAR.texCoord).xyz;
-  half3 c00 = tex2D(decal, VAR.t1.xy).xyz;
-  half3 c20 = tex2D(decal, VAR.t1.zw).xyz;
-  half3 c22 = tex2D(decal, VAR.t2.xy).xyz;
-  half3 c02 = tex2D(decal, VAR.t2.zw).xyz;
-  half3 s00 = tex2D(decal, VAR.t3.xy).xyz;
-  half3 s20 = tex2D(decal, VAR.t3.zw).xyz;
-  half3 s22 = tex2D(decal, VAR.t4.xy).xyz;
-  half3 s02 = tex2D(decal, VAR.t4.zw).xyz;
-  half3 c01 = tex2D(decal, VAR.t5.xy).xyz;
-  half3 c21 = tex2D(decal, VAR.t5.zw).xyz;
-  half3 c10 = tex2D(decal, VAR.t6.xy).xyz;
-  half3 c12 = tex2D(decal, VAR.t6.zw).xyz;
+  float3 c11 = tex2D(decal, VAR.texCoord).xyz;
+  float3 c00 = tex2D(decal, VAR.t1.xy).xyz;
+  float3 c20 = tex2D(decal, VAR.t1.zw).xyz;
+  float3 c22 = tex2D(decal, VAR.t2.xy).xyz;
+  float3 c02 = tex2D(decal, VAR.t2.zw).xyz;
+  float3 s00 = tex2D(decal, VAR.t3.xy).xyz;
+  float3 s20 = tex2D(decal, VAR.t3.zw).xyz;
+  float3 s22 = tex2D(decal, VAR.t4.xy).xyz;
+  float3 s02 = tex2D(decal, VAR.t4.zw).xyz;
+  float3 c01 = tex2D(decal, VAR.t5.xy).xyz;
+  float3 c21 = tex2D(decal, VAR.t5.zw).xyz;
+  float3 c10 = tex2D(decal, VAR.t6.xy).xyz;
+  float3 c12 = tex2D(decal, VAR.t6.zw).xyz;
 
-  half d1=dot(abs(c00-c22),dt)+0.0001;
-  half d2=dot(abs(c20-c02),dt)+0.0001;
-  half hl=dot(abs(c01-c21),dt)+0.0001;
-  half vl=dot(abs(c10-c12),dt)+0.0001;
-  half m1=dot(abs(s00-s22),dt)+0.001;
-  half m2=dot(abs(s02-s20),dt)+0.001;
+  float d1=dot(abs(c00-c22),dt)+0.0001;
+  float d2=dot(abs(c20-c02),dt)+0.0001;
+  float hl=dot(abs(c01-c21),dt)+0.0001;
+  float vl=dot(abs(c10-c12),dt)+0.0001;
+  float m1=dot(abs(s00-s22),dt)+0.001;
+  float m2=dot(abs(s02-s20),dt)+0.001;
 
-  half3 t1=(hl*(c10+c12)+vl*(c01+c21)+(hl+vl)*c11)/(CONTRAST *(hl+vl));
-  half3 t2=(d1*(c20+c02)+d2*(c00+c22)+(d1+d2)*c11)/(CONTRAST *(d1+d2));
+  float3 t1=(hl*(c10+c12)+vl*(c01+c21)+(hl+vl)*c11)/(CONTRAST *(hl+vl));
+  float3 t2=(d1*(c20+c02)+d2*(c00+c22)+(d1+d2)*c11)/(CONTRAST *(d1+d2));
 
-  return half4(0.25*(t1+t2+(m2*(s00+s22)+m1*(s02+s20))/(m1+m2)),1.0);
+  return float4(0.25*(t1+t2+(m2*(s00+s22)+m1*(s02+s20))/(m1+m2)),1.0);
 }
