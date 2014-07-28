@@ -26,7 +26,7 @@
 
 const static float3 dtt = float3(65536,255,1);
 
-float reduce(half3 color)
+float reduce(float3 color)
 {
 	return dot(color, dtt);
 }
@@ -84,17 +84,17 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float2 g1 = VAR.t1.xy*(step(0.5,fp.x)+step(0.5, fp.y)-1) + VAR.t1.zw*(step(0.5,fp.x) - step(0.5, fp.y));
 	float2 g2 = VAR.t1.xy*(step(0.5,fp.y) - step(0.5, fp.x)) + VAR.t1.zw*(step(0.5,fp.x)+step(0.5, fp.y)-1);
 
-	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
-	half3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
-	half3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
-	half3 E = tex2D(decal, VAR.texCoord       ).xyz;
-	half3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
-	half3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
-	half3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
-	half3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
+	float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	float3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
+	float3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
+	float3 E = tex2D(decal, VAR.texCoord       ).xyz;
+	float3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
+	float3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
+	float3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
+	float3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
 
-	half3 E11 = E;
-	half3 E15 = E;
+	float3 E11 = E;
+	float3 E15 = E;
 		
 	float b = reduce(B);
 	float c = reduce(C);

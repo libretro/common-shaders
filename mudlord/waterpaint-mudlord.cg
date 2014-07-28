@@ -63,14 +63,14 @@ static const float BlurWeights[13] =
 float edge_detect_sobel(sampler tex, float2 tc, float2 off)
 {
     // sobel
-    half4 g00 = tex2D(tex,    tc + half2(-off.x,    -off.y));   // Top Left
-    half4 g01 = tex2D(tex,    tc + half2(  0,    -off.y));   // Up
-    half4 g02 = tex2D(tex,    tc + half2( off.x,    -off.y));   // Top Right
-    half4 g10 = tex2D(tex,    tc + half2(-off.x,      0));   // Left
-    half4 g12 = tex2D(tex,    tc + half2( off.x,      0));   // Right
-    half4 g20 = tex2D(tex,    tc + half2(-off.x,     off.y));   // Bottom Left
-    half4 g21 = tex2D(tex,    tc + half2(  0,     off.y));   // Bottom
-    half4 g22 = tex2D(tex,   tc + half2( off.x,     off.y));   // Bottom Right
+    float4 g00 = tex2D(tex,    tc + float2(-off.x,    -off.y));   // Top Left
+    float4 g01 = tex2D(tex,    tc + float2(  0,    -off.y));   // Up
+    float4 g02 = tex2D(tex,    tc + float2( off.x,    -off.y));   // Top Right
+    float4 g10 = tex2D(tex,    tc + float2(-off.x,      0));   // Left
+    float4 g12 = tex2D(tex,    tc + float2( off.x,      0));   // Right
+    float4 g20 = tex2D(tex,    tc + float2(-off.x,     off.y));   // Bottom Left
+    float4 g21 = tex2D(tex,    tc + float2(  0,     off.y));   // Bottom
+    float4 g22 = tex2D(tex,   tc + float2( off.x,     off.y));   // Bottom Right
 
     //compute luminance from sampled regions
     float3 rgb2lum = float3(0.3, 0.59, 0.11);
@@ -84,9 +84,9 @@ float edge_detect_sobel(sampler tex, float2 tc, float2 off)
     g22 = dot(g22.rgb, rgb2lum);
  
     //compute sobel mask
-    half4 Gx = -(g00 + 2 * g10 + g20) + (g02 + 2 * g12 + g22);
-    half4 Gy = -(g00 + 2 * g01 + g02) + (g20 + 2 * g21 + g22);
-    half4 color = abs(Gx) +abs(Gy);
+    float4 Gx = -(g00 + 2 * g10 + g20) + (g02 + 2 * g12 + g22);
+    float4 Gy = -(g00 + 2 * g01 + g02) + (g20 + 2 * g21 + g22);
+    float4 color = abs(Gx) +abs(Gy);
    return color;
 }
 

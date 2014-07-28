@@ -68,12 +68,12 @@ struct input
 
 output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
 {
-	half3 ink = half3(0.32, 0.50, 0.0);  
-	half3 c11 = tex2D(s_p, tex).xyz;
-	half lct = floor(MCGREEN_COLOR * length(c11)) / MCGREEN_COLOR;
+	float3 ink = float3(0.32, 0.50, 0.0);  
+	float3 c11 = tex2D(s_p, tex).xyz;
+	float lct = floor(MCGREEN_COLOR * length(c11)) / MCGREEN_COLOR;
 
 	output OUT;
-	OUT.color = half4(lct*ink,1);
+	OUT.color = float4(lct*ink,1);
    	return OUT;
 }
 

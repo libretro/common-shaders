@@ -26,41 +26,41 @@
 
 const static float3 dtt = float3(65536,255,1);
 
-float reduce(half3 color)
+float reduce(float3 color)
 {
 	return dot(color, dtt);
 }
 
-float3 bilinear(float p, float q, half3 A, half3 B, half3 C, half3 D)
+float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
 {
 	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
 }
 
 struct input
 {
-	half2 video_size;
+	float2 video_size;
 	float2 texture_size;
-	half2 output_size;
+	float2 output_size;
         float frame_count;
         float frame_direction;
 	float frame_rotation;
 };
 
 struct out_vertex {
-	half4 position : POSITION;
+	float4 position : POSITION;
 	float2 texCoord : TEXCOORD0;
-	half4 t1 : TEXCOORD1;
-	half2 loc : TEXCOORD2;
+	float4 t1 : TEXCOORD1;
+	float2 loc : TEXCOORD2;
 };
 
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
+	float4 position	: POSITION,
 	float2 texCoord1 : TEXCOORD0,
 
-   	uniform half4x4 modelViewProj,
+   	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
@@ -68,16 +68,16 @@ out_vertex main_vertex
 
 	OUT.position = mul(modelViewProj, position);
 
-	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-	half dx = ps.x;
-	half dy = ps.y;
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
 
 	// This line fix a bug in ATI cards.
 	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
 	OUT.texCoord = texCoord;
-	OUT.t1.xy = half2( dx,  0); // F
-	OUT.t1.zw = half2(  0, dy); // H
+	OUT.t1.xy = float2( dx,  0); // F
+	OUT.t1.zw = float2(  0, dy); // H
 	OUT.loc = texCoord*IN.texture_size;
 
 	return OUT;
@@ -92,10 +92,10 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float2 g1 = dir*VAR.t1.xy;
 	float2 g2 = dir*VAR.t1.zw;
 
-	half3 A = tex2D(decal, VAR.texCoord       ).xyz;
-	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
-	half3 C = tex2D(decal, VAR.texCoord    +g2).xyz;
-	half3 D = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+	float3 A = tex2D(decal, VAR.texCoord       ).xyz;
+	float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	float3 C = tex2D(decal, VAR.texCoord    +g2).xyz;
+	float3 D = tex2D(decal, VAR.texCoord +g1+g2).xyz;
 
 	float a = reduce(A);
 	float b = reduce(B);

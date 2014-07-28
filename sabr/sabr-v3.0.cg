@@ -66,17 +66,17 @@ float c_df(float3 c1, float3 c2) {
 }
 
 struct input {
-	half2 video_size;
+	float2 video_size;
 	float2 texture_size;
-	half2 output_size;
+	float2 output_size;
 	float frame_count;
 	float frame_direction;
 	float frame_rotation;
 };
 
 struct out_vertex {
-	half4 pos : POSITION;
-	half4 color : COLOR;
+	float4 pos : POSITION;
+	float4 color : COLOR;
 	float2 tc : TEXCOORD0;
 	float4 xyp_1_2_3;
 	float4 xyp_5_10_15;
@@ -89,10 +89,10 @@ struct out_vertex {
 
 /* VERTEX SHADER */
 out_vertex main_vertex (
-		half4 position   : POSITION,
-		half4 color : COLOR,
+		float4 position   : POSITION,
+		float4 color : COLOR,
 		float2 texCoord1 : TEXCOORD0,
-		uniform half4x4 modelViewProj,
+		uniform float4x4 modelViewProj,
 		uniform input IN) {
 	out_vertex OUT;
 	

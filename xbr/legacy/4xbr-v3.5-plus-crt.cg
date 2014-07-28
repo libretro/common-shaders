@@ -26,13 +26,13 @@
 
 const static float coef           = 2.0;
 const static float3 dtt           = float3(65536,255,1);
-const static half y_weight        = 48.0;
-const static half u_weight        = 7.0;
-const static half v_weight        = 6.0;
-const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
-const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
+const static float y_weight        = 48.0;
+const static float u_weight        = 7.0;
+const static float v_weight        = 6.0;
+const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+const static float3x3 yuv_weighted = float3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
 
-//const static half3x3 yuv_weighted = half3x3(14.352, 28.176, 5.472, -1.183, -2.317, 3.5, 3.0, -2.514, -0.486);
+//const static float3x3 yuv_weighted = float3x3(14.352, 28.176, 5.472, -1.183, -2.317, 3.5, 3.0, -2.514, -0.486);
 
 
         // Constants used with gamma correction.
@@ -58,7 +58,7 @@ const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_
        		w = w * w;\
 
 
-float3 RGBtoYUV(half3x3 mat_color)
+float3 RGBtoYUV(float3x3 mat_color)
 {
 	float a= abs(mul(yuv_weighted, mat_color[0]));
 	float b= abs(mul(yuv_weighted, mat_color[1]));
@@ -82,9 +82,9 @@ float3 weighted_distance(float3 a, float3 b, float3 c, float3 d, float3 e, float
 
 struct input
 {
-	half2 video_size;
+	float2 video_size;
 	float2 texture_size;
-	half2 output_size;
+	float2 output_size;
         float frame_count;
         float frame_direction;
         float frame_rotation;
@@ -92,18 +92,18 @@ struct input
 
 
 struct out_vertex {
-	half4 position : POSITION;
+	float4 position : POSITION;
 	float2 texCoord : TEXCOORD0;
-	half4 t1 : TEXCOORD1;
+	float4 t1 : TEXCOORD1;
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	half4 position	: POSITION,
+	float4 position	: POSITION,
 	float2 texCoord : TEXCOORD0,
 
-   	uniform half4x4 modelViewProj,
+   	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
@@ -111,77 +111,77 @@ out_vertex main_vertex
 
 	OUT.position = mul(modelViewProj, position);
 
-	half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-	half dx = ps.x;
-	half dy = ps.y;
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
 
 	OUT.texCoord = texCoord;
-	OUT.t1.xy = half2(  0,-dy); // B
-	OUT.t1.zw = half2(-dx,  0); // D
+	OUT.t1.xy = float2(  0,-dy); // B
+	OUT.t1.zw = float2(-dx,  0); // D
 
 	return OUT;
 }
 
 
 /*    FRAGMENT SHADER    */
-half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	bool3 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool3 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
-	half3 E10, E11, E14, E15;
-	half3 P[3];
+	float3 E10, E11, E14, E15;
+	float3 P[3];
 
 	float2 fp = frac(VAR.texCoord * IN.texture_size);
-	half2 st = step(0.5,fp);
+	float2 st = step(0.5,fp);
 
-	half2 g1 = VAR.t1.xy*(st.x + st.y - 1.0) + VAR.t1.zw*(st.x - st.y    );
-	half2 g2 = VAR.t1.xy*(st.y - st.x    ) + VAR.t1.zw*(st.x + st.y - 1.0);
+	float2 g1 = VAR.t1.xy*(st.x + st.y - 1.0) + VAR.t1.zw*(st.x - st.y    );
+	float2 g2 = VAR.t1.xy*(st.y - st.x    ) + VAR.t1.zw*(st.x + st.y - 1.0);
 
-	half3 A = tex2D(decal, VAR.texCoord +g1+g2).xyz;
-	half3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
-	half3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
-	half3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
-	half3 E = tex2D(decal, VAR.texCoord       ).xyz;
-	half3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
-	half3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
-	half3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
-	half3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
+	float3 A = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+	float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+	float3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
+	float3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
+	float3 E = tex2D(decal, VAR.texCoord       ).xyz;
+	float3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
+	float3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
+	float3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
+	float3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
 
-	half3  C1 = tex2D(decal,VAR.texCoord +2.0*g1-g2   ).xyz;
-	half3  G0 = tex2D(decal,VAR.texCoord -g1+2.0*g2   ).xyz;
-	half3  C4 = tex2D(decal,VAR.texCoord +g1-2.0*g2   ).xyz;
-	half3  F4 = tex2D(decal,VAR.texCoord    -2.0*g2   ).xyz;
-	half3  I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
-	half3  G5 = tex2D(decal,VAR.texCoord -2.0*g1+g2   ).xyz;
-	half3  H5 = tex2D(decal,VAR.texCoord -2.0*g1      ).xyz;
-	half3  I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
-	half3  B1 = tex2D(decal,VAR.texCoord +2.0*g1      ).xyz;
-	half3  D0 = tex2D(decal,VAR.texCoord +2.0*g2      ).xyz;
-	half3  A1 = tex2D(decal,VAR.texCoord +2.0*g1+g2   ).xyz;
-	half3  A0 = tex2D(decal,VAR.texCoord +2.0*g2+g1   ).xyz;
+	float3  C1 = tex2D(decal,VAR.texCoord +2.0*g1-g2   ).xyz;
+	float3  G0 = tex2D(decal,VAR.texCoord -g1+2.0*g2   ).xyz;
+	float3  C4 = tex2D(decal,VAR.texCoord +g1-2.0*g2   ).xyz;
+	float3  F4 = tex2D(decal,VAR.texCoord    -2.0*g2   ).xyz;
+	float3  I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
+	float3  G5 = tex2D(decal,VAR.texCoord -2.0*g1+g2   ).xyz;
+	float3  H5 = tex2D(decal,VAR.texCoord -2.0*g1      ).xyz;
+	float3  I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
+	float3  B1 = tex2D(decal,VAR.texCoord +2.0*g1      ).xyz;
+	float3  D0 = tex2D(decal,VAR.texCoord +2.0*g2      ).xyz;
+	float3  A1 = tex2D(decal,VAR.texCoord +2.0*g1+g2   ).xyz;
+	float3  A0 = tex2D(decal,VAR.texCoord +2.0*g2+g1   ).xyz;
 
-	float3 a = RGBtoYUV( half3x3(A, G, C) );
-	float3 b = RGBtoYUV( half3x3(B, D, F) );
-	float3 c = RGBtoYUV( half3x3(C, A, I) );
-	float3 d = RGBtoYUV( half3x3(D, H, B) );
-	float3 e = RGBtoYUV( half3x3(E, E, E) );
-	float3 f = RGBtoYUV( half3x3(F, B, H) );
-	float3 g = RGBtoYUV( half3x3(G, I, A) );
-	float3 h = RGBtoYUV( half3x3(H, F, D) );
-	float3 i = RGBtoYUV( half3x3(I, C, G) );
+	float3 a = RGBtoYUV( float3x3(A, G, C) );
+	float3 b = RGBtoYUV( float3x3(B, D, F) );
+	float3 c = RGBtoYUV( float3x3(C, A, I) );
+	float3 d = RGBtoYUV( float3x3(D, H, B) );
+	float3 e = RGBtoYUV( float3x3(E, E, E) );
+	float3 f = RGBtoYUV( float3x3(F, B, H) );
+	float3 g = RGBtoYUV( float3x3(G, I, A) );
+	float3 h = RGBtoYUV( float3x3(H, F, D) );
+	float3 i = RGBtoYUV( float3x3(I, C, G) );
 
-	float3 a1 = RGBtoYUV( half3x3(A1, G0, C4) );
-	float3 c1 = RGBtoYUV( half3x3(C1, A0, I4) );
-	float3 a0 = RGBtoYUV( half3x3(A0, G5, C1) );
-	float3 g0 = RGBtoYUV( half3x3(G0, I5, A1) );
-	float3 c4 = RGBtoYUV( half3x3(C4, A1, I5) );
-	float3 i4 = RGBtoYUV( half3x3(I4, C1, G5) );
-	float3 g5 = RGBtoYUV( half3x3(G5, I4, A0) );
-	float3 i5 = RGBtoYUV( half3x3(I5, C4, G0) );
-	float3 b1 = RGBtoYUV( half3x3(B1, D0, F4) );
-	float3 d0 = RGBtoYUV( half3x3(D0, H5, B1) );
-	float3 h5 = RGBtoYUV( half3x3(H5, F4, D0) );
-	float3 f4 = RGBtoYUV( half3x3(F4, B1, H5) );
+	float3 a1 = RGBtoYUV( float3x3(A1, G0, C4) );
+	float3 c1 = RGBtoYUV( float3x3(C1, A0, I4) );
+	float3 a0 = RGBtoYUV( float3x3(A0, G5, C1) );
+	float3 g0 = RGBtoYUV( float3x3(G0, I5, A1) );
+	float3 c4 = RGBtoYUV( float3x3(C4, A1, I5) );
+	float3 i4 = RGBtoYUV( float3x3(I4, C1, G5) );
+	float3 g5 = RGBtoYUV( float3x3(G5, I4, A0) );
+	float3 i5 = RGBtoYUV( float3x3(I5, C4, G0) );
+	float3 b1 = RGBtoYUV( float3x3(B1, D0, F4) );
+	float3 d0 = RGBtoYUV( float3x3(D0, H5, B1) );
+	float3 h5 = RGBtoYUV( float3x3(H5, F4, D0) );
+	float3 f4 = RGBtoYUV( float3x3(F4, B1, H5) );
 
 	interp_restriction_lv1      = ((e!=f) && (e!=h));
 	interp_restriction_lv2_left = ((e!=g) && (d!=g));
@@ -241,7 +241,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
 	}
 
 
-	half3 res = (fp.x < 0.50) ? ((fp.x < 0.25) ? ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E11: (fp.y < 0.75) ? E14: E15) : ((fp.y < 0.25) ? E14: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E  : E11)) : ((fp.x < 0.75) ? ((fp.y < 0.25) ? E11: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E   : E14) : ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E14: (fp.y < 0.75) ? E11 : E15));
+	float3 res = (fp.x < 0.50) ? ((fp.x < 0.25) ? ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E11: (fp.y < 0.75) ? E14: E15) : ((fp.y < 0.25) ? E14: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E  : E11)) : ((fp.x < 0.75) ? ((fp.y < 0.25) ? E11: (fp.y < 0.50) ? E  : (fp.y < 0.75) ? E   : E14) : ((fp.y < 0.25) ? E15: (fp.y < 0.50) ? E14: (fp.y < 0.75) ? E11 : E15));
 
 
 // CRT-caligari - only vertical blend
@@ -272,7 +272,7 @@ half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unifo
             color *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 
-	return half4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
+	return float4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
 
 }
 

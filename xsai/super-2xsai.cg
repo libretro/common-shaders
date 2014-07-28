@@ -55,7 +55,7 @@ int GET_RESULT(float A, float B, float C, float D)
 } 
 
 
-float reduce(half3 color)
+float reduce(float3 color)
 { 
 	return dot(color, dtt);
 }
@@ -70,10 +70,10 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
   	
 	// calculating offsets, coordinates
 
-	half2 dx = half2( ps.x, 0.0); 
-	half2 dy = half2( 0.0, ps.y);
-	half2 g1 = half2( ps.x,ps.y);
-	half2 g2 = half2(-ps.x,ps.y);	
+	float2 dx = float2( ps.x, 0.0); 
+	float2 dy = float2( 0.0, ps.y);
+	float2 g1 = float2( ps.x,ps.y);
+	float2 g2 = float2(-ps.x,ps.y);	
 	
 	float2 pixcoord  = texCoord/ps;
 	float2 fp        = frac(pixcoord);
@@ -84,27 +84,27 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 
 	// Reading the texels
 
-	half3 C0 = tex2D(decal,pC4-g1).xyz; 
-	half3 C1 = tex2D(decal,pC4-dy).xyz;
-	half3 C2 = tex2D(decal,pC4-g2).xyz;
-	half3 D3 = tex2D(decal,pC4-g2+dx).xyz;
-	half3 C3 = tex2D(decal,pC4-dx).xyz;
-	half3 C4 = tex2D(decal,pC4   ).xyz;
-	half3 C5 = tex2D(decal,pC4+dx).xyz;
-	half3 D4 = tex2D(decal,pC8-g2).xyz;
-	half3 C6 = tex2D(decal,pC4+g2).xyz;
-	half3 C7 = tex2D(decal,pC4+dy).xyz;
-	half3 C8 = tex2D(decal,pC4+g1).xyz;
-	half3 D5 = tex2D(decal,pC8+dx).xyz;
-	half3 D0 = tex2D(decal,pC4+g2+dy).xyz;
-	half3 D1 = tex2D(decal,pC8+g2).xyz;
-	half3 D2 = tex2D(decal,pC8+dy).xyz;
-	half3 D6 = tex2D(decal,pC8+g1).xyz;
+	float3 C0 = tex2D(decal,pC4-g1).xyz; 
+	float3 C1 = tex2D(decal,pC4-dy).xyz;
+	float3 C2 = tex2D(decal,pC4-g2).xyz;
+	float3 D3 = tex2D(decal,pC4-g2+dx).xyz;
+	float3 C3 = tex2D(decal,pC4-dx).xyz;
+	float3 C4 = tex2D(decal,pC4   ).xyz;
+	float3 C5 = tex2D(decal,pC4+dx).xyz;
+	float3 D4 = tex2D(decal,pC8-g2).xyz;
+	float3 C6 = tex2D(decal,pC4+g2).xyz;
+	float3 C7 = tex2D(decal,pC4+dy).xyz;
+	float3 C8 = tex2D(decal,pC4+g1).xyz;
+	float3 D5 = tex2D(decal,pC8+dx).xyz;
+	float3 D0 = tex2D(decal,pC4+g2+dy).xyz;
+	float3 D1 = tex2D(decal,pC8+g2).xyz;
+	float3 D2 = tex2D(decal,pC8+dy).xyz;
+	float3 D6 = tex2D(decal,pC8+g1).xyz;
 
 	float3 p00,p10,p01,p11;
 
 
-	// reducing half3 to float
+	// reducing float3 to float
 	
 	float c0 = reduce(C0);float c1 = reduce(C1);
 	float c2 = reduce(C2);float c3 = reduce(C3);

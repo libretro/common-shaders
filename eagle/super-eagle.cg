@@ -5,7 +5,7 @@
 
 const static float3 dtt = float3(65536,255,1);
 
-float reduce(half3 color)
+float reduce(float3 color)
 {
 	return dot(color, dtt);
 }
@@ -54,21 +54,21 @@ out_vertex main_vertex
 	float dy = ps.y;
 
 	OUT.texCoord = texCoord;
-	OUT.t1.xy = texCoord + half2(-dx,-dy);
-	OUT.t1.zw = texCoord + half2(-dx,  0);
-	OUT.t2.xy = texCoord + half2(+dx,-dy);
-	OUT.t2.zw = texCoord + half2(+dx+dx,-dy);
-	OUT.t3.xy = texCoord + half2(-dx,  0);
-	OUT.t3.zw = texCoord + half2(+dx,  0);
-	OUT.t4.xy = texCoord + half2(+dx+dx,  0);
-	OUT.t4.zw = texCoord + half2(-dx,+dy);
-	OUT.t5.xy = texCoord + half2(  0,+dy);
-	OUT.t5.zw = texCoord + half2(+dx,+dy);
-	OUT.t6.xy = texCoord + half2(+dx+dx,+dy);
-	OUT.t6.zw = texCoord + half2(-dx,+dy+dy);
-	OUT.t7.xy = texCoord + half2(  0,+dy+dy);
-	OUT.t7.zw = texCoord + half2(+dx,+dy+dy);
-	t8.xy = texCoord + half2(+dx+dx,+dy+dy);
+	OUT.t1.xy = texCoord + float2(-dx,-dy);
+	OUT.t1.zw = texCoord + float2(-dx,  0);
+	OUT.t2.xy = texCoord + float2(+dx,-dy);
+	OUT.t2.zw = texCoord + float2(+dx+dx,-dy);
+	OUT.t3.xy = texCoord + float2(-dx,  0);
+	OUT.t3.zw = texCoord + float2(+dx,  0);
+	OUT.t4.xy = texCoord + float2(+dx+dx,  0);
+	OUT.t4.zw = texCoord + float2(-dx,+dy);
+	OUT.t5.xy = texCoord + float2(  0,+dy);
+	OUT.t5.zw = texCoord + float2(+dx,+dy);
+	OUT.t6.xy = texCoord + float2(+dx+dx,+dy);
+	OUT.t6.zw = texCoord + float2(-dx,+dy+dy);
+	OUT.t7.xy = texCoord + float2(  0,+dy+dy);
+	OUT.t7.zw = texCoord + float2(+dx,+dy+dy);
+	t8.xy = texCoord + float2(+dx+dx,+dy+dy);
 
 	return OUT;
 }
@@ -92,26 +92,26 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
    // Reading the texels
 
-   half3 C0 = tex2D(decal,VAR.t1.xy).xyz; 
-   half3 C1 = tex2D(decal,VAR.t1.zw).xyz;
-   half3 C2 = tex2D(decal,VAR.t2.xy).xyz;
-   half3 D3 = tex2D(decal,VAR.t2.zw).xyz;
-   half3 C3 = tex2D(decal,VAR.t3.xy).xyz;
-   half3 C4 = tex2D(decal,VAR.texCoord).xyz;
-   half3 C5 = tex2D(decal,VAR.t3.zw).xyz;
-   half3 D4 = tex2D(decal,VAR.t4.xy).xyz;
-   half3 C6 = tex2D(decal,VAR.t4.zw).xyz;
-   half3 C7 = tex2D(decal,VAR.t5.xy).xyz;
-   half3 C8 = tex2D(decal,VAR.t5.zw).xyz;
-   half3 D5 = tex2D(decal,VAR.t6.xy).xyz;
-   half3 D0 = tex2D(decal,VAR.t6.zw).xyz;
-   half3 D1 = tex2D(decal,VAR.t7.xy).xyz;
-   half3 D2 = tex2D(decal,VAR.t7.zw).xyz;
-   half3 D6 = tex2D(decal,t8.xy).xyz;
+   float3 C0 = tex2D(decal,VAR.t1.xy).xyz; 
+   float3 C1 = tex2D(decal,VAR.t1.zw).xyz;
+   float3 C2 = tex2D(decal,VAR.t2.xy).xyz;
+   float3 D3 = tex2D(decal,VAR.t2.zw).xyz;
+   float3 C3 = tex2D(decal,VAR.t3.xy).xyz;
+   float3 C4 = tex2D(decal,VAR.texCoord).xyz;
+   float3 C5 = tex2D(decal,VAR.t3.zw).xyz;
+   float3 D4 = tex2D(decal,VAR.t4.xy).xyz;
+   float3 C6 = tex2D(decal,VAR.t4.zw).xyz;
+   float3 C7 = tex2D(decal,VAR.t5.xy).xyz;
+   float3 C8 = tex2D(decal,VAR.t5.zw).xyz;
+   float3 D5 = tex2D(decal,VAR.t6.xy).xyz;
+   float3 D0 = tex2D(decal,VAR.t6.zw).xyz;
+   float3 D1 = tex2D(decal,VAR.t7.xy).xyz;
+   float3 D2 = tex2D(decal,VAR.t7.zw).xyz;
+   float3 D6 = tex2D(decal,t8.xy).xyz;
 
-   half3 p00,p10,p01,p11;
+   float3 p00,p10,p01,p11;
 
-   // reducing half3 to float	
+   // reducing float3 to float	
    float c0 = reduce(C0);float c1 = reduce(C1);
    float c2 = reduce(C2);float c3 = reduce(C3);
    float c4 = reduce(C4);float c5 = reduce(C5);

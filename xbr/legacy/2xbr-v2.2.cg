@@ -62,7 +62,7 @@ struct input
         float frame_rotation;
 };
 
-float reduce(half3 color)
+float reduce(float3 color)
 { 
 	return dot(color, dtt);
 }
@@ -129,43 +129,43 @@ output main_fragment(float2 texCoord: TEXCOORD0, uniform sampler2D decal : TEXUN
 {
 
 	float2 ps = float2(0.9999/IN.texture_size.x, 0.9999/IN.texture_size.y);
-	half2 dx = half2(ps.x, 0.0);
-	half2 dy = half2(0.0, ps.y);
+	float2 dx = float2(ps.x, 0.0);
+	float2 dy = float2(0.0, ps.y);
 
 	float2 pixcoord = texCoord/ps;
 	float2 fp	= frac(pixcoord);
 	float2 d11	= texCoord-fp*ps;
 
-	half3 E[4];
+	float3 E[4];
 
 	// Reading the texels
 
-	half3 A = tex2D(decal,d11-dx-dy).xyz;
-	half3 B = tex2D(decal,d11   -dy).xyz;
-	half3 C = tex2D(decal,d11+dx-dy).xyz;
-	half3 D = tex2D(decal,d11-dx   ).xyz;
-	half3 E0 = tex2D(decal,d11      ).xyz;
-	half3 F = tex2D(decal,d11+dx   ).xyz;
-	half3 G = tex2D(decal,d11-dx+dy).xyz;
-	half3 H = tex2D(decal,d11+dy   ).xyz;
-	half3 I = tex2D(decal,d11+dx+dy).xyz;
+	float3 A = tex2D(decal,d11-dx-dy).xyz;
+	float3 B = tex2D(decal,d11   -dy).xyz;
+	float3 C = tex2D(decal,d11+dx-dy).xyz;
+	float3 D = tex2D(decal,d11-dx   ).xyz;
+	float3 E0 = tex2D(decal,d11      ).xyz;
+	float3 F = tex2D(decal,d11+dx   ).xyz;
+	float3 G = tex2D(decal,d11-dx+dy).xyz;
+	float3 H = tex2D(decal,d11+dy   ).xyz;
+	float3 I = tex2D(decal,d11+dx+dy).xyz;
 	
-	half3 P00 = tex2D(decal,d11-dx-dx-dy-dy).xyz;
-	half3 P04 = tex2D(decal,d11+dx+dx-dy-dy).xyz;
-	half3 P40 = tex2D(decal,d11-dx-dx+dy+dy).xyz;
-	half3 P44 = tex2D(decal,d11+dx+dx+dy+dy).xyz;
-	half3  A1 = tex2D(decal,d11   -dx-dy-dy).xyz;
-	half3  B1 = tex2D(decal,d11      -dy-dy).xyz;
-	half3  C1 = tex2D(decal,d11   +dx-dy-dy).xyz;
-	half3  A0 = tex2D(decal,d11-dx-dx-dy   ).xyz;
-	half3  D0 = tex2D(decal,d11-dx-dx      ).xyz;
-	half3  G0 = tex2D(decal,d11-dx-dx+dy   ).xyz;
-	half3  C4 = tex2D(decal,d11+dx+dx-dy   ).xyz;
-	half3  F4 = tex2D(decal,d11+dx+dx      ).xyz;
-	half3  I4 = tex2D(decal,d11+dx+dx+dy   ).xyz;
-	half3  G5 = tex2D(decal,d11   -dx+dy+dy).xyz;
-	half3  H5 = tex2D(decal,d11      +dy+dy).xyz;
-	half3  I5 = tex2D(decal,d11   +dx+dy+dy).xyz;
+	float3 P00 = tex2D(decal,d11-dx-dx-dy-dy).xyz;
+	float3 P04 = tex2D(decal,d11+dx+dx-dy-dy).xyz;
+	float3 P40 = tex2D(decal,d11-dx-dx+dy+dy).xyz;
+	float3 P44 = tex2D(decal,d11+dx+dx+dy+dy).xyz;
+	float3  A1 = tex2D(decal,d11   -dx-dy-dy).xyz;
+	float3  B1 = tex2D(decal,d11      -dy-dy).xyz;
+	float3  C1 = tex2D(decal,d11   +dx-dy-dy).xyz;
+	float3  A0 = tex2D(decal,d11-dx-dx-dy   ).xyz;
+	float3  D0 = tex2D(decal,d11-dx-dx      ).xyz;
+	float3  G0 = tex2D(decal,d11-dx-dx+dy   ).xyz;
+	float3  C4 = tex2D(decal,d11+dx+dx-dy   ).xyz;
+	float3  F4 = tex2D(decal,d11+dx+dx      ).xyz;
+	float3  I4 = tex2D(decal,d11+dx+dx+dy   ).xyz;
+	float3  G5 = tex2D(decal,d11   -dx+dy+dy).xyz;
+	float3  H5 = tex2D(decal,d11      +dy+dy).xyz;
+	float3  I5 = tex2D(decal,d11   +dx+dy+dy).xyz;
 
 	E[0] = E[1] = E[2] = E[3] = E0;
 		
