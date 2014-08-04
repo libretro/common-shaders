@@ -1,8 +1,9 @@
-#tvout preset for 240p CRTs
+#tvout preset for 480p CRTs
 
-shaders = "2"
-shader0 = "../crt/tvout-tweaks.cg"
-shader1 = "../misc/image-adjustment.cg"
+shaders = "3"
+shader0 = "../../crt/tvout-tweaks.cg"
+shader1 = "../../misc/image-adjustment.cg"
+shader2 = "../../misc/interlacing.cg"
 
 scale_type_x0 = "viewport"
 scale_x0 = "1.000000"
