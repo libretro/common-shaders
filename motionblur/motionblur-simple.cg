@@ -69,7 +69,7 @@ struct output
   float4 col    : COLOR;
 };
 
-output main_fragment(in float2 texCoord : TEXCOORD0,
+output main_fragment(tex_coords coords,
 uniform input IN,
       previous PREV,
       previous PREV1,
@@ -80,14 +80,14 @@ uniform input IN,
       previous PREV6
 )
 {
-   float4 color = tex2D(PREV6.texture, texCoord);
-   color = (color + tex2D(PREV5.texture, texCoord)) / 2.0;
-   color = (color + tex2D(PREV4.texture, texCoord)) / 2.0;
-   color = (color + tex2D(PREV3.texture, texCoord)) / 2.0;
-   color = (color + tex2D(PREV2.texture, texCoord)) / 2.0;
-   color = (color + tex2D(PREV1.texture, texCoord)) / 2.0;
-   color = (color + tex2D(PREV.texture, texCoord)) / 2.0;
-   color = (color + tex2D(IN.texture, texCoord)) / 2.0;
+   float4 color = tex2D(PREV6.texture, coords.prev6);
+   color = (color + tex2D(PREV5.texture, coords.prev5)) / 2.0;
+   color = (color + tex2D(PREV4.texture, coords.prev4)) / 2.0;
+   color = (color + tex2D(PREV3.texture, coords.prev3)) / 2.0;
+   color = (color + tex2D(PREV2.texture, coords.prev2)) / 2.0;
+   color = (color + tex2D(PREV1.texture, coords.prev1)) / 2.0;
+   color = (color + tex2D(PREV.texture, coords.prev)) / 2.0;
+   color = (color + tex2D(IN.texture, coords.prev)) / 2.0;
 
 
    output OUT;
