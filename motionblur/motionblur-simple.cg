@@ -87,7 +87,7 @@ uniform input IN,
    color = (color + tex2D(PREV2.texture, coords.prev2)) / 2.0;
    color = (color + tex2D(PREV1.texture, coords.prev1)) / 2.0;
    color = (color + tex2D(PREV.texture, coords.prev)) / 2.0;
-   color = (color + tex2D(IN.texture, coords.prev)) / 2.0;
+   color = (color + tex2D(IN.texture, coords.tex)) / 2.0;
 
 
    output OUT;
