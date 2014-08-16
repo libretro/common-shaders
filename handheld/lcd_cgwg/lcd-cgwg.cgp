@@ -3,7 +3,7 @@
 * This shader is distributed under the General Public License v2.0 or higher
 
 shaders = 2
-shader0 = Motionblur-simple.cg
+shader0 = ../../motionblur/motionblur-simple.cg
 shader1 = lcd-grid.cg
 
 scale_type0 = source
