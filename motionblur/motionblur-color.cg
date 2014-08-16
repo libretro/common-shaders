@@ -1,0 +1,103 @@
+/* derived from https://github.com/libretro/common-shaders/blob/master/Motionblur/Motionblur-blue.cg
+   to increase the effect, uncomment more PREVX lines in each color channel
+*/
+
+struct previous
+{
+   uniform sampler2D texture;
+   float2 tex_coord;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
+};
+
+struct tex_coords
+{
+   float2 tex;
+   float2 prev;
+   float2 prev1;
+   float2 prev2;
+   float2 prev3;
+   float2 prev4;
+   float2 prev5;
+   float2 prev6;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+
+   previous PREV,
+   previous PREV1,
+   previous PREV2,
+   previous PREV3,
+   previous PREV4,
+   previous PREV5,
+   previous PREV6,
+   out tex_coords coords
+)
+{
+   oPosition = mul(modelViewProj, position);
+   coords = tex_coords(tex, PREV.tex_coord,
+      PREV1.tex_coord,
+      PREV2.tex_coord,
+      PREV3.tex_coord,
+      PREV4.tex_coord,
+      PREV5.tex_coord,
+      PREV6.tex_coord);
+}
+
+float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, uniform input IN, tex_coords coords,
+      previous PREV,
+      previous PREV1,
+      previous PREV2,
+      previous PREV3,
+      previous PREV4,
+      previous PREV5,
+      previous PREV6
+) : COLOR
+{
+   float red_result =
+      tex2D(PREV.texture,  coords.prev).r +
+      tex2D(PREV1.texture, coords.prev1).r /*+
+      tex2D(PREV2.texture, coords.prev2).r +
+      tex2D(PREV3.texture, coords.prev3).r +
+      tex2D(PREV4.texture, coords.prev4).r +
+      tex2D(PREV5.texture, coords.prev5).r +
+      tex2D(PREV6.texture, coords.prev6).r*/;
+      
+   float green_result =
+      tex2D(PREV.texture,  coords.prev).g +
+      tex2D(PREV1.texture, coords.prev1).g /*+
+      tex2D(PREV2.texture, coords.prev2).g +
+      tex2D(PREV3.texture, coords.prev3).g +
+      tex2D(PREV4.texture, coords.prev4).g +
+      tex2D(PREV5.texture, coords.prev5).g +
+      tex2D(PREV6.texture, coords.prev6).g*/;
+      
+   float blue_result =
+      tex2D(PREV.texture,  coords.prev).b +
+      tex2D(PREV1.texture, coords.prev1).b /*+
+      tex2D(PREV2.texture, coords.prev2).b +
+      tex2D(PREV3.texture, coords.prev3).b +
+      tex2D(PREV4.texture, coords.prev4).b +
+      tex2D(PREV5.texture, coords.prev5).b +
+      tex2D(PREV6.texture, coords.prev6).b*/;
+   
+   return  saturate(tex2D(s0, coords.tex) + 0.4 * float4(
+      saturate(red_result - 7.0 * tex2D(s0, coords.tex).r),
+      saturate(green_result - 7.0 * tex2D(s0, coords.tex).g),
+      saturate(blue_result - 7.0 * tex2D(s0, coords.tex).b),
+      1.0));
+}
+
