@@ -1,7 +1,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 ////          crt-royale, by TroggleMonkey <trogglemonkey@gmx.com>          ////
-////                      Last Updated: July 11, 2014                       ////
+////                     Last Updated: August 16, 2014                      ////
 ////////////////////////////////////////////////////////////////////////////////
+
+REQUIREMENTS:
+The earliest official Retroarch version fully supporting crt-royale is 1.0.0.3
+(currently unreleased).  Earlier versions lack shader parameters and proper
+mipmapping and sRGB support, but the shader may still run at reduced quality.
+
+The earliest development version fully supporting this shader is:
+    commit ba40be909913c9ccc34dab5d452fba4fe61af9d0
+    Author: Themaister <maister@archlinux.us>
+    Date:   Thu Jun 5 17:41:10 2014 +0200
+A few earlier revisions support the required features, but they may be buggier.
+
 
 BASICS:
 crt-royale is a highly customizable CRT shader for Retroarch and other programs
@@ -268,7 +280,22 @@ top, so let me know!
 
 --------------------------------------------------------------------------------
 
-8.) HOW DO I SET GEOMETRY/CURVATURE/ETC.?
+8.) WHY AM I GETTING BANDING IN DARK COLORS?  OR, WHY WON'T MIPMAPPING WORK?
+crt-royale uses features like sRGB and mipmapping, which are not available in
+the latest Retroarch release (1.0.0.2) at the time of this writing.
+
+You may get banding in dark colors if your platform or Retroarch version doesn't
+support sRGB FBO's, and mask_sample_mode 1 will look awful without mipmapping.
+I expect most platforms capable of running this shader at full speed will
+support sRGB FBO's, but if yours doesn't, please let me know, and I'll include
+a note about it.
+
+Alternately, setting levels_autodim_temp too low will cause precision loss and
+banding.
+
+--------------------------------------------------------------------------------
+
+9.) HOW DO I SET GEOMETRY/CURVATURE/ETC.?
 If RUNTIME_SHADER_PARAMS_ENABLE and RUNTIME_GEOMETRY_MODE are both #defined (not
 commented out) in user-settings.cgp, you can find these options in your shader
 parameters (in Retroarch's RGUI for instance) under e.g. geom_mode.  Otherwise,
@@ -276,7 +303,7 @@ you can set the corresponding e.g. geom_mode_static options in user-settings.h.
 
 --------------------------------------------------------------------------------
 
-9.) WHY DON'T MY SHADER PARAMETERS STICK?
+10.) WHY DON'T MY SHADER PARAMETERS STICK?
 This is a bit confusing, at least in the version of Retroarch I'm using.
 In the Shader Options menu, Parameters (Current) controls what's on your screen
 right now, whereas Parameters (RGUI) seems to control what gets saved to a
@@ -284,7 +311,7 @@ shader preset (in your base shaders directory) with Save As Shader Preset.
 
 --------------------------------------------------------------------------------
 
-10.) WHY DID YOU SLOW THE SHADER DOWN WITH ALL OF THESE FEATURES I DON'T WANT?
+11.) WHY DID YOU SLOW THE SHADER DOWN WITH ALL OF THESE FEATURES I DON'T WANT?
      WHY DIDN'T YOU MAKE THE DEFAULTS MORE TO MY LIKING?
 
 The default settings tend to best match flat ~13" slot mask TV's with sharp
@@ -309,7 +336,7 @@ get the kind of performance you want.
 
 --------------------------------------------------------------------------------
 
-11.) WHY DIDN'T YOU INCLUDE A SHADER PRESET WITH NTSC SUPPORT?  WHY DIDN'T YOU
+12.) WHY DIDN'T YOU INCLUDE A SHADER PRESET WITH NTSC SUPPORT?  WHY DIDN'T YOU
      INCLUDE MORE CANNED PRESETS WITH DIFFERENT OPTIONS?  WHY CAN'T I SELECT
      FROM ONE OF SEVERAL USER SETTINGS FILES WITHOUT MANUAL FILE RENAMING?
 
@@ -342,7 +369,7 @@ keep it hidden on my hard drive.
 
 --------------------------------------------------------------------------------
 
-12.) WHY DO SO MANY VALUES IN USER_SETTINGS.H HAVE A _STATIC SUFFIX?
+13.) WHY DO SO MANY VALUES IN USER_SETTINGS.H HAVE A _STATIC SUFFIX?
 
 The "_static" suffix is there to prevent naming conflicts with runtime shader
 parameters: The shader usually uses a version without the suffix, which is
@@ -353,7 +380,7 @@ corresponding runtime version.  Basically, you can ignore the suffix. :)
 
 --------------------------------------------------------------------------------
 
-13.) ARE THERE ANY BROKEN SETTINGS I SHOULD BE AWARE OF?
+14.) ARE THERE ANY BROKEN SETTINGS I SHOULD BE AWARE OF?
      WHAT IF I WANT TO CHANGE SETTINGS IN THE .CGP FILE?
 
 As far as I know, all of the options in user-settings.h and the runtime shader
@@ -385,15 +412,6 @@ changing an LUT texture, make sure you update the associated constants in
 user-cgp-constants.h.  In short, if you plan on changing anything in a .cgp
 file, you'll want to read it thoroughly first, especially the "IMPORTANT"
 section at the top.
-
---------------------------------------------------------------------------------
-
-14.) WHY DO I HAVE BANDING IN THE DARK COLORS?
-
-Either something is broken that I didn't expect, or you set levels_autodim_temp
-too low, or your platform doesn't support sRGB framebuffers.  I don't expect any
-platforms capable of running this shader at full speed will have that problem,
-but if yours does, let me know.
 
 --------------------------------------------------------------------------------
 
