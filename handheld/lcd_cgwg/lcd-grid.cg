@@ -7,6 +7,13 @@
 #define gamma 2.2
 #define TEX2D(c) pow(tex2D(IN.texture, (c)), float4(gamma))
 
+#pragma parameter GRID_STRENGTH "LCD Grid Strength" 0.05 0.00 1.00 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float GRID_STRENGTH;
+#else
+#define GRID_STRENGTH 0.05
+#endif
+
 // VERTEX SHADER //
 
 void main_vertex
@@ -89,10 +96,9 @@ uniform sampler2D texture : TEXUNIT0
   float4 topRightColor    = TEX2D((floor(float2(right, top)    / texelSize) + 0.5) * texelSize) * rcol;
 
   float2 border = round(texCoord.st/subtexelSize);
-  float shry = 0.05;
-  float2 bordert = clamp((border+float2(0.0,+shry)) * subtexelSize,
+  float2 bordert = clamp((border+float2(0.0,+GRID_STRENGTH)) * subtexelSize,
 		       float2(left, bottom), float2(right, top));
-  float2 borderb = clamp((border+float2(0.0,-shry)) * subtexelSize,
+  float2 borderb = clamp((border+float2(0.0,-GRID_STRENGTH)) * subtexelSize,
 		       float2(left, bottom), float2(right, top));
   float totalArea = 2.0 * range.y;
 
