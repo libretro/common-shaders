@@ -61,11 +61,12 @@ float3 tex2Dresize_gaussian4x4(const sampler2D texture, const float2 tex_uv,
     //  We're taking 4x4 samples, and we're snapping to texels for upsizing.
     //  Find texture coords for sample 5 (second row, second column):
     const float2 curr_texel = tex_uv * texture_size;
-    const float2 last_texel = floor(curr_texel - float2(0.4999)) + float2(0.5);
-    const float2 last_texel_uv = last_texel * texture_size_inv;
+    const float2 prev_texel =
+        floor(curr_texel - float2(under_half)) + float2(0.5);
+    const float2 prev_texel_uv = prev_texel * texture_size_inv;
     const float2 snap = float2(dxdy <= texture_size_inv);
     const float2 sample5_downsize_uv = tex_uv - 0.5 * dxdy;
-    const float2 sample5_uv = lerp(sample5_downsize_uv, last_texel_uv, snap);
+    const float2 sample5_uv = lerp(sample5_downsize_uv, prev_texel_uv, snap);
     //  Compute texture coords for other samples:
     const float2 dx = float2(dxdy.x, 0.0);
     const float2 sample0_uv = sample5_uv - dxdy;

@@ -156,9 +156,8 @@ float4 main_fragment(in out_vertex VAR,
         const float field_offset =
             fmod(IN.frame_count + float(interlace_bff), modulus);
         const float curr_line_texel = tex_uv.y * IN.texture_size.y;
-        //  Use 0.4999 to fix a rounding bug right around exact texel locations.
-        //const float2 texel_num_last = round(curr_texel - float2(0.9999));
-        const float line_num_last = floor(curr_line_texel - 0.4999);
+        //  Use under_half to fix a rounding bug around exact texel locations.
+        const float line_num_last = floor(curr_line_texel - under_half);
         const float wrong_field = fmod(line_num_last + field_offset, modulus);
         //  Select the correct color, and output the result:
         const float3 color = lerp(curr_line, interpolated_line, wrong_field);

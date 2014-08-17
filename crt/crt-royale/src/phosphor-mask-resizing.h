@@ -101,12 +101,12 @@ float2 get_first_texel_tile_uv_and_dist(const float2 tex_uv,
     //  so get the first sample location and distance.  Modify both dimensions
     //  as if we're doing a one-pass 2D resize; we'll throw away the unneeded
     //  (and incorrect) dimension at the end.
-    const float2 curr_texel_num = tex_uv * texture_size;
-    const float2 prev_texel_num =
-        floor(curr_texel_num - float2(0.4999)) + float2(0.5);
-    const float2 first_texel_num = prev_texel_num - float2(samples/2.0 - 1.0);
-    const float2 first_texel_uv_wrap_2D = first_texel_num * dr;
-    const float2 first_texel_dist_2D = curr_texel_num - first_texel_num;
+    const float2 curr_texel = tex_uv * texture_size;
+    const float2 prev_texel =
+        floor(curr_texel - float2(under_half)) + float2(0.5);
+    const float2 first_texel = prev_texel - float2(samples/2.0 - 1.0);
+    const float2 first_texel_uv_wrap_2D = first_texel * dr;
+    const float2 first_texel_dist_2D = curr_texel - first_texel;
     //  Convert from tex_uv to tile_uv coords so we can sub fracs for fmods.
     const float2 first_texel_tile_uv_wrap_2D =
         first_texel_uv_wrap_2D * input_tiles_per_texture_r;
