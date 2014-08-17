@@ -437,13 +437,14 @@ float3 sample_single_scanline_horizontal(const sampler2D texture,
     //  TODO: Add function requirements.
     //  Snap to the previous texel and get sample dists from 2/4 nearby texels:
     const float2 curr_texel = tex_uv * texture_size;
-    //  Use 0.4999 to fix a rounding bug right around exact texel locations.
-    const float2 last_texel = floor(curr_texel - float2(0.4999)) + float2(0.5);
-    const float2 last_texel_hor = float2(last_texel.x, curr_texel.y);
-    const float2 last_texel_hor_uv = last_texel_hor * texture_size_inv;
-    const float last_dist = curr_texel.x - last_texel_hor.x;
-    const float4 sample_dists = float4(1.0 + last_dist, last_dist,
-        1.0 - last_dist, 2.0 - last_dist);
+    //  Use under_half to fix a rounding bug right around exact texel locations.
+    const float2 prev_texel =
+        floor(curr_texel - float2(under_half)) + float2(0.5);
+    const float2 prev_texel_hor = float2(prev_texel.x, curr_texel.y);
+    const float2 prev_texel_hor_uv = prev_texel_hor * texture_size_inv;
+    const float prev_dist = curr_texel.x - prev_texel_hor.x;
+    const float4 sample_dists = float4(1.0 + prev_dist, prev_dist,
+        1.0 - prev_dist, 2.0 - prev_dist);
     //  Get Quilez, Lanczos2, or Gaussian resize weights for 2/4 nearby texels:
     float4 weights;
     if(beam_horiz_filter < 0.5)
@@ -471,7 +472,7 @@ float3 sample_single_scanline_horizontal(const sampler2D texture,
     //  Get the interpolated horizontal scanline color:
     const float2 uv_step_x = float2(texture_size_inv.x, 0.0);
     return get_scanline_color(
-        texture, last_texel_hor_uv, uv_step_x, final_weights);
+        texture, prev_texel_hor_uv, uv_step_x, final_weights);
 }
 
 float3 sample_rgb_scanline_horizontal(const sampler2D texture,
@@ -519,13 +520,13 @@ float2 get_last_scanline_uv(const float2 tex_uv, const float2 texture_size,
     const float field_offset = floor(il_step_multiple.y * 0.75) *
         fmod(frame_count + float(interlace_bff), 2.0);
     const float2 curr_texel = tex_uv * texture_size;
-    //  Use 0.4999 to fix a rounding bug right around exact texel locations.
-    //const float2 texel_num_last = round(curr_texel - float2(0.9999));
-    const float2 texel_num_last = floor(curr_texel - float2(0.4999));
-    const float wrong_field = fmod(texel_num_last.y + field_offset, il_step_multiple.y);
-    const float2 texel_num_good = texel_num_last - float2(0.0, wrong_field);
+    //  Use under_half to fix a rounding bug right around exact texel locations.
+    const float2 prev_texel_num = floor(curr_texel - float2(under_half));
+    const float wrong_field = fmod(
+        prev_texel_num.y + field_offset, il_step_multiple.y);
+    const float2 scanline_texel_num = prev_texel_num - float2(0.0, wrong_field);
     //  Snap to the center of the previous scanline in the current field:
-    const float2 scanline_texel = texel_num_good + float2(0.5, 0.5);
+    const float2 scanline_texel = scanline_texel_num + float2(0.5);
     const float2 scanline_uv = scanline_texel * texture_size_inv;
     //  Save the sample's distance from the scanline, in units of scanlines:
     dist = (curr_texel.y - scanline_texel.y)/il_step_multiple.y;
