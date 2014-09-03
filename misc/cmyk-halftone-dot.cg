@@ -50,7 +50,6 @@ struct input
   float frame_direction;
   float frame_rotation;
   float texture_size;
-  sampler2D texture : TEXUNIT0;
 };
 
 struct output 
@@ -62,7 +61,7 @@ struct output
 
 output main_fragment(in float2 texCoord : TEXCOORD0,
 uniform input IN,
-uniform sampler2D texture : TEXUNIT0
+uniform sampler2D s0 : TEXUNIT0
 )
 {
     // Distance to nearest point in a grid of
@@ -71,7 +70,7 @@ uniform sampler2D texture : TEXUNIT0
 	float2 st2 = mul(rotation_matrix , texCoord);
     float2 nearest = 2.0 * fract(frequency * st2) - 1.0;
     float dist = length(nearest);
-    float3 texcolor = tex2D(IN.texture, texCoord).rgb; // Unrotated coords
+    float3 texcolor = tex2D(s0, texCoord).rgb; // Unrotated coords
     float3 black = float3(0.0, 0.0, 0.0);
 	
 	// Perform a rough RGB-to-CMYK conversion
