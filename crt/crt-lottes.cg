@@ -23,6 +23,7 @@
 #pragma parameter maskLight "maskLight" 1.5 0.0 2.0 0.1
 #pragma parameter scaleInLinearGamma "scaleInLinearGamma" 1.0 0.0 1.0 1.0
 #pragma parameter shadowMask "shadowMask" 1.0 0.0 1.0 1.0
+#pragma parameter brightboost "brightness" 1.0 0.0 2.0 0.05
 
 #ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
 uniform float hardScan;
@@ -33,6 +34,7 @@ uniform float maskDark;
 uniform float maskLight;
 uniform float scaleInLinearGamma;
 uniform float shadowMask;
+uniform float brightboost;
 #else
 #define hardScan -8.0
 #define hardPix -3.0
@@ -42,6 +44,7 @@ uniform float shadowMask;
 #define maskLight 1.5
 #define scaleInLinearGamma 1
 #define shadowMask 1
+#define brightboost 1
 
 #endif
 // ------------- //
@@ -108,7 +111,7 @@ float3 ToSrgb(float3 c)
 // Also zero's off screen.
 float3 Fetch(float2 pos,float2 off){
   pos=(floor(pos*IN_global.texture_size.xy+off)+float2(0.5,0.5))/IN_global.texture_size.xy;
-  return ToLinear(tex2D(s0_global,pos.xy).rgb);}
+  return ToLinear(brightboost * tex2D(s0_global,pos.xy).rgb);}
 
 // Distance in emulated pixels to nearest texel.
 float2 Dist(float2 pos){pos=pos*IN_global.texture_size.xy;return -((pos-floor(pos))-float2(0.5));}
