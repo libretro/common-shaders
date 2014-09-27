@@ -123,9 +123,13 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, SCANLINE_BEAM_WIDTH) * SCANLINE_STRENGTH;
 
     float mask = 1.0 - (MASK_STRENGTH);	
-    float3x3 mask_weights = float3x3(float3(1.0, mask, mask), float3(mask, 1.0, mask), float3(mask, mask, 1.0));
     float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_SUBPIXEL_HEIGHT * MASK_SIZE)));
-    float3 mask_weight = mask_weights[int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_SUBPIXEL_WIDTH, 3.0))];
+    int subpixel = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_SUBPIXEL_WIDTH, 3.0));
+    float3 mask_weight;
+    
+    if (subpixel == 0) mask_weight = float3(1.0, mask, mask);
+    else if (subpixel == 1) mask_weight = float3(mask, 1.0, mask);
+    else mask_weight = float3(mask, mask, 1.0);
 	
     if (IN.output_size.y / IN.video_size.y < 3.0) { scan_weight = 1.0; }
 
