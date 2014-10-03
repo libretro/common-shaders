@@ -1,14 +1,14 @@
-#pragma parameter A "Window Sinc Param" 0.39 0.0 1.0 0.01
-#pragma parameter B "Sinc Param" 0.82 0.0 1.0 0.01
-#pragma parameter AR_STRENGTH "Anti-ringing Strength" 0.8 0.0 1.0 0.01
+#pragma parameter JINC2_WINDOW_SINC "Window Sinc Param" 0.39 0.0 1.0 0.01
+#pragma parameter JINC2_SINC "Sinc Param" 0.82 0.0 1.0 0.01
+#pragma parameter JINC2_AR_STRENGTH "Anti-ringing Strength" 0.8 0.0 1.0 0.01
 #ifdef PARAMETER_UNIFORM
-uniform float A;
-uniform float B;
-uniform float AR_STRENGTH;
+uniform float JINC2_WINDOW_SINC;
+uniform float JINC2_SINC;
+uniform float JINC2_AR_STRENGTH;
 #else
-#define A 0.39
-#define B 0.82
-#define AR_STRENGTH 0.8
+#define JINC2_WINDOW_SINC 0.39
+#define JINC2_SINC 0.82
+#define JINC2_AR_STRENGTH 0.8
 #endif
 // END PARAMETERS //
 
@@ -50,8 +50,8 @@ uniform float AR_STRENGTH;
 
 #define halfpi  1.5707963267948966192313216916398
 #define pi    3.1415926535897932384626433832795
-#define wa    (A*pi)
-#define wb    (B*pi)
+#define wa    (JINC2_WINDOW_SINC*pi)
+#define wb    (JINC2_SINC*pi)
 
 // Calculates the distance between two points
 float d(float2 pt1, float2 pt2)
@@ -174,7 +174,7 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
       float3 aux = color;
       color = clamp(color, min_sample, max_sample);
 
-      color = lerp(aux, color, AR_STRENGTH);
+      color = lerp(aux, color, JINC2_AR_STRENGTH);
  
       // final sum and weight normalization
       return float4(color, 1);
