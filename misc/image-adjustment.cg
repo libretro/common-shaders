@@ -49,7 +49,6 @@ struct input
   float  frame_count;
   float  frame_direction;
   float frame_rotation;
-  sampler2D texture;
 };
 
 void main_vertex
@@ -84,9 +83,9 @@ float3 grayscale(float3 col)
    return float3(dot(col, float3(0.2126, 0.7152, 0.0722)));
 }
 
-float4 main_fragment(float2 texCoord : TEXCOORD, uniform input IN) : COLOR
+float4 main_fragment(float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
-   float3 res = tex2D(IN.texture, texCoord).rgb; // sample the texture
+   float3 res = tex2D(s0, texCoord).rgb; // sample the texture
    float3 gamma = float3(monitor_gamma / target_gamma); // setup ratio of display's gamma vs desired gamma
    float3 AvgLumin = float3(0.5, 0.5, 0.5);
    float3 intensity = grayscale(res); // find luminance
