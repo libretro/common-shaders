@@ -1,6 +1,30 @@
 /*
     CRT Shader by EasyMode
     License: GPL
+
+    A flat CRT shader ideally for 1080p or higher displays.
+
+    Recommended Settings:
+
+    Video
+    - Aspect Ratio: 4:3
+    - Integer Scale: Off
+
+    Shader
+    - Filter: Nearest
+    - Scale: Don't Care
+
+    Example RGB Mask Parameter Settings:
+
+    Aperture Grille (Default)
+    - Subpixel Width: 1
+    - Subpixel Height: 1
+    - Stagger: 0
+
+    Lottes' Shadow Mask
+    - Subpixel Width: 2
+    - Subpixel Height: 1
+    - Stagger: 3
 */
 
 #pragma parameter SHARPNESS_H "Sharpness Horizontal" 0.5 0.0 1.0 0.05
@@ -9,17 +33,21 @@
 #pragma parameter MASK_SUBPIXEL_WIDTH "Mask Subpixel Width" 1.0 1.0 100.0 1.0
 #pragma parameter MASK_SUBPIXEL_HEIGHT "Mask Subpixel Height" 1.0 1.0 100.0 1.0
 #pragma parameter MASK_STAGGER "Mask Stagger" 0.0 0.0 100.0 1.0
-#pragma parameter MASK_SIZE "Mask Size" 1.0 1.0 4.0 1.0
+#pragma parameter MASK_SIZE "Mask Size" 1.0 1.0 100.0 1.0
 #pragma parameter SCANLINE_STRENGTH "Scanline Strength" 1.0 0.0 1.0 0.05
-#pragma parameter SCANLINE_BEAM_WIDTH "Scanline Beam Width" 1.5 1.0 5.0 0.5
+#pragma parameter SCANLINE_BEAM_WIDTH_MIN "Scanline Beam Width Min." 1.5 0.5 5.0 0.5
+#pragma parameter SCANLINE_BEAM_WIDTH_MAX "Scanline Beam Width Max." 1.5 0.5 5.0 0.5
 #pragma parameter SCANLINE_BRIGHT_MIN "Scanline Brightness Min." 0.35 0.0 1.0 0.05
 #pragma parameter SCANLINE_BRIGHT_MAX "Scanline Brightness Max." 0.65 0.0 1.0 0.05
-#pragma parameter GAMMA_INPUT "Gamma Input" 2.0 1.0 3.0 0.1
-#pragma parameter GAMMA_OUTPUT "Gamma Output" 1.8 1.0 3.0 0.1
+#pragma parameter SCANLINE_CUTOFF "Scanline Cutoff" 400.0 1.0 1000.0 1.0
+#pragma parameter GAMMA_INPUT "Gamma Input" 2.0 0.1 5.0 0.1
+#pragma parameter GAMMA_OUTPUT "Gamma Output" 1.8 0.1 5.0 0.1
 #pragma parameter BRIGHT_BOOST "Brightness Boost" 1.2 1.0 2.0 0.01
+#pragma parameter DILATION "Dilation" 1.0 0.0 1.0 1.0
 
 #ifdef PARAMETER_UNIFORM
 uniform float BRIGHT_BOOST;
+uniform float DILATION;
 uniform float GAMMA_INPUT;
 uniform float GAMMA_OUTPUT;
 uniform float MASK_SIZE;
@@ -27,7 +55,9 @@ uniform float MASK_STAGGER;
 uniform float MASK_STRENGTH;
 uniform float MASK_SUBPIXEL_HEIGHT;
 uniform float MASK_SUBPIXEL_WIDTH;
-uniform float SCANLINE_BEAM_WIDTH;
+uniform float SCANLINE_CUTOFF;
+uniform float SCANLINE_BEAM_WIDTH_MAX;
+uniform float SCANLINE_BEAM_WIDTH_MIN;
 uniform float SCANLINE_BRIGHT_MAX;
 uniform float SCANLINE_BRIGHT_MIN;
 uniform float SCANLINE_STRENGTH;
@@ -35,6 +65,7 @@ uniform float SHARPNESS_H;
 uniform float SHARPNESS_V;
 #else
 #define BRIGHT_BOOST 1.2
+#define DILATION 1.0
 #define GAMMA_INPUT 2.0
 #define GAMMA_OUTPUT 1.8
 #define MASK_SIZE 1.0
@@ -42,22 +73,18 @@ uniform float SHARPNESS_V;
 #define MASK_STRENGTH 0.3
 #define MASK_SUBPIXEL_HEIGHT 1.0
 #define MASK_SUBPIXEL_WIDTH 1.0
-#define SCANLINE_BEAM_WIDTH 1.5
+#define SCANLINE_BEAM_WIDTH_MAX 1.5
+#define SCANLINE_BEAM_WIDTH_MIN 1.5
 #define SCANLINE_BRIGHT_MAX 0.65
 #define SCANLINE_BRIGHT_MIN 0.35
+#define SCANLINE_CUTOFF 400.0
 #define SCANLINE_STRENGTH 1.0
 #define SHARPNESS_H 0.5
 #define SHARPNESS_V 1.0
 #endif
 
 #define PI 3.141592653589
-#define LINEAR_PROCESSING
-
-#ifdef LINEAR_PROCESSING
-#define TEX2D(c) pow(tex2D(tex, c).rgb, float3(GAMMA_INPUT))
-#else
-#define TEX2D(c) tex2D(tex, c).rgb
-#endif
+#define TEX2D(c) dilate(tex2D(tex, c).rgb)
 
 void main_vertex
 (
@@ -78,10 +105,17 @@ struct input
     float2 video_size;
     float2 texture_size;
     float2 output_size;
-    float  frame_count;
-    float  frame_direction;
+    float frame_count;
+    float frame_direction;
     float frame_rotation;
 };
+
+float3 dilate(float3 col)
+{
+    float3 x = lerp(float3(1.0), col, DILATION);
+
+    return col * x;
+}
 
 float curve_distance(float x, float sharp)
 {
@@ -91,7 +125,7 @@ float curve_distance(float x, float sharp)
     single line formula for Graph Toy:
     0.5 - sqrt(0.25 - (x - step(0.5, x)) * (x - step(0.5, x))) * sign(0.5 - x)
 */
-    
+
     float x_step = step(0.5, x);
     float curve = 0.5 - sqrt(0.25 - (x - x_step) * (x - x_step)) * sign(0.5 - x);
 
@@ -112,26 +146,24 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     float3 col2 = lerp(TEX2D(c3), TEX2D(c4), x_curve);
 
     col = lerp(col, col2, curve_distance(dist.y, SHARPNESS_V));
+    col = pow(col, float3(GAMMA_INPUT / (DILATION + 1.0)));
 
-#ifndef LINEAR_PROCESSING
-    col = pow(col, float3(GAMMA_INPUT));
-#endif
-	
     float luma = dot(float3(0.2126, 0.7152, 0.0722), col);
     float bright = (max(col.r, max(col.g, col.b)) + luma) / 2.0;
     float scan_bright = clamp(bright, SCANLINE_BRIGHT_MIN, SCANLINE_BRIGHT_MAX);
-    float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, SCANLINE_BEAM_WIDTH) * SCANLINE_STRENGTH;
+    float scan_beam = clamp(bright * SCANLINE_BEAM_WIDTH_MAX, SCANLINE_BEAM_WIDTH_MIN, SCANLINE_BEAM_WIDTH_MAX);
+    float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, scan_beam) * SCANLINE_STRENGTH;
 
-    float mask = 1.0 - (MASK_STRENGTH);	
+    float mask = 1.0 - MASK_STRENGTH;	
     float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_SUBPIXEL_HEIGHT * MASK_SIZE)));
     int subpixel = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_SUBPIXEL_WIDTH, 3.0));
     float3 mask_weight;
-    
+
     if (subpixel == 0) mask_weight = float3(1.0, mask, mask);
     else if (subpixel == 1) mask_weight = float3(mask, 1.0, mask);
     else mask_weight = float3(mask, mask, 1.0);
-	
-    if (IN.output_size.y / IN.video_size.y < 3.0) { scan_weight = 1.0; }
+
+    if (IN.video_size.y >= SCANLINE_CUTOFF) scan_weight = 1.0;
 
     col2 = col.rgb;
     col *= float3(scan_weight);
