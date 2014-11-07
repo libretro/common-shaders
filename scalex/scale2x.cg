@@ -1,0 +1,92 @@
+/*
+	Scale2x
+
+Filter:	Nearest
+Scale:	2x
+
+Scale2x is real-time graphics effect able to increase the size of small bitmaps guessing the missing pixels without blurring the images.
+It was originally developed for the AdvanceMAME project in the year 2001 to improve the quality of old games with a low video resolution.
+
+Homepage: http://scale2x.sourceforge.net/
+Copyright (C) 2001, 2002, 2003, 2004 Andrea Mazzoleni 
+License: GNU-GPL  
+
+*/
+
+
+bool eq(float3 A, float3 B){
+	return all(A==B);
+}
+
+bool neq(float3 A, float3 B){
+	return any(A!=B);
+}
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	OUT.texCoord = texCoord;				// E
+	OUT.t1 = texCoord.xyxy + float4(  0,-dy,-dx,  0);	// B, D
+	OUT.t2 = texCoord.xyxy + float4( dx,  0,  0, dy);	// F, H	
+
+	return OUT;
+}
+
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	// subpixel determination
+	float2 fp = floor(2.0 * frac(VAR.texCoord*IN.texture_size));
+
+	/*
+		  B		E0 E1
+		D E F		E2 E3
+		  H
+	*/
+
+	// reading the texels
+	float3 B = tex2D(decal, VAR.t1.xy).xyz;
+	float3 D = tex2D(decal, VAR.t1.zw).xyz;
+	float3 E = tex2D(decal, VAR.texCoord).xyz;
+	float3 F = tex2D(decal, VAR.t2.xy).xyz;
+	float3 H = tex2D(decal, VAR.t2.zw).xyz;
+
+	// rules
+	float3 E0 = eq(B,D) ? B : E;
+	float3 E1 = eq(B,F) ? B : E;
+	float3 E2 = eq(H,D) ? H : E;
+	float3 E3 = eq(H,F) ? H : E;
+
+	// general condition & subpixel output
+	return neq(B,H) && neq(D,F) ? (fp.y == 0 ? (fp.x == 0 ? E0 : E1) : (fp.x == 0 ? E2 : E3)) : E;
+}
