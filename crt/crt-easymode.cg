@@ -17,21 +17,21 @@
     Example RGB Mask Parameter Settings:
 
     Aperture Grille (Default)
-    - Subpixel Width: 1
-    - Subpixel Height: 1
+    - Dot Width: 1
+    - Dot Height: 1
     - Stagger: 0
 
     Lottes' Shadow Mask
-    - Subpixel Width: 2
-    - Subpixel Height: 1
+    - Dot Width: 2
+    - Dot Height: 1
     - Stagger: 3
 */
 
 #pragma parameter SHARPNESS_H "Sharpness Horizontal" 0.5 0.0 1.0 0.05
 #pragma parameter SHARPNESS_V "Sharpness Vertical" 1.0 0.0 1.0 0.05
 #pragma parameter MASK_STRENGTH "Mask Strength" 0.3 0.0 1.0 0.01
-#pragma parameter MASK_SUBPIXEL_WIDTH "Mask Subpixel Width" 1.0 1.0 100.0 1.0
-#pragma parameter MASK_SUBPIXEL_HEIGHT "Mask Subpixel Height" 1.0 1.0 100.0 1.0
+#pragma parameter MASK_DOT_WIDTH "Mask Dot Width" 1.0 1.0 100.0 1.0
+#pragma parameter MASK_DOT_HEIGHT "Mask Dot Height" 1.0 1.0 100.0 1.0
 #pragma parameter MASK_STAGGER "Mask Stagger" 0.0 0.0 100.0 1.0
 #pragma parameter MASK_SIZE "Mask Size" 1.0 1.0 100.0 1.0
 #pragma parameter SCANLINE_STRENGTH "Scanline Strength" 1.0 0.0 1.0 0.05
@@ -53,8 +53,8 @@ uniform float GAMMA_OUTPUT;
 uniform float MASK_SIZE;
 uniform float MASK_STAGGER;
 uniform float MASK_STRENGTH;
-uniform float MASK_SUBPIXEL_HEIGHT;
-uniform float MASK_SUBPIXEL_WIDTH;
+uniform float MASK_DOT_HEIGHT;
+uniform float MASK_DOT_WIDTH;
 uniform float SCANLINE_CUTOFF;
 uniform float SCANLINE_BEAM_WIDTH_MAX;
 uniform float SCANLINE_BEAM_WIDTH_MIN;
@@ -71,8 +71,8 @@ uniform float SHARPNESS_V;
 #define MASK_SIZE 1.0
 #define MASK_STAGGER 0.0
 #define MASK_STRENGTH 0.3
-#define MASK_SUBPIXEL_HEIGHT 1.0
-#define MASK_SUBPIXEL_WIDTH 1.0
+#define MASK_DOT_HEIGHT 1.0
+#define MASK_DOT_WIDTH 1.0
 #define SCANLINE_BEAM_WIDTH_MAX 1.5
 #define SCANLINE_BEAM_WIDTH_MIN 1.5
 #define SCANLINE_BRIGHT_MAX 0.65
@@ -155,12 +155,12 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, scan_beam) * SCANLINE_STRENGTH;
 
     float mask = 1.0 - MASK_STRENGTH;	
-    float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_SUBPIXEL_HEIGHT * MASK_SIZE)));
-    int subpixel = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_SUBPIXEL_WIDTH, 3.0));
+    float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_DOT_HEIGHT * MASK_SIZE)));
+    int dot_no = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_DOT_WIDTH, 3.0));
     float3 mask_weight;
 
-    if (subpixel == 0) mask_weight = float3(1.0, mask, mask);
-    else if (subpixel == 1) mask_weight = float3(mask, 1.0, mask);
+    if (dot_no == 0) mask_weight = float3(1.0, mask, mask);
+    else if (dot_no == 1) mask_weight = float3(mask, 1.0, mask);
     else mask_weight = float3(mask, mask, 1.0);
 
     if (IN.video_size.y >= SCANLINE_CUTOFF) scan_weight = 1.0;
