@@ -22,19 +22,6 @@ struct input
     float frame_count;
     float frame_direction;
     float frame_rotation;
-    sampler2D texture : TEXUNIT0;
-};
-
-struct tex_coords
-{
-   float2 tex;
-   float2 prev;
-   float2 prev1;
-   float2 prev2;
-   float2 prev3;
-   float2 prev4;
-   float2 prev5;
-   float2 prev6;
 };
 
 void main_vertex
@@ -42,26 +29,19 @@ void main_vertex
    float4 position : POSITION,
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
 
-   previous PREV,
-   previous PREV1,
-   previous PREV2,
-   previous PREV3,
-   previous PREV4,
-   previous PREV5,
-   previous PREV6,
-   out tex_coords coords
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 texCoord : TEXCOORD,
+   out float2 oTexCoord : TEXCOORD,
+
+   uniform input IN
 )
 {
    oPosition = mul(modelViewProj, position);
-   coords = tex_coords(tex, PREV.tex_coord,
-      PREV1.tex_coord,
-      PREV2.tex_coord,
-      PREV3.tex_coord,
-      PREV4.tex_coord,
-      PREV5.tex_coord,
-      PREV6.tex_coord);
+   oColor = color;
+   oTexCoord = texCoord;
 }
 
 struct output 
@@ -69,7 +49,7 @@ struct output
   float4 col    : COLOR;
 };
 
-output main_fragment(in float2 texCoord : TEXCOORD0,
+output main_fragment(in sampler2D s0 : TEXUNIT0, in float2 texCoord : TEXCOORD0,
 uniform input IN,
       previous PREV,
       previous PREV1,
@@ -80,6 +60,8 @@ uniform input IN,
       previous PREV6
 )
 {
+   float4 current = tex2D(s0, texCoord);
+
    float4 color = tex2D(PREV6.texture, texCoord);
    color = color + tex2D(PREV5.texture, texCoord);
    color = color + tex2D(PREV4.texture, texCoord);
@@ -87,22 +69,20 @@ uniform input IN,
    color = color + tex2D(PREV2.texture, texCoord);
    color = color + tex2D(PREV1.texture, texCoord);
    color = color + tex2D(PREV.texture, texCoord);
-   color = color + tex2D(IN.texture, texCoord);
+   color = color + current;
 
-   float4 sepia = float4(1.0,0.8,0.6,0.5); 
-
-   float4 final = tex2D(IN.texture, texCoord);
+   float4 sepia = float4(1.0,0.8,0.6,1.0); 
 
    if (IN.frame_direction < 0.0)
    {
-      final = (final + color * sepia / 7.0) / 2.0;
+      current = ((current + (color / 7.0)) / 2.0) * sepia;
    }
    else
    {
-      final = tex2D(IN.texture, texCoord);
+      current = current;
    }
 
    output OUT;
-   OUT.col = final;
+   OUT.col = current;
    return OUT;
 }
