@@ -50,7 +50,7 @@ uniform float CYCLE;
 // END PARAMETERS //
 
 // Animated Border Cg shader
-// Copyright (c) 2014 Mudlord
+// Copyright (c) 2014 Mudlord licensed under the WTFPL.
 
 struct input
 {
