@@ -83,8 +83,12 @@ uniform float SHARPNESS_V;
 #define SHARPNESS_V 1.0
 #endif
 
+#define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-#define TEX2D(c) dilate(tex2D(tex, c).rgb)
+#define TEX2D(c) dilate(tex2D(tex, c))
+
+// Set to 0 to use linear filter and gain speed
+#define ENABLE_LANCZOS 1
 
 void main_vertex
 (
@@ -110,9 +114,9 @@ struct input
     float frame_rotation;
 };
 
-float3 dilate(float3 col)
+float4 dilate(float4 col)
 {
-    float3 x = lerp(float3(1.0), col, DILATION);
+    float4 x = lerp(float4(1.0), col, DILATION);
 
     return col * x;
 }
@@ -132,18 +136,49 @@ float curve_distance(float x, float sharp)
     return lerp(x, curve, sharp);
 }
 
+float4x4 get_color_matrix(sampler2D tex, float2 co, float2 dx)
+{
+    return float4x4(TEX2D(co - dx), TEX2D(co), TEX2D(co + dx), TEX2D(co + 2.0 * dx));
+}
+
+float3 filter_lanczos(float4 coeffs, float4x4 color_matrix)
+{
+    float4 col = mul(coeffs, color_matrix);
+    float4 sample_min = min(color_matrix[1], color_matrix[2]);
+    float4 sample_max = max(color_matrix[1], color_matrix[2]);
+
+    col = clamp(col, sample_min, sample_max);
+
+    return col.rgb;
+}
+
 float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
 {
-    float2 one = 1.0 / IN.texture_size;
-    float2 one_half = one / 2.0;
-    float2 c1 = floor((coords - one_half) / one) * one + one_half;
-    float2 c2 = float2(c1.x + one.x, c1.y);
-    float2 c3 = float2(c1.x, c1.y + one.y);
-    float2 c4 = float2(c2.x, c3.y);
-    float2 dist = (coords - c1) / (c4 - c1);
-    float x_curve = curve_distance(dist.x, SHARPNESS_H);
-    float3 col = lerp(TEX2D(c1), TEX2D(c2), x_curve);
-    float3 col2 = lerp(TEX2D(c3), TEX2D(c4), x_curve);
+    float2 dx = float2(1.0 / IN.texture_size.x, 0.0);
+    float2 dy = float2(0.0, 1.0 / IN.texture_size.y);
+    float2 pix_co = coords * IN.texture_size - float2(0.5, 0.5);
+    float2 tex_co = (floor(pix_co) + float2(0.5, 0.5)) / IN.texture_size;
+    float2 dist = frac(pix_co);
+    float curve_x;
+    float3 col, col2;
+
+#if ENABLE_LANCZOS
+    curve_x = curve_distance(dist.x, SHARPNESS_H * SHARPNESS_H);
+
+    float4 coeffs = PI * float4(1.0 + curve_x, curve_x, 1.0 - curve_x, 2.0 - curve_x);
+
+    coeffs = FIX(coeffs);
+    coeffs = 2.0 * sin(coeffs) * sin(coeffs / 2.0) / (coeffs * coeffs);
+    coeffs /= dot(coeffs, float4(1.0));
+
+    col = filter_lanczos(coeffs, get_color_matrix(tex, tex_co, dx));
+    col2 = filter_lanczos(coeffs, get_color_matrix(tex, tex_co + dy, dx));
+#else
+    curve_x = curve_distance(dist.x, SHARPNESS_H);
+
+    col = lerp(TEX2D(tex_co).rgb, TEX2D(tex_co + dx).rgb, curve_x);
+    col2 = lerp(TEX2D(tex_co + dy).rgb, TEX2D(tex_co + dx + dy).rgb, curve_x);
+#endif
 
     col = lerp(col, col2, curve_distance(dist.y, SHARPNESS_V));
     col = pow(col, float3(GAMMA_INPUT / (DILATION + 1.0)));
@@ -154,7 +189,7 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     float scan_beam = clamp(bright * SCANLINE_BEAM_WIDTH_MAX, SCANLINE_BEAM_WIDTH_MIN, SCANLINE_BEAM_WIDTH_MAX);
     float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, scan_beam) * SCANLINE_STRENGTH;
 
-    float mask = 1.0 - MASK_STRENGTH;	
+    float mask = 1.0 - MASK_STRENGTH;    
     float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_DOT_HEIGHT * MASK_SIZE)));
     int dot_no = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_DOT_WIDTH, 3.0));
     float3 mask_weight;
