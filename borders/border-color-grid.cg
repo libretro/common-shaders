@@ -1,28 +1,35 @@
-#pragma parameter border_zoom "Border Zoom" 3.0 2.0 6.0 0.1
 #pragma parameter box_scale "Box Scale" 4.0 1.0 10.0 1.0
 #pragma parameter location "Location" 0.5 0.2 0.5 0.3
 #pragma parameter in_res_x "Horiz. Input Res" 320 200 600 1.0
 #pragma parameter in_res_y "Vert. Input Res" 240 120 480 1.0
 #pragma parameter out_res_x "Horiz. Output Res" 1920.0 640.0 3840.0 40.0
 #pragma parameter out_res_y "Vert. Output Res" 1080.0 480.0 2160.0 40.0
+#pragma parameter ZOOM "Zoom" 4.0 0.5 10 0.5
+#pragma parameter SPEED "Speed" 4.0 0.5 10 0.5
 #ifdef PARAMETER_UNIFORM
-uniform float border_zoom;
 uniform float box_scale;
 uniform float location;
 uniform float out_res_x;
 uniform float out_res_y;
 uniform float in_res_x;
 uniform float in_res_y;
+uniform float ZOOM;
+uniform float SPEED;
 #else
-#define border_zoom 3.0
 #define box_scale 4.0
 #define location 0.5
 #define out_res_x 1920.0
 #define out_res_y 1080.0
 #define in_res_x 320
 #define in_res_y 240
+#define ZOOM 4.0
+#define SPEED 4.0
 #endif
 // END PARAMETERS //
+
+// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
+// Created by inigo quilez - iq/2014
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
 struct input
 {
@@ -32,11 +39,6 @@ struct input
    float frame_count;
    float frame_direction;
    float frame_rotation;
-};
-
-struct passprev
-{
-sampler2D texture : TEXUNIT1;
 };
 
 void main_vertex
@@ -54,15 +56,12 @@ void main_vertex
    float2 tex_border : TEXCOORD1,
    out float2 otex_border : TEXCOORD1,
 
-   float2 tex2 : TEXCOORD2,
-   out float2 oTex2 : TEXCOORD2,
-
    uniform input IN
 )
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
-   oTex2 = (tex2 / border_zoom) + float2(0.05 * border_zoom, 0.05 * border_zoom);  
+   
    float2 out_res = float2(out_res_x, out_res_y);
    float2 corrected_size = float2(in_res_x, in_res_y) * (4.0 / box_scale);
    float2 scale = (IN.output_size / corrected_size) / box_scale;
@@ -81,14 +80,22 @@ float4 conv_background(float4 back, float2 coord, float frame_count)
 }
 
 float4 main_fragment (
-   float2 tex : TEXCOORD0, float2 tex_border : TEXCOORD1, float2 tex2 : TEXCOORD2,
-   uniform passprev PASSPREV3,
-   uniform sampler2D bg,
+   float2 tex : TEXCOORD0, float2 tex_border : TEXCOORD1,
    uniform sampler2D s0 : TEXUNIT0,
+   uniform sampler2D bg,
    uniform input IN) : COLOR
 {
- float4 big = float4(tex2D(s0, (tex / border_zoom) + float2(0.3 * IN.video_size / IN.texture_size)));
- float4 frame = tex2D(PASSPREV3.texture, tex);
- float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
-   return lerp(frame, big, background.a);
+    float2  px = 1000.0 * ZOOM *(-IN.texture_size.xy + 2.0* (tex.xy*(IN.texture_size.xy/IN.video_size.xy)).xy) / IN.texture_size.y;
+	
+    float id = 0.5 + 0.5*cos(IN.frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
+    
+    float3  co = 0.5 + 0.5*cos(IN.frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
+    
+    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
+
+	float4 colorgrid = float4( co*pa.x*pa.y, 1.0 );
+	
+	float4 frame = tex2D(s0, tex);
+   float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
+   return lerp(frame, colorgrid, background.a);
 }
