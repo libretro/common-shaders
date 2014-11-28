@@ -1,0 +1,62 @@
+#pragma parameter WIDTH "Side-by-Side Image Width" 2.0 1.0 5.0 0.05
+#pragma parameter HEIGHT "Side-by-Side Image Height" 1.33 1.0 1.75 0.005
+#pragma parameter HORIZ "Image Location X" 0.5 -2.0 2.0 0.005
+#pragma parameter VERT "Image Location Y" 0.0 0.0 0.5 0.005
+#ifdef PARAMETER_UNIFORM
+uniform float WIDTH;
+uniform float HORIZ;
+uniform float HEIGHT;
+uniform float VERT;
+#else
+#define WIDTH 2.0
+#define HORIZ 0.5
+#define HEIGHT 1.33
+#define VERT 0.0
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+   output OUT;
+   OUT.color = tex2D(decal, texCoord) + tex2D(decal, texCoord - float2(HORIZ, 0.0));
+   return OUT;
+}
+
