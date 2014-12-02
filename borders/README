@@ -1,7 +1,1 @@
-These shaders are designed to overlay a specially designed border image
-over the integer-scaled content window. Such an image should be sized to
-fit the output resolution (such as 1920x1080 px) and should have an
-appropriately sized transparent window in the middle for the content to
-show through.
-
-The border.png image file found in this directory can be used as a template.
+These border shaders are designed to fill the black areas leftover from integer scaling. They require you to set your video options to 'aspect ratio index' of 16:9 and integer scaling to 'OFF', since they need to fill your entire screen and will handle the scaling of the content window themselves.
