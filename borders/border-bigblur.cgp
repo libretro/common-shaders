@@ -1,8 +1,0 @@
-shaders = 3
-
-shader0 = border-bigblur-horiz.cg
-shader1 = border-bigblur-vert.cg
-shader2 = border-bigblur.cg
-
-textures = bg
-bg = border.png
