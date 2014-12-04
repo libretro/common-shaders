@@ -38,7 +38,7 @@ void main_vertex
    oColor = color;
    
    float2 out_res = float2(out_res_x, out_res_y);
-   float2 corrected_size = float2(in_res_x, in_res_y) * (4.0 / box_scale);
+   float2 corrected_size = float2(in_res_x, in_res_y);
    float2 scale = (IN.output_size / corrected_size) / box_scale;
    float2 middle = location * IN.video_size / IN.texture_size;
    float2 diff = tex.xy - middle;
