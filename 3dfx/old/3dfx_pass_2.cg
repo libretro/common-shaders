@@ -1,0 +1,110 @@
+
+
+
+
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+// "LeiFX" shader - Pixel filtering process
+// 
+// 	Copyright (C) 2013-2014 leilei
+// 
+// This program is free software; you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+
+#pragma parameter LEIFX_BLURFACTOR "LeiFX Blur Factor" 0.69 0.00 1.00 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float LEIFX_BLURFACTOR;
+#else
+#define LEIFX_BLURFACTOR 0.69f
+#endif
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+   output OUT;
+   OUT.color = tex2D(decal, texCoord);
+	float2 pixel;
+	pixel.x = 1 / IN.video_size.x;
+	pixel.y = 1 / IN.video_size.y;
+
+
+
+	// Sample things.
+
+	float blendy;	// to blend unblended with blend... trying to smooth the jag :(
+	float blenda;	
+
+	float blendfactor;
+
+	float3 pixel1 = tex2D(decal, texCoord + float2((pixel.x * 0.15), 0)).rgb;
+	float3 pixel2 = tex2D(decal, texCoord + float2(-pixel.x * 0.22, 0)).rgb;
+	float3 pixel0 = tex2D(decal, texCoord + float2(0, 0)).rgb;
+
+	float3 pixelblend;
+
+
+	float gary1 = dot(pixel1.rgb,1);
+	float gary2 = dot(pixel2.rgb,1);
+
+	float mean = 1.0;
+	mean = gary1 - gary2;
+
+	if (mean < 0)	mean *= -1;
+	if (mean > 1) mean = 1;	
+	mean = pow(mean, LEIFX_BLURFACTOR);	
+
+	if (mean > 1)
+      mean = 1;	
+
+	{
+		// variably BLEND IT ALL TO H*CK!!!!
+		blendy = 1 - mean;
+		blenda = 1 - blendy;
+		pixel0 /= 3;
+		pixel1 /= 3;
+		pixel2 /= 3;
+   		pixelblend.rgb = pixel0 + pixel1 + pixel2;
+		OUT.color.rgb = (pixelblend.rgb * blendy) + (OUT.color.rgb * blenda);
+	}
+
+   return OUT;
+}

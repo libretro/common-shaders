@@ -53,19 +53,6 @@ float erroredtable[16] = {
 	6,10,7,11		
 };
 
-
-#define DITHERAMOUNT		0.5f // was 0.33f
-#define DITHERBIAS		-1  // 0 to 16, biases the value of the dither up.  - was 8
-
-#pragma parameter LEIFX_LINES "LeiFX Line Intensity" 0.05 0.00 1.00 0.01
-
-#ifdef PARAMETER_UNIFORM
-uniform float LEIFX_LINES;
-#else
-#define LEIFX_LINES 0.05f
-#endif
-
-
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
    	output OUT;
@@ -116,11 +103,6 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	else if (yeh++==ditdex) ohyes = erroredtable[14];
 	else if (yeh++==ditdex) ohyes = erroredtable[15];
 
-	// Adjust the dither thing
-	ohyes = 17 - (ohyes - 1); // invert
-	ohyes *= DITHERAMOUNT;
-	ohyes += DITHERBIAS;
-
 	colord.r = color.r + ohyes;
 	colord.g = color.g + (ohyes / 2);
 	colord.b = color.b + ohyes;
@@ -156,17 +138,6 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	reduceme.b = pow(reduceme.b, why);
 
 	OUT.color.rgb = reduceme.rgb;
-
-	// Add the purple line of lineness here, so the filter process catches it and gets gammaed.
-	{
-		float leifx_linegamma = (LEIFX_LINES / 10);
-		float horzline1 = 	(mod(ditheu.y, 	2.0));
-		if (horzline1 < 1)	leifx_linegamma = 0;
-	
-		OUT.color.r += leifx_linegamma;
-		OUT.color.b += leifx_linegamma;	
-	}
-
 
    return OUT;
 }

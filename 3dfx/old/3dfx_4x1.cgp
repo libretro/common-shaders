@@ -1,9 +1,9 @@
 shaders = 6
 shader0 = 3dfx_pass_0.cg
 shader1 = 3dfx_pass_1.cg
-shader2 = 3dfx_pass_1.cg
-shader3 = 3dfx_pass_1.cg
-shader4 = 3dfx_pass_1.cg
+shader2 = 3dfx_pass_2.cg
+shader3 = 3dfx_pass_2.cg
+shader4 = 3dfx_pass_2.cg
 shader5 = 3dfx_pass_2.cg
 
 filter_linear0 = true
@@ -11,6 +11,7 @@ filter_linear1 = true
 filter_linear2 = true
 filter_linear3 = true
 filter_linear4 = true 
+filter_linear5 = true
 
 scale_type_x0 = "source"
 scale_x0 = "1.000000"
