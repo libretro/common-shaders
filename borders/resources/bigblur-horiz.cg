@@ -50,7 +50,7 @@ float4 main_fragment (
 	big += tex2D(s0, float2(tex.x - 4.0 * 0.0001 * blur_soft_x, tex.y));
 	big += tex2D(s0, float2(tex.x + 8.0 * 0.0001 * blur_soft_x, tex.y));
 	big += tex2D(s0, float2(tex.x - 8.0 * 0.0001 * blur_soft_x, tex.y));
-	big /= 9.0;
+	big /= float4(9.0);
 
    return float4(big);
 }
