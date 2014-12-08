@@ -1,40 +1,107 @@
 #pragma parameter WIDTH "Side-by-Side Image Width" 2.0 1.0 5.0 0.05
-#pragma parameter HEIGHT "Side-by-Side Image Height" 1.33 1.0 1.75 0.005
+#pragma parameter HEIGHT "Side-by-Side Image Height" 1.0 0.5 1.75 0.005
 #pragma parameter HORIZ "Image Location X" 0.5 -2.0 2.0 0.005
-#pragma parameter VERT "Image Location Y" 0.0 0.0 0.5 0.005
+#pragma parameter VERT "Image Location Y" 0.0 -0.5 0.5 0.005
+#pragma parameter R "Curvature Radius" 1.0 0.5 2.0 0.05
 #ifdef PARAMETER_UNIFORM
 uniform float WIDTH;
 uniform float HORIZ;
 uniform float HEIGHT;
 uniform float VERT;
+uniform float R;
 #else
 #define WIDTH 2.0
 #define HORIZ 0.5
-#define HEIGHT 1.33
+#define HEIGHT 1.0
 #define VERT 0.0
+#define R 1.0
 #endif
 
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
 */
+#define FIX(c) max(abs(c), 1e-5);
+  
+static float2 aspect = float2(1.0, 1.0);
 
-void main_vertex
+#define overscan_x 100.0
+#define overscan_y 100.0
+#define d 2.0
+#define x_tilt 0.0
+#define y_tilt 0.0
+
+float intersect(float2 xy, float2 sinangle, float2 cosangle)
+    {
+        float A = dot(xy,xy)+d*d;
+        float B = 2.0*(R*(dot(xy,sinangle)-d*cosangle.x*cosangle.y)-d*d);
+        float C = d*d + 2.0*R*d*cosangle.x*cosangle.y;
+        return (-B-sqrt(B*B-4.0*A*C))/(2.0*A);
+    }
+
+float2 bkwtrans(float2 xy, float2 sinangle, float2 cosangle)
+   {
+        float c = intersect(xy, sinangle, cosangle);
+        float2 point = float2(c)*xy;
+        point -= float2(-R)*sinangle;
+        point /= float2(R);
+        float2 tang = sinangle/cosangle;
+        float2 poc = point/cosangle;
+        float A = dot(tang,tang)+1.0;
+        float B = -2.0*dot(poc,tang);
+        float C = dot(poc,poc)-1.0;
+        float a = (-B+sqrt(B*B-4.0*A*C))/(2.0*A);
+        float2 uv = (point-a*sinangle)/cosangle;
+        float r = FIX(R*acos(a));
+        return uv*r/sin(r/R);
+   }
+   
+float2 fwtrans(float2 uv, float2 sinangle, float2 cosangle)
+        {
+                float r = FIX(sqrt(dot(uv,uv)));
+                uv *= sin(r/R)/r;
+                float x = 1.0-cos(r/R);
+                float D = d/R + x*cosangle.x*cosangle.y+dot(uv,sinangle);
+                return d*(uv*cosangle-x*sinangle)/D;
+        }
+		
+float3 maxscale(float2 sinangle, float2 cosangle)
+        {
+                float2 c = bkwtrans(-R * sinangle / (1.0 + R/d*cosangle.x*cosangle.y), sinangle, cosangle);
+                float2 a = float2(0.5,0.5)*aspect;
+                float2 lo = float2(fwtrans(float2(-a.x,c.y), sinangle, cosangle).x,
+                             fwtrans(float2(c.x,-a.y), sinangle, cosangle).y)/aspect;
+                float2 hi = float2(fwtrans(float2(+a.x,c.y), sinangle, cosangle).x,
+                             fwtrans(float2(c.x,+a.y), sinangle, cosangle).y)/aspect;
+                return float3((hi+lo)*aspect*0.5,max(hi.x-lo.x,hi.y-lo.y));
+        }
+
+struct out_vertex {
+    float4 position : POSITION;
+    float4 color : COLOR;
+    float2 texCoord : TEXCOORD0;
+        float3 stretch;
+        float2 sinangle;
+        float2 cosangle;
+};
+
+out_vertex main_vertex
 (
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
+    float4 position : POSITION,
+    float4 color : COLOR,
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
 )
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
+out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
+	OUT.sinangle = sin(float2(x_tilt, y_tilt));
+    OUT.cosangle = cos(float2(x_tilt, y_tilt));
+	OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
+	
+	return OUT;
 }
 
 struct output 
@@ -52,11 +119,21 @@ struct input
   float frame_rotation;
 };
 
-
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+output main_fragment(in out_vertex VAR, float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
+                float2 xy = 0.0;
+				float2 cd = VAR.texCoord;
+                cd *= IN.texture_size / IN.video_size;
+                cd = (cd-float2(0.5))*aspect*VAR.stretch.z+VAR.stretch.xy;
+                xy =  (bkwtrans(cd, VAR.sinangle, VAR.cosangle)/float2(overscan_x / 100.0, overscan_y / 100.0)/aspect+float2(0.5)) * IN.video_size / IN.texture_size;
+				
+				float2 xy2 = 0.0;
+				float2 cd2 = VAR.texCoord - float2(HORIZ, 0.0);
+                cd2 *= IN.texture_size / IN.video_size;
+                cd2 = (cd2-float2(0.5))*aspect*VAR.stretch.z+VAR.stretch.xy;
+                xy2 =  (bkwtrans(cd2, VAR.sinangle, VAR.cosangle)/float2(overscan_x / 100.0, overscan_y / 100.0)/aspect+float2(0.5)) * IN.video_size / IN.texture_size;
    output OUT;
-   OUT.color = tex2D(decal, texCoord) + tex2D(decal, texCoord - float2(HORIZ, 0.0));
+   OUT.color = tex2D(decal, xy) + tex2D(decal, xy2);
    return OUT;
 }
 
