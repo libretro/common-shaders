@@ -23,7 +23,7 @@ uniform float EYEFLIP;
 #define VERT 0.0
 #define R 1.0
 #define DEPTH 1.5
-#define PINCUSHION 0.0
+#define PINCUSHION 1.0
 #define EYEFLIP 1.0
 #endif
 
