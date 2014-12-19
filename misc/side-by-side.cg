@@ -1,30 +1,24 @@
 #pragma parameter WIDTH "Side-by-Side Image Width" 2.0 1.0 5.0 0.05
 #pragma parameter HEIGHT "Side-by-Side Image Height" 1.0 0.5 1.75 0.005
 #pragma parameter HORIZ "Image Location X" 0.5 -2.0 2.0 0.005
-#pragma parameter VERT "Image Location Y" 0.0 -0.5 0.5 0.005
 #pragma parameter R "Curvature Radius" 1.0 0.5 2.0 0.05
 #pragma parameter DEPTH "Faux 3D Depth" 1.5 0.0 10.0 0.25
 #pragma parameter PINCUSHION "Pincushion" 0.0 0.0 1.0 1.0
-#pragma parameter EYEFLIP "Offset Eye Flip" 1.0 -1.0 1.0 2.0
 #ifdef PARAMETER_UNIFORM
 uniform float WIDTH;
 uniform float HORIZ;
 uniform float HEIGHT;
-uniform float VERT;
 uniform float R;
 uniform float TOGGLE;
 uniform float DEPTH;
 uniform float PINCUSHION;
-uniform float EYEFLIP;
 #else
 #define WIDTH 2.0
 #define HORIZ 0.5
 #define HEIGHT 1.0
-#define VERT 0.0
 #define R 1.0
 #define DEPTH 1.5
 #define PINCUSHION 1.0
-#define EYEFLIP 1.0
 #endif
 
 /* COMPATIBILITY 
@@ -106,7 +100,7 @@ out_vertex main_vertex
 out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
-	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
+	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT);
 	OUT.sinangle = sin(float2(x_tilt, y_tilt));
     OUT.cosangle = cos(float2(x_tilt, y_tilt));
 	OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
@@ -133,6 +127,9 @@ float3x3 RGB_to_YIQ = float3x3(
          0.299,0.587,0.114, 
 		 0.595716,-0.274453,-0.321263,
 		 0.211456,-0.522591, 0.311135);
+		 
+#define fragcoord1 (xy.xy*(IN.texture_size.xy/IN.video_size.xy))
+#define fragcoord2 (xy2.xy*(IN.texture_size.xy/IN.video_size.xy))
 
 output main_fragment(in out_vertex VAR, float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
@@ -146,22 +143,29 @@ output main_fragment(in out_vertex VAR, float2 texCoord : TEXCOORD0, uniform sam
 				}
 				else xy = VAR.texCoord;
 				float luma1 = mul(tex2D(decal, xy).rgb, RGB_to_YIQ).r;
-				float2 xyoffset = DEPTH * float2((1.0 - luma1) / IN.texture_size.x, 0.0);
+				float2 xyoffset = DEPTH * float2(luma1 / IN.texture_size.x, 0.0);
 				
 				float2 xy2 = 0.0;
 				if (PINCUSHION > 0.5)
 				{
-				float2 cd2 = VAR.texCoord - float2(HORIZ, 0.0);
+				float2 cd2 = VAR.texCoord - float2(HORIZ * 512.0 / IN.texture_size.x, 0.0);
                 cd2 *= IN.texture_size / IN.video_size;
                 cd2 = (cd2-float2(0.5))*aspect*VAR.stretch.z+VAR.stretch.xy;
                 xy2 =  (bkwtrans(cd2, VAR.sinangle, VAR.cosangle)/float2(overscan_x / 100.0, overscan_y / 100.0)/aspect+float2(0.5)) * IN.video_size / IN.texture_size;
 				}
-				else xy2 = VAR.texCoord - float2(HORIZ, 0.0);
+				else xy2 = VAR.texCoord - float2(HORIZ * 512.0 / IN.texture_size.x, 0.0);
 				float luma2 = mul(tex2D(decal, xy2).rgb, RGB_to_YIQ).r;
-				float2 xyoffset2 = DEPTH * float2((1.0 - luma2) / IN.texture_size.x, 0.0);
+				float2 xyoffset2 = DEPTH * float2(luma2 / IN.texture_size.x, 0.0);
 				
-				float4 left = (tex2D(decal, xy) + tex2D(decal, xy - xyoffset * EYEFLIP)) / 2.0;
-				float4 right = (tex2D(decal, xy2) + tex2D(decal, xy2 + xyoffset2 * EYEFLIP)) / 2.0;
+				float4 leftimage = float4(tex2D(decal, xy).rgb, luma1);
+				float4 leftoffset = tex2D(decal, xy - xyoffset);
+				leftoffset.a = mul(leftoffset.rgb, RGB_to_YIQ).r;
+				float4 rightimage = float4(tex2D(decal, xy2).rgb, luma2);
+				float4 rightoffset = tex2D(decal, xy2 + xyoffset2);
+				rightoffset.a = mul(rightoffset.rgb, RGB_to_YIQ).r;
+				
+				float4 left = ((lerp(leftimage, leftoffset, leftoffset.a)));// + leftimage) / 2.0;
+				float4 right = ((lerp(rightimage, rightoffset, rightoffset.a)));// + rightimage) / 2.0;
 
    output OUT;
    OUT.color = left + right;
