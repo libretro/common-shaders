@@ -110,7 +110,7 @@ struct input
 
 
 struct out_vertex {
-    float2 texCoord;
+    float2 texCoord : TEXCOORD0;
 };
 
 /*    VERTEX_SHADER    */

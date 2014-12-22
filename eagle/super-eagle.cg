@@ -33,7 +33,7 @@ struct out_vertex {
 	float4 t7 : TEXCOORD7;
 };
 
-float4 t8;
+float4 t8       : TEXCOORD8;
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex

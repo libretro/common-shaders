@@ -110,7 +110,7 @@ struct out_vertex {
 	float4 position : POSITION;
 	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
-	float4 t1;
+	float4 t1       : TEXCOORD1;
 };
 
 /*    VERTEX_SHADER    */
