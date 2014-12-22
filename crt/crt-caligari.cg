@@ -50,7 +50,7 @@ uniform float OutputGamma;
 
 struct tex_coords
 {
-   float2 texCoord;
+   float2 texCoord : TEXCOORD0;
    float2 onex;
    float2 oney;
 };
