@@ -1,12 +1,14 @@
 #pragma parameter WIDTH "Side-by-Side Image Width" 2.0 1.0 5.0 0.05
 #pragma parameter HEIGHT "Side-by-Side Image Height" 1.0 0.5 1.75 0.005
 #pragma parameter HORIZ "Image Location X" 0.5 -2.0 2.0 0.005
+#pragma parameter VERT "Image Location Y" 0.0 0.0 0.5 0.005
 #pragma parameter R "Curvature Radius" 1.0 0.5 2.0 0.05
 #pragma parameter DEPTH "Faux 3D Depth" 1.5 0.0 10.0 0.25
 #pragma parameter PINCUSHION "Pincushion" 0.0 0.0 1.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float WIDTH;
 uniform float HORIZ;
+uniform float VERT;
 uniform float HEIGHT;
 uniform float R;
 uniform float TOGGLE;
@@ -15,6 +17,7 @@ uniform float PINCUSHION;
 #else
 #define WIDTH 2.0
 #define HORIZ 0.5
+#define VERT 0.0
 #define HEIGHT 1.0
 #define R 1.0
 #define DEPTH 1.5
@@ -100,7 +103,7 @@ out_vertex main_vertex
 out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
-	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT);
+	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
 	OUT.sinangle = sin(float2(x_tilt, y_tilt));
     OUT.cosangle = cos(float2(x_tilt, y_tilt));
 	OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
