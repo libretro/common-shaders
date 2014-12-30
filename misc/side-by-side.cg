@@ -1,13 +1,15 @@
-#pragma parameter WIDTH "Side-by-Side Image Width" 2.0 1.0 5.0 0.05
-#pragma parameter HEIGHT "Side-by-Side Image Height" 1.0 0.5 1.75 0.005
-#pragma parameter HORIZ "Image Location X" 0.5 -2.0 2.0 0.005
-#pragma parameter VERT "Image Location Y" 0.0 0.0 0.5 0.005
-#pragma parameter R "Curvature Radius" 1.0 0.5 2.0 0.05
+#pragma parameter WIDTH "Side-by-Side Image Width" 2.5 1.0 5.0 0.05
+#pragma parameter HEIGHT "Side-by-Side Image Height" 1.25 0.5 1.75 0.005
+#pragma parameter HORIZ "Right Eye X" 0.5 -2.0 2.0 0.005
+#pragma parameter BOTH "Both Eye X" 0.13 -1.0 1.0 0.005
+#pragma parameter VERT "Both Eye Y" 0.055 0.0 0.5 0.005
+#pragma parameter R "Curvature Radius" 0.55 0.5 2.0 0.05
 #pragma parameter DEPTH "Faux 3D Depth" 1.5 0.0 10.0 0.25
 #pragma parameter PINCUSHION "Pincushion" 0.0 0.0 1.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float WIDTH;
 uniform float HORIZ;
+uniform float BOTH;
 uniform float VERT;
 uniform float HEIGHT;
 uniform float R;
@@ -15,11 +17,12 @@ uniform float TOGGLE;
 uniform float DEPTH;
 uniform float PINCUSHION;
 #else
-#define WIDTH 2.0
+#define WIDTH 2.5
 #define HORIZ 0.5
-#define VERT 0.0
-#define HEIGHT 1.0
-#define R 1.0
+#define BOTH 0.13
+#define VERT 0.055
+#define HEIGHT 1.25
+#define R 0.55
 #define DEPTH 1.5
 #define PINCUSHION 1.0
 #endif
@@ -34,7 +37,7 @@ static float2 aspect = float2(1.0, 1.0);
 
 #define overscan_x 100.0
 #define overscan_y 100.0
-#define d 2.0
+#define d 6.0
 #define x_tilt 0.0
 #define y_tilt 0.0
 
@@ -103,7 +106,7 @@ out_vertex main_vertex
 out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.color = color;
-	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(0.0, VERT);
+	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(BOTH, VERT);
 	OUT.sinangle = sin(float2(x_tilt, y_tilt));
     OUT.cosangle = cos(float2(x_tilt, y_tilt));
 	OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
@@ -146,7 +149,7 @@ output main_fragment(in out_vertex VAR, float2 texCoord : TEXCOORD0, uniform sam
 				}
 				else xy = VAR.texCoord;
 				float luma1 = mul(tex2D(decal, xy).rgb, RGB_to_YIQ).r;
-				float2 xyoffset = DEPTH * float2(luma1 / IN.texture_size.x, 0.0);
+				float2 xyoffset = DEPTH * float2((1.0 - luma1) / IN.texture_size.x, 0.0);
 				
 				float2 xy2 = 0.0;
 				if (PINCUSHION > 0.5)
@@ -158,7 +161,7 @@ output main_fragment(in out_vertex VAR, float2 texCoord : TEXCOORD0, uniform sam
 				}
 				else xy2 = VAR.texCoord - float2(HORIZ * 512.0 / IN.texture_size.x, 0.0);
 				float luma2 = mul(tex2D(decal, xy2).rgb, RGB_to_YIQ).r;
-				float2 xyoffset2 = DEPTH * float2(luma2 / IN.texture_size.x, 0.0);
+				float2 xyoffset2 = DEPTH * float2((1.0 - luma2) / IN.texture_size.x, 0.0);
 				
 				float4 leftimage = float4(tex2D(decal, xy).rgb, luma1);
 				float4 leftoffset = tex2D(decal, xy - xyoffset);
