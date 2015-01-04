@@ -1,0 +1,5 @@
+These shader presets will allow you to apply a 608x448 Game Boy Player border around a 240x160 input image from a Game Boy Advance core. Included is one raw preset that can be easily used with other shaders, one with a CRT shader applied, and one with tvout for CRT monitors.
+
+Please note that RetroArch's integer scaling function will not automatically set a correct integer scale for the output image, as it will only take the Game Boy Advance core's reported resolution of 240x160 into account, and not the output image's 608x448 resolution. You will need to set a custom viewport size, either with the Custom Ratio menu option or defining custom_viewport_width and custom_viewport_height in the config file, setting Aspect Ratio Index to "Custom", and enabling Integer Scaling to center the image automatically.
+
+An example border is included, you can swap it out with another 608x448 SGB border in png format with the center 240x160 transparent. The borders included with this shader were ripped from a Game Boy Player disc by a kind anonymous user and were edited to appear correct with a GBA image fully shown.
