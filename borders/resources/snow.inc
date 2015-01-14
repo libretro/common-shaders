@@ -86,7 +86,7 @@ float4 main_fragment (
 		float2 s = abs(mod(q,1.)-.5+.9*r.xy-.45);
 		s += .01*abs(2.*frac(10.*q.yx)-1.); 
 		float d = .6*max(s.x-s.y,s.x+s.y)+max(s.x,s.y)-.01;
-		float edge = .005+.05*min(.5*abs(fi-5.-dof),1.);
+		float edge = .05+.05*min(.5*abs(fi-5.-dof),1.);
 		acc += float3(smoothstep(edge,-edge,d)*(r.x/(1.+.02*fi*DEPTH)));
 	}
 	float4 snowscape = float4(float3(acc),1.0);
