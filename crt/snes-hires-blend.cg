@@ -1,26 +1,61 @@
+/*
+	SNES Hires Blend Fix
+	by Sp00kyFox, 2015
+
+Filter:	Nearest
+Scale:	1x
+
+The original shader has the problem that it blends every horizontal pair of adjacent pixels where it should only blend pairwise disjointed pixel pairs instead.
+
+*/
+
 struct input
 {
-   float2 video_size;
-   float2 texture_size;
+	float2 texture_size;
 };
 
-void main_vertex
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
 (
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
 )
 {
-   oPosition = mul(modelViewProj, position);
-   oTex = tex;
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = texCoord.xxxy + float4(  -dx,    0,   dx,    0);	// L, C, R
+
+	return OUT;
 }
 
-float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
-   half2 ps = 1.0 / IN.texture_size;
-   float4 l = tex2D(s0, float2(tex.x - ps.x, tex.y));
-   float4 r = tex2D(s0, tex);
-   return IN.video_size.x > 256 ? lerp(l,r,0.5) : r;
+	// pixel location
+	float fp = round(frac(0.5*VAR.texCoord.x*IN.texture_size.x));
+
+	// reading the texels
+	float3 l = tex2D(decal, VAR.t1.xw).xyz;
+	float3 c = tex2D(decal, VAR.t1.yw).xyz;
+	float3 r = tex2D(decal, VAR.t1.zw).xyz;
+	
+	// output
+	return (IN.texture_size.x > 256) ? (fp == 0 ? lerp(c,r,0.5) : lerp(c,l,0.5)) : c;
 }
