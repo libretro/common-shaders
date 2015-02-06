@@ -64,7 +64,6 @@ uniform input IN,
 uniform sampler2D s0 : TEXUNIT0
 )
 {
-float luma = mul(tex2D(s0, texCoord).rgb, RGB_to_YIQ).r;
     // Distance to nearest point in a grid of
 	// (frequency x frequency) points over the unit square
 	float2x2 rotation_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
