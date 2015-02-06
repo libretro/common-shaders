@@ -64,6 +64,7 @@ uniform input IN,
 uniform sampler2D s0 : TEXUNIT0
 )
 {
+float luma = mul(tex2D(s0, texCoord).rgb, RGB_to_YIQ).r;
     // Distance to nearest point in a grid of
 	// (frequency x frequency) points over the unit square
 	float2x2 rotation_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
@@ -71,13 +72,12 @@ uniform sampler2D s0 : TEXUNIT0
     float2 nearest = 2.0 * fract(frequency * st2) - 1.0;
     float dist = length(nearest);
     float3 texcolor = tex2D(s0, texCoord).rgb; // Unrotated coords
-    float3 black = float3(0.0, 0.0, 0.0);
+    float3 black = float3(0.0);
 	
 	// Perform a rough RGB-to-CMYK conversion
     float4 cmyk;
     cmyk.xyz = 1.0 - texcolor;
     cmyk.w = min(cmyk.x, min(cmyk.y, cmyk.z)); // Create K
-    cmyk.xyz -= cmyk.w; // Subtract K equivalent from CMY
 	
 	float2x2 k_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
 	float2 Kst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(k_matrix , texCoord);
