@@ -67,7 +67,7 @@
 #pragma parameter geom_aspect_ratio_y "geom_aspect_ratio_y" 329.0 1.0 512.0 1.0
 #pragma parameter geom_overscan_x "geom_overscan_x" 1.0 0.00390625 4.0 0.00390625
 #pragma parameter geom_overscan_y "geom_overscan_y" 1.0 0.00390625 4.0 0.00390625
-#pragma parameter border_size "border_size" 0.015 0.0 0.5 0.005
+#pragma parameter border_size "border_size" 0.015 0.0000001 0.5 0.005
 #pragma parameter border_darkness "border_darkness" 2.0 0.0 16.0 0.0625
 #pragma parameter border_compress "border_compress" 2.5 1.0 64.0 0.0625
 #pragma parameter interlace_bff "interlace_bff" 0.0 0.0 1.0 1.0
