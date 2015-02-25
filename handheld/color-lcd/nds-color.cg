@@ -1,0 +1,53 @@
+/*
+
+Renders to CMYK color space using an AGFA SWOP Standard color profile.
+
+by Aybe, 2014
+
+Note: your GPU must handle 4096*4096 textures !
+
+*/
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oTex = tex;
+}
+
+struct input {
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+};
+
+const float ratio = 1.0 / 4096.0;
+
+float4 main_fragment (
+	float2 tex : TEXCOORD,
+	uniform input IN,
+	uniform sampler2D s0 : TEXUNIT0,
+	uniform sampler2D CMYK_LUT : TEXUNIT1
+	) : COLOR
+{
+	float4 c = tex2D(s0, tex);
+	float red = c.x;
+	float green = c.y;
+	float blue = c.z;
+	int offset = 
+		(int)(red	* 255 * 65536) +
+		(int)(green	* 255 * 256) +
+		(int)(blue	* 255);
+	float h = fmod((float)offset, 4096.0);
+	float v = offset / 4096.0;
+	float2 hv = float2(h * ratio, v * ratio);
+	return tex2D(CMYK_LUT, hv);
+}

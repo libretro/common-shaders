@@ -1,0 +1,13 @@
+shaders = "3"
+shader0 = "../../motionblur/motionblur-simple.cg"
+shader1 = "gba-color.cg"
+wrap_mode0 = "clamp_to_border"
+scale_type0 = source
+scale0 = 1.0
+filter_linear0 = false
+shader2 = "../lcd_cgwg/lcd-grid.cg"
+
+textures = "CMYK_LUT"
+CMYK_LUT = "gba-color.png"
+CMYK_LUT_linear = "false"
+CMYK_LUT_wrap_mode = "clamp_to_border"
