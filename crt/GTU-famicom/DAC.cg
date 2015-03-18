@@ -4,9 +4,6 @@
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
 
-
-#include "config.h"
-
 struct input
 {
    float2 video_size;

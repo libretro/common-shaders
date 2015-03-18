@@ -1,4 +1,7 @@
 
+//#undef PARAMETER_UNIFORM
+
+#ifndef PARAMETER_UNIFORM
 //#define cropOverscan
 //#define noScanlines
 #define tvVerticalResolution 250.0
@@ -13,3 +16,4 @@
 #define phaseOffset 0.0
 //#define addNoise
 #define noiseStrengh 0.0
+#endif

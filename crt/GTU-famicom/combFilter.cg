@@ -4,8 +4,16 @@
 //	License: GPLv3
 ////////////////////////////////////////////////////////
 
+#pragma parameter combFilter "comb filter" 0.0 0.0 1.0 1.0
+#pragma parameter phaseOffset "phase offset" 0.0 -0.5 0.5 0.01
 
 #include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float combFilter;
+uniform float phaseOffset;
+#endif
+
 
 struct input
 {
@@ -39,22 +47,26 @@ void main_vertex
 #define pi			3.14159265358
 
 
-float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD, in float colorPhase) : COLOR
+float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD, uniform input IN, in float colorPhase) : COLOR
 {
 	float current=tex2D(s0,tex.xy).r;
 
-#ifdef combFilter
-	float prev6=texture(s0, tex.xy - float2(6.0 * IN.output_size.z,0.0));
-	float signal=(current+prev6)/2.0;
-	float chromaSignal=current-signal;
-	float I = chromaSignal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
-	float Q = chromaSignal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
+	float signal, I, Q;
 
-#else
-	float signal=current;
-	float I = signal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
-	float Q = signal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
-#endif
+	if (combFilter)
+	{
+		float prev6=tex2D(s0, tex.xy - float2(6.0 / (IN.output_size.x*IN.texture_size.x/IN.video_size.x),0.0)).r;
+		signal=(current+prev6)/2.0;
+		float chromaSignal=current-signal;
+		I = chromaSignal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
+		Q = chromaSignal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
+	}
+	else
+	{
+		signal=current;
+		I = signal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
+		Q = signal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
+	}
 
 	return float4(signal,I,Q,1.0);
 

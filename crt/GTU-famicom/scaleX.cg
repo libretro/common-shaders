@@ -4,8 +4,19 @@
 //	License: GPLv3
 ////////////////////////////////////////////////////////
 
+#pragma parameter cropOverscan "crop overscan" 0.0 0.0 1.0 1.0
+#pragma parameter signalResolutionY "signal resolution Y" 200.0 20.0 500.0 10.0
+#pragma parameter signalResolutionI "signal resolution I" 125.0 20.0 350.0 10.0
+#pragma parameter signalResolutionQ "signal resolution Q" 125.0 20.0 350.0 10.0
 
 #include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float cropOverscan;
+uniform float signalResolutionY;
+uniform float signalResolutionI;
+uniform float signalResolutionQ;
+#endif
 
 void main_vertex
 (
@@ -17,9 +28,8 @@ void main_vertex
 )
 {
    oPosition = mul(modelViewProj, position);
-#ifdef cropOverscan
-   oPosition.x/=(240.0/256.0);
-#endif
+   if(cropOverscan)
+      oPosition.x/=(240.0/256.0);
 
    oTex = tex;
 }

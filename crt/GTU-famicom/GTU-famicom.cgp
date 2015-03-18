@@ -14,6 +14,7 @@ scale_type_1 = source
 scale_1 = 1.0
 float_framebuffer1 = true
 filter_linear1 = false
+frame_count_mod1 = 32
 
 shader2 = combFilter.cg
 scale_type_2 = source

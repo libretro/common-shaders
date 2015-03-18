@@ -4,8 +4,18 @@
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
 
+#pragma parameter signalResolution "signal resolution" 700.0 20.0 2000.0 10.0
+#pragma parameter addNoise "add noise" 0.0 0.0 1.0 1.0
+#pragma parameter noiseStrengh "noise strengh" 0.0 0.0 1.0 0.1
 
 #include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float signalResolution;
+uniform float addNoise;
+uniform float noiseStrengh;
+#endif
+
 
 void main_vertex
 (
@@ -60,12 +70,13 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
 
    float black=.518f, white=1.962f;
    signal = (signal-black) / (white-black);
-#ifdef addNoise
-   vec2 pos =(tex.xy * IN.video_size.xy);
-   signal -=0.5;
-   signal +=(rand(vec2(pos.x*pos.y,phase))-0.5)*noiseStrengh;
-   signal +=0.5;
-#endif
+   if(addNoise)
+   {
+      vec2 pos =(tex.xy * IN.video_size.xy);
+      signal -=0.5;
+      signal +=(rand(vec2(pos.x*pos.y,IN.frame_count))-0.5)*noiseStrengh;
+      signal +=0.5;
+   }
 
    return vec4(signal);
 }
