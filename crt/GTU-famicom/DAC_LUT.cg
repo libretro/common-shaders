@@ -41,7 +41,7 @@ float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, uniform sampler2D nestabl
 
 	float2 pixmapCoord;
 	pixmapCoord.x= c.x*(15.0/(16.0*4.0))+c.y*(3.0/4.0)+(0.5/(16.0*4.0));
-	pixmapCoord.y= 1.0-(fmod(colorPhase,12.0)/(12.0*8.0)+c.z*(7.0/8.0)+(0.5/(12.0*8.0)));
+	pixmapCoord.y= 1.0-(floor(fmod(colorPhase,12.0))/(12.0*8.0)+c.z*(7.0/8.0)+(0.5/(12.0*8.0)));
 
 	return float4(GET_LEVEL(tex2D(nestable, pixmapCoord.xy).r));
 }
