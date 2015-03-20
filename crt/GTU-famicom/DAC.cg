@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////
-//	GTU version 0.50	
+//	GTU-famicom version 0.50
 //	Author: aliaspider - aliaspider@gmail.com
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
@@ -33,8 +33,6 @@ void main_vertex
    colorPhase = 8.0 + pos.x + pos.y * 4.0 + IN.frame_count * 4.0;
 }
 
-#define RGB_to_YIQ 	transpose(float3x3( 0.299 , 0.595716 , 0.211456 ,	0.587    , -0.274453 , -0.522591 ,		0.114    , -0.321263 , 0.311135 ))
-
 #define TO_INT2(X) int(floor(((X) * 3.0) + 0.5))
 #define TO_INT3(X) int(floor(((X) * 7.0) + 0.5))
 #define TO_INT4(X) int(floor(((X) * 15.0) + 0.5))
@@ -45,25 +43,29 @@ bool InColorp (int p, int color) {
 
 float NTSCsignal(int emphasis, int level, int color, int p)
 {
-	 // float black=.518;
-	// float white=1.962;
+	float black=.518;
+	float white=1.962;
+
 	float attenuation=0.746;
-	 const float levels[8] = float[] (0.350 , 0.518, 0.962, 1.550,
+	const float levels[8] = float[] (0.350 , 0.518, 0.962, 1.550,
 							  1.094f, 1.506, 1.962, 1.962);
-	 if(color > 13)  level = 1;
-	 float low  = levels[0 + level];
-	 float high = levels[4 + level];
-	 if(color == 0) low = high;
-	 if(color > 12) high = low;
+	if(color > 13)  level = 1;
+	float low  = levels[0 + level];
+	float high = levels[4 + level];
+	if(color == 0) low = high;
+	if(color > 12) high = low;
 
 
-    float signal = InColorp(p, color) ? high : low;
+   float signal = InColorp(p, color) ? high : low;
 
-    if( (bool(emphasis & 1) && InColorp(p, 0))
-    ||  (bool(emphasis & 2) && InColorp(p, 4))
-    ||  (bool(emphasis & 4) && InColorp(p, 8)) ) signal = signal * attenuation;
+   if( (bool(emphasis & 1) && InColorp(p, 0))
+   ||  (bool(emphasis & 2) && InColorp(p, 4))
+   ||  (bool(emphasis & 4) && InColorp(p, 8)) ) signal = signal * attenuation;
 
-    return signal;
+
+   signal = (signal-black) / (white-black);
+
+   return signal;
 }
 
 float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD, in float colorPhase) : COLOR

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////
-//	GTU version 0.50	
+//	GTU-famicom version 0.50
 //	Author: aliaspider - aliaspider@gmail.com
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
@@ -50,8 +50,8 @@ struct input
    float frame_rotation;
 };
 
-float rand(vec2 co){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+float rand(float2 co){
+    return fract(sin(dot(co.xy ,float2(12.9898,78.233))) * 43758.5453);
 }
 
 float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
@@ -68,17 +68,13 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
    for (i = 1-range; i < 1+range; i++)
       signal+=VAL(i);
 
-   float black=.518f, white=1.962f;
-   signal = (signal-black) / (white-black);
    if(addNoise)
    {
-      vec2 pos =(tex.xy * IN.video_size.xy);
-      signal -=0.5;
-      signal +=(rand(vec2(pos.x*pos.y,IN.frame_count))-0.5)*noiseStrengh;
-      signal +=0.5;
+      float2 pos =(tex.xy * IN.video_size.xy);
+      signal +=(rand(float2(pos.x*pos.y,IN.frame_count))-0.5)*noiseStrengh;
    }
 
-   return vec4(signal);
+   return float4(signal);
 }
 
 
