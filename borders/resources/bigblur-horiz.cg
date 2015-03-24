@@ -1,8 +1,8 @@
-#pragma parameter blur_soft_x "Blur Soft X" 5.0 1.0 10.0 1.0
+#pragma parameter blur_soft_x "Blur Soft X" 10.0 1.0 20.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float blur_soft_x;
 #else
-#define blur_soft_x
+#define blur_soft_x 10.0
 #endif
 
 struct input
@@ -42,15 +42,16 @@ float4 main_fragment (
 {
 
  float4 big = float4(tex2D(s0, tex));
-	big += tex2D(s0, float2(tex.x + 1.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x - 1.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x + 2.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x - 2.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x + 4.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x - 4.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x + 8.0 * 0.0001 * blur_soft_x, tex.y));
-	big += tex2D(s0, float2(tex.x - 8.0 * 0.0001 * blur_soft_x, tex.y));
+	big += pow(tex2D(s0, float2(tex.x + 1.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x - 1.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x + 2.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x - 2.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x + 4.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x - 4.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x + 8.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
+	big += pow(tex2D(s0, float2(tex.x - 8.0 * 0.0001 * blur_soft_x, tex.y)), 2.2);
 	big /= float4(9.0);
+	big = pow(big, 1.0/2.2);
 
    return float4(big);
 }
