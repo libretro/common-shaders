@@ -1,9 +1,21 @@
+#pragma parameter PHOSPHOR_SCALE "Phosphor Scale" 1.0 1.0 3.0 0.5
+#pragma parameter MASK_TOGGLE "Mask Toggle" 0.0 0.0 1.0 1.0
+
+#ifdef PARAMETER_UNIFORM
+uniform float PHOSPHOR_SCALE;
+uniform float MASK_TOGGLE;
+
+#else
+#define PHOSPHOR_SCALE 1.0
+#define MASK_TOGGLE 0.0
+
+#endif
+// END PARAMETERS //
+
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
 */
-
-#define PHOSPHOR_SCALE 1.0
 
 // VERTEX SHADER //
 
@@ -56,7 +68,7 @@ output main_fragment (
 	float4 screen = float4(0.0);
 	float2 LUTeffectiveCoord = float2(frac(texCoord.x * IN.texture_size.x / PHOSPHOR_SCALE), frac(texCoord.y * IN.texture_size.y / PHOSPHOR_SCALE));
 	float4 image = tex2D(IN.texture, texCoord);
-if(IN.video_size.x > 400.0) screen += tex2D(BIGGER_LUT, LUTeffectiveCoord / 1.65) * 1.2;
+if(MASK_TOGGLE > 0.5) screen += tex2D(BIGGER_LUT, LUTeffectiveCoord);
 else screen += tex2D(PHOSPHOR_LUT, LUTeffectiveCoord);
 	
     OUT.color = screen * image;
