@@ -12,12 +12,12 @@
 ///////////////////////////////////////////////////////////////////////////
 
 shaders = 6
-shader0 = shader-3x/gb-pass-0.cg
-shader1 = shader-3x/gb-pass-1.cg
-shader2 = shader-3x/gb-pass-2.cg
-shader3 = shader-3x/gb-pass-3.cg
-shader4 = shader-3x/gb-pass-4.cg
-shader5 = shader-3x/gb-pass-5.cg
+shader0 = shader-files/gb-pass-0.cg
+shader1 = shader-files/gb-pass-1.cg
+shader2 = shader-files/gb-pass-2.cg
+shader3 = shader-files/gb-pass-3.cg
+shader4 = shader-files/gb-pass-4.cg
+shader5 = shader-files/gb-pass-5.cg
 
 scale_type0 = viewport
 scale0 = 1
@@ -45,9 +45,15 @@ filter_linear4 = false
 filter_linear5 = false
 
 textures = COLOR_PALETTE;BACKGROUND;BORDER
-COLOR_PALETTE = resources/palette.png
+COLOR_PALETTE = resources/dmg-palette.png
 COLOR_PALETTE_linear = false
-BACKGROUND = resources/background.png
+BACKGROUND = resources/dmg-background.png
 BACKGROUND_linear = true
-BORDER = resources/border-square-4x.png
+BORDER = resources/dmg-border-square-4x.png
 BORDER_linear = true
+
+parameters = "video_scale;SCALE;OUT_X;OUT_Y"
+video_scale = "3.0"
+SCALE = "0.6667"
+OUT_X = "2400.0"
+OUT_Y = "1200.0"

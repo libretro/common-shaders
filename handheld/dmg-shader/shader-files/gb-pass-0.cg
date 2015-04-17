@@ -1,3 +1,11 @@
+#pragma parameter video_scale "Video Scale" 3.0 3.0 5.0 1.0
+
+#ifdef PARAMETER_UNIFORM
+uniform float video_scale;
+#else
+#define video_scale 3.0
+#endif
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // DMG Shader v1.2                                                       //
@@ -36,8 +44,9 @@
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define blending_mode 0				//0 - only the space between dots is blending, 1 - all texels are blended [DEFAULT: 0]
-#define adjacent_texel_alpha_blending 0.34	//the amount of alpha swapped between neighboring texels [DEFAULT: 0.34]
+#define baseline_alpha 0.05	//analogous to the contrast slider on the original Gameboy, higher values darken the pixels - [-1, 1]  [DEFAULT: 0.05]
+#define response_time 0.20	//simulate response time, higher values result in longer color transition periods - [0, 1] [DEFAULT: 0.20]
+#define grey_balance 2.6 //useful to fine-tune the balance between the different shades of grey - [2, 4] [DEFAULT: 2.6]
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
@@ -49,22 +58,57 @@ struct input
     float2 texture_size;
     float2 output_size;
     float frame_count;
-    sampler2D texture : TEXUNIT0;
+    sampler2D texture	: TEXUNIT0;
 };
 
-struct blur_coords
+struct prev_0
 {
-    fixed2 tex_coord_1 : TEXCOORD1;
-    fixed2 tex_coord_2 : TEXCOORD2;
-    fixed2 tex_coord_3 : TEXCOORD3;
-    fixed2 tex_coord_4 : TEXCOORD4;
-    fixed2 lower_bound : TEXCOORD5;
-    fixed2 upper_bound : TEXCOORD6;
+    sampler2D texture : TEXUNIT1;
+};
+
+struct prev_1
+{
+    sampler2D texture : TEXUNIT2;
+};
+
+struct prev_2
+{
+    sampler2D texture : TEXUNIT3;
+};
+
+struct prev_3
+{
+    sampler2D texture : TEXUNIT4;
+};
+
+struct prev_4
+{
+    sampler2D texture : TEXUNIT5;
+};
+
+struct prev_5
+{
+    sampler2D texture : TEXUNIT6;
+};
+
+struct prev_6
+{
+    sampler2D texture : TEXUNIT7;
+};
+
+struct matrix_data
+{
+    fixed2 dot_size	: TEXCOORD1;
+    fixed2 one_texel	: TEXCOORD2;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //vertex definitions                                                                                                                      //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//#define video_scale 		3 // floor(IN.output_size.y / IN.video_size.y)		//largest integer scale of input video that will fit in the current output (y axis would typically be limiting on widescreens)
+#define scaled_video_out	(IN.video_size * video_scale)				//size of the scaled video
+#define half_pixel		(0.25 / IN.output_size)					//it's... half a pixel
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //vertex shader                                                                                                                           //
@@ -74,26 +118,16 @@ void main_vertex( float4 position      			: POSITION,
   		  out float4 oPosition 			: POSITION,
   		  float2 texCoord      			: TEXCOORD0,
   		  out float2 oTexCoord 			: TEXCOORD0,
-		  out blur_coords oBlurCoords,
+		  out matrix_data oMatrixData,
   		  uniform float4x4 modelViewProj,
   		  uniform input IN )
 {
-    oPosition = mul(modelViewProj, position);
-    oTexCoord = texCoord;
+    oPosition = mul(modelViewProj, position) / float4( float2(IN.output_size / scaled_video_out), 1.0, 1.0 );	//remaps position to integer scaled output
+    oTexCoord = texCoord + half_pixel;										//half pixel offset seems necessary here
 
-
-  //define the neighboring texel coordinates for use in blur
-
-    fixed2 texel = 1.0 / IN.texture_size;	//size of one texel
-
-    oBlurCoords = blur_coords 
-    (
-	texCoord + fixed2(0.0, texel.y),	//down
-	texCoord + fixed2(0.0, -texel.y),	//up
-	texCoord + fixed2(texel.x, 0.0),	//right
-	texCoord + fixed2(-texel.x, 0.0),	//left
-	fixed2(0.0),				//lower texture bounds
-	texel * (IN.output_size - 2.0)		//upper texture bounds
+    oMatrixData = matrix_data( 
+	1.0 / IN.texture_size,				//should always be square, but why the hell not
+	1.0 / (IN.texture_size * video_scale)		//one texel on the hypothetical scaled input texture
     );
 }
 
@@ -101,65 +135,67 @@ void main_vertex( float4 position      			: POSITION,
 //fragment definitions                                                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define blending_modifier(color) saturate(fixed(color.a == 0) + blending_mode)
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//fragment functions                                                                                                                      //
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//a simple blur technique that softens harsh color transitions
-//specialized to only blur alpha values and limited to only blurring texels lying in the spaces between two or more texels //FIX ME
-
-fixed simple_blur(input IN, fixed4 COLOR, blur_coords BLUR_COORDS)
-{
-  //clamp the blur coords to the input texture size so it doesn't attempt to sample off the texture (it'll retrieve float4(0.0) and darken the edges otherwise)
-
-    BLUR_COORDS.tex_coord_1 = clamp(BLUR_COORDS.tex_coord_1, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
-    BLUR_COORDS.tex_coord_2 = clamp(BLUR_COORDS.tex_coord_2, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
-    BLUR_COORDS.tex_coord_3 = clamp(BLUR_COORDS.tex_coord_3, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
-    BLUR_COORDS.tex_coord_4 = clamp(BLUR_COORDS.tex_coord_4, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+#define foreground_color tex2D(COLOR_PALETTE, fixed2(0.75, 0.5)).rgb					//hardcoded to look up the foreground color from the right half of the palette image
+#define rgb_to_alpha(rgb) ( ((rgb.r + rgb.g + rgb.b) / grey_balance) + (is_on_dot * baseline_alpha) )		//averages rgb values (allows it to work with color games), modified for contrast and base alpha
 
 
-  //sample adjacent texels based on the coordinates above
+//frame sampling definitions
 
-    fixed4 adjacent_texel_1 = tex2D(IN.texture, BLUR_COORDS.tex_coord_1);
-    fixed4 adjacent_texel_2 = tex2D(IN.texture, BLUR_COORDS.tex_coord_2);
-    fixed4 adjacent_texel_3 = tex2D(IN.texture, BLUR_COORDS.tex_coord_3);
-    fixed4 adjacent_texel_4 = tex2D(IN.texture, BLUR_COORDS.tex_coord_4);
-
-
-  //sum the alpha differences between neighboring texels, apply modifiers, then subtract the result from the current fragment alpha value
-
-    COLOR.a -= ( (COLOR.a - adjacent_texel_1.a) + 
-		 (COLOR.a - adjacent_texel_2.a) + 
-		 (COLOR.a - adjacent_texel_3.a) + 
-		 (COLOR.a - adjacent_texel_4.a) ) * adjacent_texel_alpha_blending * blending_modifier(COLOR);
-
-
-  //return new alpha value
-
-    return COLOR.a;
-}
+#define curr_rgb  abs(1 - tex2D(IN.texture, texCoord).rgb)
+#define prev0_rgb abs(1 - tex2D(PREV.texture, texCoord).rgb)
+#define prev1_rgb abs(1 - tex2D(PREV1.texture, texCoord).rgb)
+#define prev2_rgb abs(1 - tex2D(PREV2.texture, texCoord).rgb)
+#define prev3_rgb abs(1 - tex2D(PREV3.texture, texCoord).rgb)
+#define prev4_rgb abs(1 - tex2D(PREV4.texture, texCoord).rgb)
+#define prev5_rgb abs(1 - tex2D(PREV5.texture, texCoord).rgb)
+#define prev6_rgb abs(1 - tex2D(PREV6.texture, texCoord).rgb)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //fragment shader                                                                                                                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
-		      in blur_coords blur_coords,
-		      uniform input IN ) 		: COLOR
+		      in matrix_data matrixData,
+		      uniform input IN,
+		      uniform prev_0 PREV, 
+		      uniform prev_1 PREV1, 
+		      uniform prev_2 PREV2, 
+		      uniform prev_3 PREV3, 
+		      uniform prev_4 PREV4, 
+		      uniform prev_5 PREV5, 
+		      uniform prev_6 PREV6, 
+		      uniform sampler2D COLOR_PALETTE	: TEXUNIT8 ) : COLOR
 {
-  //sample the input textures
+  //determine if the corrent texel lies on a dot or in the space between dots
 
-    fixed4 out_color = tex2D(IN.texture, texCoord);
-
-
-  //apply the blur effect
-
-    out_color.a = simple_blur(IN, out_color, blur_coords);
+    int is_on_dot = all( int2( mod(texCoord.x, matrixData.dot_size.x) > matrixData.one_texel.x, 		//returns 1 if fragment lies on a dot, 0 otherwise
+			       mod(texCoord.y, matrixData.dot_size.y) > matrixData.one_texel.y ) );
 
 
-  //return
+  //sample color from the current and previous frames, apply response time modifier
+  //response time effect implmented through an exponential dropoff algorithm
+
+    fixed3 input_rgb = curr_rgb;
+    input_rgb += (prev0_rgb - input_rgb) * response_time;
+    input_rgb += (prev1_rgb - input_rgb) * pow(response_time, 2.0);
+    input_rgb += (prev2_rgb - input_rgb) * pow(response_time, 3.0);
+    input_rgb += (prev3_rgb - input_rgb) * pow(response_time, 4.0);
+    input_rgb += (prev4_rgb - input_rgb) * pow(response_time, 5.0);
+    input_rgb += (prev5_rgb - input_rgb) * pow(response_time, 6.0);
+    input_rgb += (prev6_rgb - input_rgb) * pow(response_time, 7.0);
+
+
+  //apply foreground color and assign alpha value
+
+    fixed4 out_color = fixed4(foreground_color, rgb_to_alpha(input_rgb));	//apply the foreground color to all texels (the color will be modified by alpha later) and assign alpha based on rgb input
+
+
+  //overlay the matrix
+
+    out_color.a *= is_on_dot;		//if the fragment is not on a dot, set its alpha value to 0
+
+
+  //return fragment color
 
     return out_color;
 }

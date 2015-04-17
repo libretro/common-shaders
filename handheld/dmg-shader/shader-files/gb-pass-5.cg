@@ -1,3 +1,16 @@
+#pragma parameter SCALE "Box Scale" 0.6667 0.6667 1.5 0.33333
+#pragma parameter OUT_X "Out X" 1600.0 1600.0 4800.0 8000.0
+#pragma parameter OUT_Y "Out Y" 800.0 800.0 2400.0 400.0
+#ifdef PARAMETER_UNIFORM
+uniform float SCALE;
+uniform float OUT_X;
+uniform float OUT_Y;
+#else
+#define SCALE 0.6667
+#define OUT_X 1600.0
+#define OUT_Y 800.0
+#endif
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // DMG Shader v1.2                                                       //
@@ -18,7 +31,7 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 
-// Border shader. 3x input scale, 2400x1200 border. :)
+// Border shader. 2x input scale, 1600x800 border. :)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //config                                                                                                                                  //
@@ -40,8 +53,8 @@ struct input
 //vertex definitions                                                                                                                      //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const float box_scale = 1.0; // 1x scale. (4x FBO)
-const float2 out_res = float2(2400.0, 1200.0); // Output target size.
+//const float box_scale = SCALE; // 1x scale. (4x FBO)
+//const float2 out_res = float2(OUT_X, OUT_Y); // Output target size.
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //vertex shader                                                                                                                           //
@@ -64,14 +77,14 @@ void main_vertex
 {
    oPosition = mul(modelViewProj, position);
    
-   float2 scale = (IN.output_size / IN.video_size) / box_scale;
+   float2 scale = (IN.output_size / IN.video_size) / SCALE;
    float2 middle = 0.5 * IN.video_size / IN.texture_size;
    float2 diff = tex.xy - middle;
    oTex = middle + diff * scale;
 
    middle = float2(0.5, 0.5);
    float2 dist = tex_border - middle;
-   otex_border = middle + dist * IN.output_size / out_res;
+   otex_border = middle + dist * IN.output_size / float2(OUT_X, OUT_Y);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
