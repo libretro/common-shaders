@@ -1,0 +1,74 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+#pragma parameter WIDV "Vert Blur" 4.0 0.0 10.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float WIDV;
+#else
+#define WIDV 4.0
+#endif
+
+#define width 0.3
+#define display_gamma 2.2
+#define TEX2D(c) pow(tex2D(s0,(c)),float4(display_gamma))
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 texCoord : TEXCOORD0,
+   out float2 oTexCoord : TEXCOORD,
+
+   uniform input IN
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   oTexCoord = texCoord;
+}
+
+float4 main_fragment (in float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+  float2 xy = texCoord.st;
+  float oney = 1.0/IN.texture_size.y;
+
+  float wid = width*WIDV;
+
+  float c1 = exp(-1.0/wid/wid);
+  float c2 = exp(-4.0/wid/wid);
+  float c3 = exp(-9.0/wid/wid);
+  float c4 = exp(-16.0/wid/wid);
+
+  float norm = 0.9;
+
+  float4 sum = float4(0.0);
+
+  sum += TEX2D(xy + float2(0.0, -4.0 * oney)) * float4(c4);
+  sum += TEX2D(xy + float2(0.0, -3.0 * oney)) * float4(c3);
+  sum += TEX2D(xy + float2(0.0, -2.0 * oney)) * float4(c2);
+  sum += TEX2D(xy + float2(0.0, -1.0 * oney)) * float4(c1);
+  sum += TEX2D(xy);
+  sum += TEX2D(xy + float2(0.0, +1.0 * oney)) * float4(c1);
+  sum += TEX2D(xy + float2(0.0, +2.0 * oney)) * float4(c2);
+  sum += TEX2D(xy + float2(0.0, +3.0 * oney)) * float4(c3);
+  sum += TEX2D(xy + float2(0.0, +4.0 * oney)) * float4(c4);
+
+    return float4(pow(sum*float4(norm),float4(1.0/display_gamma)));
+}

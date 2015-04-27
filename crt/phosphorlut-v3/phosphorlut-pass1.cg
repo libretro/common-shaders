@@ -52,11 +52,11 @@ output main_fragment (
 	float2 texCoord : TEXCOORD0,
 	uniform input IN,
 	uniform sampler2D texture : TEXUNIT0,
-	uniform pass_1 PASSPREV2 )     	: COLOR
+	uniform pass_1 PASSPREV3 )     	: COLOR
 {
 	output OUT;
 	float4 pass1 = tex2D(IN.texture, texCoord);
-	float4 pass2 = tex2D(PASSPREV2.texture, texCoord);
+	float4 pass2 = tex2D(PASSPREV3.texture, texCoord);
 		
     OUT.color = 1.0 - (1.0 - (pass1 * brightness)) * (1.0 - pass2);
 
