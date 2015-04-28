@@ -1,5 +1,5 @@
-#pragma parameter PHOSPHOR_SCALE_X "Phosphor Scale X" 1.0 1.0 3.0 0.5
-#pragma parameter PHOSPHOR_SCALE_Y "Phosphor Scale Y" 1.0 1.0 3.0 0.5
+#pragma parameter PHOSPHOR_SCALE_X "Phosphor Scale X" 1.0 0.5 3.0 0.5
+#pragma parameter PHOSPHOR_SCALE_Y "Phosphor Scale Y" 1.0 0.5 3.0 0.5
 #ifdef PARAMETER_UNIFORM
 uniform float PHOSPHOR_SCALE_X;
 uniform float PHOSPHOR_SCALE_Y;
