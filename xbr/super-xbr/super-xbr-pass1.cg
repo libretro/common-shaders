@@ -1,0 +1,160 @@
+#pragma parameter XBR_BILINEAR2 "Xbr - Bilinear Weight p1" 0.4 0.0 2.0 0.1
+#ifdef PARAMETER_UNIFORM
+uniform float XBR_BILINEAR2;
+#else
+#define XBR_BILINEAR2 0.4
+#endif
+// END PARAMETERS //
+
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Hyllian' Super XBR Shader - pass1
+   
+   Copyright (C) 2015           Hyllian - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+
+const static float3 Y = float3(0.299,0.587,0.114);
+
+float RGBtoYUV(float3 color)
+{
+  return dot(color, Y);
+}
+
+float df(float A, float B)
+{
+  return abs(A-B);
+}
+
+float weighted_distance(float a, float b, float c, float d, float e, float f, float g, float h)
+{
+  return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
+}
+
+float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
+{
+	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
+}
+
+     
+    struct input
+    {
+        float2 video_size;
+        float2 texture_size;
+        float2 output_size;
+        float  frame_count;
+        float  frame_direction;
+        float frame_rotation;
+    };
+     
+     
+    struct out_vertex {
+        float4 position : POSITION;
+        float4 color    : COLOR;
+        float2 texCoord : TEXCOORD0;
+    };
+     
+    /*    VERTEX_SHADER    */
+    out_vertex main_vertex
+    (
+        float4 position    : POSITION,
+        float4 color    : COLOR,
+        float2 texCoord1   : TEXCOORD0,
+     
+        uniform float4x4 modelViewProj,
+        uniform input IN
+    )
+    {
+
+	float2 tex = texCoord1;
+
+        out_vertex OUT = {
+            mul(modelViewProj, position),
+            color,
+            tex
+        };
+     
+        return OUT;
+    }
+     
+     
+    float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+    {
+	//Skip pixels on wrong grid
+	float2 dir = frac(VAR.texCoord*IN.texture_size/2.0) - float2(0.5);
+ 	if ((dir.x*dir.y)>0.0) return tex2D(s0, VAR.texCoord);
+
+	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
+	float2 g2 = float2(0.0, 1.0/IN.texture_size.y);
+
+/*
+         C     F4
+      B     F     I4
+         E  A  I  
+      D     H     I5
+         G     H5
+*/
+
+
+	float3 B = tex2D(s0, VAR.texCoord -2.0*g1     -g2).xyz;
+	float3 C = tex2D(s0, VAR.texCoord     -g1 -2.0*g2).xyz;
+	float3 D = tex2D(s0, VAR.texCoord -2.0*g1     +g2).xyz;
+	float3 E = tex2D(s0, VAR.texCoord     -g1        ).xyz;
+	float3 F = tex2D(s0, VAR.texCoord             -g2).xyz;
+	float3 G = tex2D(s0, VAR.texCoord     -g1 +2.0*g2).xyz;
+	float3 H = tex2D(s0, VAR.texCoord             +g2).xyz;
+	float3 I = tex2D(s0, VAR.texCoord     +g1        ).xyz;
+
+	float3 F4 = tex2D(s0,VAR.texCoord     +g1 -2.0*g2).xyz;
+	float3 I4 = tex2D(s0,VAR.texCoord +2.0*g1     -g2).xyz;
+	float3 H5 = tex2D(s0,VAR.texCoord     +g1 +2.0*g2).xyz;
+	float3 I5 = tex2D(s0,VAR.texCoord +2.0*g1     +g2).xyz;
+
+	float b = RGBtoYUV( B );
+	float c = RGBtoYUV( C );
+	float d = RGBtoYUV( D );
+	float e = RGBtoYUV( E );
+	float f = RGBtoYUV( F );
+	float g = RGBtoYUV( G );
+	float h = RGBtoYUV( H );
+	float i = RGBtoYUV( I );
+
+	float i4 = RGBtoYUV( I4 );
+	float i5 = RGBtoYUV( I5 );
+	float h5 = RGBtoYUV( H5 );
+	float f4 = RGBtoYUV( F4 );
+
+	float edr = (weighted_distance( e, c, g, i, h5, f4, h, f) - weighted_distance( h, d, i5, f, i4, b, e, i));
+
+	if ((edr < -XBR_BILINEAR2))
+	{
+		return float4(lerp(F, H, 0.5), 1.0);
+	}
+	else if ((edr > XBR_BILINEAR2))
+	{
+		return float4(lerp(E, I, 0.5), 1.0);
+	}
+
+	float3 color = bilinear(0.5, 0.5, E, F, H, I);
+
+	return float4(color, 1.0);	
+}
