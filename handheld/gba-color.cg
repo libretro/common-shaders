@@ -1,112 +1,63 @@
 /*
-   Author: hunterk
+   Author: Pokefan531
    License: Public domain
 */
 
 // Shader that replicates the LCD dynamics from a GameBoy Advance
-#pragma parameter display_gamma "Display Gamma" 2.2 0.0 10.0 0.1
-#pragma parameter target_gamma "Target Gamma" 2.2 0.0 10.0 0.1
-#pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 -25.0 25.0 1.0
-#pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 -25.0 25.0 1.0
-#pragma parameter sat "Saturation" 1.0 0.0 3.0 0.01
-#pragma parameter lum "Luminance" 1.0 0.0 3.0 0.01
-#pragma parameter contrast "Contrast" 1.0 0.0 2.0 0.1
-#pragma parameter bpoint "Black Point" 0.0 0.0 1.0 0.05
-#pragma parameter r "Red" 1.0 0.0 2.0 0.01
-#pragma parameter g "Green" 1.0 0.0 2.0 0.01
-#pragma parameter b "Blue" 1.0 0.0 2.0 0.01
-#pragma parameter bright "Brightness" 0.0 0.0 1.0 0.005
-#pragma parameter rg "Red-Green Tint" 0.0 0.0 1.0 0.005
-#pragma parameter rb "Red-Blue Tint" 0.0 0.0 1.0 0.005
-#pragma parameter gr "Green-Red Tint" 0.0 0.0 1.0 0.005
-#pragma parameter gb "Green-Blue Tint" 0.0 0.0 1.0 0.005
-#pragma parameter br "Blue-Red Tint" 0.0 0.0 1.0 0.005
-#pragma parameter bg "Blue-Green Tint" 0.0 0.0 1.0 0.005
-#ifdef PARAMETER_UNIFORM
-uniform float display_gamma;
-uniform float target_gamma;
-uniform float sat;
-uniform float lum;
-uniform float contrast;
-uniform float bpoint;
-uniform float r;
-uniform float g;
-uniform float b;
-uniform float bright;
-uniform float rg;
-uniform float rb;
-uniform float gr;
-uniform float gb;
-uniform float br;
-uniform float bg;
-uniform float overscan_percent_x;
-uniform float overscan_percent_y;
-#else
-#define display_gamma 2.2
-#define target_gamma 2.2
-#define sat 1.0
-#define lum 1.0
-#define contrast 1.0
-#define bpoint 0.0
-#define r 1.0
-#define g 1.0
-#define b 1.0
-#define bright 0.0
-#define rg 0.0
-#define rb 0.0
-#define gr 0.0
-#define gb 0.0
-#define br 0.0
-#define bg 0.0
-#define overscan_percent_x 0.0
-#define overscan_percent_y 0.0
-#endif
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
 
 void main_vertex
 (
    float4 position : POSITION,
    out float4 oPosition : POSITION,
    uniform float4x4 modelViewProj,
-   uniform input IN,
 
    float2 tex : TEXCOORD,
    out float2 oTex : TEXCOORD
 )
 {
    oPosition = mul(modelViewProj, position);
-   float2 shift = 0.5 * IN.video_size / IN.texture_size;
-   float2 overscan_coord = (tex - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
-   oTex = overscan_coord;
+   oTex = tex;
+}
+
+float3 grayscale(float3 col)
+{
+   // Non-conventional way to do grayscale,
+   // but bSNES uses this as grayscale value.
+   return float3(dot(col, float3(0.2126, 0.7152, 0.0722)));
 }
 
 float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-float4 screen = pow(tex2D(s0, tex), target_gamma).rgba; //sample image in linear colorspace
-float4 avglum = float4(0.5);
-screen = lerp(screen, avglum, (1.0 - contrast));
+//part 1
+float saturation = 1.0;
+float Display_gamma = 1.02;
+float CRT_gamma = 2.4;
+float luminance = 1.0;
 
-//				r   g    b   black
-mat4x4 color = {r,  gr,  br, bpoint,  //red channel
-			   rg,   g,  bg, bpoint,  //green channel
-			   rb,  gb,   b, bpoint,  //blue channel
-			  0.0, 0.0, 0.0,    1.0}; //alpha channel; these numbers do nothing for our purposes.
-			  
-mat4x4 adjust = {(1.0 - sat) * 0.3086 + sat * lum, (1.0 - sat) * 0.6094,             (1.0 - sat) * 0.0820,             0.0,
-				 (1.0 - sat) * 0.3086,             (1.0 - sat) * 0.6094 + sat * lum, (1.0 - sat) * 0.0820,             0.0,
-				 (1.0 - sat) * 0.3086,             (1.0 - sat) * 0.6094,             (1.0 - sat) * 0.0820 + sat * lum, 0.0,
-				  1.0, 1.0, 1.0, 1.0};
+   float3 gamma = float3(CRT_gamma / Display_gamma);
+   float3 res = tex2D(s0, tex).xyz;
+   res = lerp(grayscale(res), res, saturation); // Apply saturation
+   res = pow(res, gamma.rgb); // Apply gamma
+   float4 c = float4(saturate(res * luminance), 1.0);
 
-color = mul(color, adjust);
-screen = mul(color, screen + bright);
-return pow(screen, 1.0 / display_gamma);
+//part 2
+	float r = c.x;
+	float g = c.y;
+	float b = c.z;
+	float a = c.w;
+	float w = r * 0.714 + g * 0.251 + b * 0.000;
+	float q = r * 0.071 + g * 0.643 + b * 0.216;
+	float e = r * 0.071 + g * 0.216 + b * 0.643;
+
+//part 3
+saturation = 1.0;
+Display_gamma = 3.6;
+CRT_gamma = 2.4;
+luminance = 1.01;
+
+   res = float3(w, q, e);
+   gamma = gamma = float3(CRT_gamma / Display_gamma);
+   res = lerp(grayscale(res), res, saturation); // Apply saturation
+   res = pow(res, gamma.rgb); // Apply gamma
+   return float4(saturate(res * luminance), 1.0);
 }
