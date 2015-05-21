@@ -168,7 +168,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 		{
 			C = A + D - B;
 		}
-		else if (k > l)
+		else if (k >= l)
 		{
 			B = A + D - C;
 		}
