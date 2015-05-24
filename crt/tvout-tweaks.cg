@@ -20,21 +20,7 @@
 // use TV video color range (16-235) 
 // instead of PC full range (0-255)
 #pragma parameter TVOUT_TV_COLOR_LEVELS "TVOut TV Color Levels Enable" 0.0 0.0 1.0 1.0
-
-#ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
-uniform float TVOUT_RESOLUTION;
-uniform float TVOUT_COMPOSITE_CONNECTION;
-uniform float TVOUT_TV_COLOR_LEVELS;
-#else
-// Fallbacks if parameters are not supported.
-#define TVOUT_RESOLUTION 256.0 // Default
-#define TVOUT_COMPOSITE_CONNECTION 0
-#define TVOUT_TV_COLOR_LEVELS 0
-#endif
-
-
 ////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////
 // Advanced settings:
@@ -47,14 +33,32 @@ uniform float TVOUT_TV_COLOR_LEVELS;
 // and will only simulate the low bandwidth anspect of
 // composite signal, not the crosstalk between luma and chroma
 // Y = 4MHz I=1.3MHz Q=0.4MHz
-#define RESOLUTION_Y 256.0
-#define RESOLUTION_I 83.2
-#define RESOLUTION_Q 25.6 
+#pragma parameter TVOUT_RESOLUTION_Y "TVOut Luma (Y) Resolution" 256.0 0.0 1024.0 32.0
+#pragma parameter TVOUT_RESOLUTION_I "TVOut Chroma (I) Resolution" 83.2 0.0 256.0 8.0
+#pragma parameter TVOUT_RESOLUTION_Q "TVOut Chroma (Q) Resolution" 25.6 0.0 256.0 8.0
 
 // formula is MHz=resolution*15750Hz
 // 15750Hz being the horizontal Frequency of NTSC
 // (=262.5*60Hz)
 ////////////////////////////////////////////////////////
+
+#ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
+uniform float TVOUT_RESOLUTION;
+uniform float TVOUT_COMPOSITE_CONNECTION;
+uniform float TVOUT_TV_COLOR_LEVELS;
+uniform float TVOUT_RESOLUTION_Y;
+uniform float TVOUT_RESOLUTION_I;
+uniform float TVOUT_RESOLUTION_Q;
+#else
+// Fallbacks if parameters are not supported.
+#define TVOUT_RESOLUTION 256.0 // Default
+#define TVOUT_COMPOSITE_CONNECTION 0
+#define TVOUT_TV_COLOR_LEVELS 0
+#define TVOUT_RESOLUTION_Y 256.0
+#define TVOUT_RESOLUTION_I 83.2
+#define TVOUT_RESOLUTION_Q 25.6
+#endif
+
 
 struct input
 {
@@ -119,7 +123,7 @@ float3 LEVELS(float3 c0)
 
 #define VAL(tempColor) \
    if (TVOUT_COMPOSITE_CONNECTION) \
-      tempColor += float3((c.x*STU(X,(RESOLUTION_Y*oneI))),(c.y*STU(X,(RESOLUTION_I*oneI))),(c.z*STU(X,(RESOLUTION_Q*oneI)))); \
+      tempColor += float3((c.x*STU(X,(TVOUT_RESOLUTION_Y*oneI))),(c.y*STU(X,(TVOUT_RESOLUTION_I*oneI))),(c.z*STU(X,(TVOUT_RESOLUTION_Q*oneI)))); \
    else \
       tempColor += (c*STU(X,(TVOUT_RESOLUTION*oneI)))
 
