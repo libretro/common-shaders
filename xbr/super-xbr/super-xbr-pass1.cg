@@ -1,8 +1,8 @@
-#pragma parameter XBR_BILINEAR2 "Xbr - Bilinear Weight p1" 1.0 0.0 3.0 0.1
+#pragma parameter XBR_BILINEAR2 "Xbr - Bilinear Weight p1" 0.0 0.0 3.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float XBR_BILINEAR2;
 #else
-#define XBR_BILINEAR2 1.0
+#define XBR_BILINEAR2 0.0
 #endif
 // END PARAMETERS //
 
@@ -32,8 +32,12 @@ uniform float XBR_BILINEAR2;
 
 */
 
+#define halfpi  1.5707963267948966192313216916398
+#define pi    3.1415926535897932384626433832795
+#define wa    (0.34*pi)
+#define wb    (0.8486*pi)
 
-const static float3 Y = float3(0.299,0.587,0.114);
+const static float3 Y = float3(.2126, .7152, .0722);
 
 float RGBtoYUV(float3 color)
 {
@@ -50,9 +54,13 @@ float weighted_distance(float a, float b, float c, float d, float e, float f, fl
   return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
 }
 
-float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
+float4 resampler(float4 x)
 {
-	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
+  float4 res;
+
+  res = (x==float4(0.0, 0.0, 0.0, 0.0)) ?  float4(wa*wb)  :  sin(x*wa)*sin(x*wb)/(x*x);
+
+  return res;
 }
 
      
@@ -106,14 +114,21 @@ float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
 	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
 	float2 g2 = float2(0.0, 1.0/IN.texture_size.y);
 
+
 /*
-         C     F4
-      B     F     I4
-         E  A  I  
-      D     H     I5
-         G     H5
+                              P1
+     |P0|B |C |P1|         C     F4
+     |D |E |F |F4|      B     F     I4
+     |G |H |I |I4|   P0    E  x  I     P3
+     |P2|H5|I5|P3|      D     H     I5
+                           G     H5
+                              P2
 */
 
+	float3 P0 = tex2D(s0, VAR.texCoord -3.0*g1       ).xyz;
+	float3 P1 = tex2D(s0, VAR.texCoord        -3.0*g2).xyz;
+	float3 P2 = tex2D(s0, VAR.texCoord        +3.0*g2).xyz;
+	float3 P3 = tex2D(s0, VAR.texCoord +3.0*g1       ).xyz;
 
 	float3 B = tex2D(s0, VAR.texCoord -2.0*g1     -g2).xyz;
 	float3 C = tex2D(s0, VAR.texCoord     -g1 -2.0*g2).xyz;
@@ -147,7 +162,18 @@ float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
 
 	float limits = XBR_BILINEAR2 + 0.000001;
 	float a = smoothstep(-limits, limits, edr);
-	float3 color =  lerp(lerp(F, H, 0.5), lerp(E, I, 0.5), a);
+
+	float4 weights = resampler(float4(1.5, 0.5, 0.5, 1.5)); 
+        float3 c1 = mul(weights, float4x3(P2, H, F, P1));
+        float3 c2 = mul(weights, float4x3(P0, E, I, P3));
+	c1 = c1/dot(weights, float4(1));
+	c2 = c2/dot(weights, float4(1));
+
+	// Anti-ringing
+	c1 = clamp(c1, min(H, F), max(H, F));
+	c2 = clamp(c2, min(E, I), max(E, I));
+
+	float3 color =  lerp(c1, c2, a);
 
 	return float4(color, 1.0);	
 }
