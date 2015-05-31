@@ -183,27 +183,26 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 
       // Anti-ringing
       //  Get min/max samples
-    /*  pc = VAR.texCoord;
+      pc = VAR.texCoord;
       c00 = tex2D(s_p, pc              ).xyz;
       c11 = tex2D(s_p, pc    +dx       ).xyz;
       c21 = tex2D(s_p, pc    -dx       ).xyz;
       c12 = tex2D(s_p, pc           +dy).xyz;
       c22 = tex2D(s_p, pc           -dy).xyz;
-*/
+
 
       float3 min_sample = min4(c11, c21, c12, c22);
       float3 max_sample = max4(c11, c21, c12, c22);
-//	min_sample = min(min_sample, c00);
-//	max_sample = max(min_sample, c00);
+	min_sample = min(min_sample, c00);
+	max_sample = max(max_sample, c00);
 
       float3 aux = color;
-      color = clamp(color, min_sample, max_sample);
 
-      color = lerp(aux, color, JINC2_AR_STRENGTH);
+        color = clamp(color, min_sample, max_sample);
+        color = lerp(aux, color, JINC2_AR_STRENGTH);
  
       // final sum and weight normalization
       return float4(color, 1);
      
     }
-
 
