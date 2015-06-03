@@ -1,19 +1,17 @@
 #pragma parameter InputGamma "Input gamma" 2.4 0.0 5.0 0.1
 #pragma parameter OutputGamma "Output Gamma" 2.2 0.0 5.0 0.1
-#pragma parameter DILATION_STRENGTH "Dilation Strength" 0.9 0.0 1.0 0.05
 #pragma parameter SHARPNESS "Sharpness" 2.0 0.0 5.0 0.1
 #pragma parameter RED_BOOST "Red Boost" 1.0 1.0 2.0 0.01
 #pragma parameter GREEN_BOOST "Green Boost" 1.0 1.0 2.0 0.01
-#pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.7 0.0 1.0 0.01
-#pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.1 0.0 1.0 0.01
-#pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 0.7 0.0 1.0 0.01
-#pragma parameter COLOR_BOOST "Color Boost" 1.2 1.0 2.0 0.05
-#pragma parameter BEAM_WIDTH_SENSITIVITY "Beam Width Sensitivity" 0.5 0.0 1.0 0.01
-#pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.05 1.0 2.0 0.01
+#pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.8 0.0 1.0 0.01
+#pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.3 0.0 1.0 0.01
+#pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 0.5 0.0 1.0 0.01
+#pragma parameter COLOR_BOOST "Color Boost" 1.4 1.0 2.0 0.05
+#pragma parameter BEAM_WIDTH_SENSITIVITY "Beam Width Sensitivity" 0.72 0.0 1.0 0.01
+#pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.0 1.0 2.0 0.01
 #ifdef PARAMETER_UNIFORM
 uniform float InputGamma;
 uniform float OutputGamma;
-uniform float DILATION_STRENGTH;
 uniform float SHARPNESS;
 uniform float RED_BOOST;
 uniform float GREEN_BOOST;
@@ -26,7 +24,6 @@ uniform float CRT_TV_BLUE_TINT;
 #else
 #define InputGamma 2.4
 #define OutputGamma 2.2
-#define DILATION_STRENGTH 0.9
 #define SHARPNESS 2.0
 #define RED_BOOST 1.0
 #define GREEN_BOOST 1.0
@@ -47,7 +44,7 @@ uniform float CRT_TV_BLUE_TINT;
 /*
    Hyllian's CRT Shader
   
-   Copyright (C) 2011-2014 Hyllian/Jararaca - sergiogdb@gmail.com
+   Copyright (C) 2011-2015 Hyllian/Jararaca - sergiogdb@gmail.com
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -66,16 +63,13 @@ uniform float CRT_TV_BLUE_TINT;
 */
 
 // Uncomment to enable anti-ringing to horizontal filter.
-#define ANTI_RINGING
-
-// Uncomment to dilate bright pixels horizontally.
-#define DILATION
+//#define ANTI_RINGING
 
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
 
 // Comment next line if you don't desire the phosphor effect.
-#define PHOSPHOR
+//#define PHOSPHOR
 
 // Uncomment to enable adjustment of red and green saturation.
 //#define RED_GREEN_CONTROL
@@ -162,10 +156,10 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     float2 fp = frac(pix_coord);
 
-    float3 c10 = tex2D(s_p, tc     - dx).xyz;
-    float3 c11 = tex2D(s_p, tc         ).xyz;
-    float3 c12 = tex2D(s_p, tc     + dx).xyz;
-    float3 c13 = tex2D(s_p, tc + 2.0*dx).xyz;
+    float3 c10 = GAMMA_IN(tex2D(s_p, tc     - dx).xyz);
+    float3 c11 = GAMMA_IN(tex2D(s_p, tc         ).xyz);
+    float3 c12 = GAMMA_IN(tex2D(s_p, tc     + dx).xyz);
+    float3 c13 = GAMMA_IN(tex2D(s_p, tc + 2.0*dx).xyz);
 
 #ifdef ANTI_RINGING
     //  Get min/max samples
@@ -177,21 +171,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
     float3 color   = mul(invX_Px, color_matrix);
-
-#ifdef DILATION
-    float dz = DILATION_STRENGTH*IN.video_size.x/(IN.output_size.x);
-
-    float2 fpf = float2(fp.x + dz, fp.y);
-    float2 fpd = float2(fp.x - dz, fp.y);
-
-    invX_Px = mul(invX, float4(fpf.x*fpf.x*fpf.x, fpf.x*fpf.x, fpf.x, 1.0));
-    float3 colorf   = mul(invX_Px, color_matrix);
-
-    invX_Px = mul(invX, float4(fpd.x*fpd.x*fpd.x, fpd.x*fpd.x, fpd.x, 1.0));
-    float3 colord   = mul(invX_Px, color_matrix);
-
-    color = max(color, max(colorf, colord));
-#endif
 
 #ifdef ANTI_RINGING
     // Anti-ringing
@@ -217,8 +196,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     color = clamp(color*d, 0.0, 1.0);            
  
-    color = GAMMA_IN(color);
-
 #ifdef PHOSPHOR
     float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
 
