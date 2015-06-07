@@ -1,13 +1,13 @@
-#pragma parameter JINC2_WINDOW_SINC "Window Sinc Param" 0.34 0.0 1.0 0.01
-#pragma parameter JINC2_SINC "Sinc Param" 0.8486 0.0 1.0 0.01
+#pragma parameter JINC2_WINDOW_SINC "Window Sinc Param" 0.42 0.0 1.0 0.01
+#pragma parameter JINC2_SINC "Sinc Param" 0.92 0.0 1.0 0.01
 #pragma parameter JINC2_AR_STRENGTH "Anti-ringing Strength" 0.0 0.0 1.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float JINC2_WINDOW_SINC;
 uniform float JINC2_SINC;
 uniform float JINC2_AR_STRENGTH;
 #else
-#define JINC2_WINDOW_SINC 0.34
-#define JINC2_SINC 0.8486
+#define JINC2_WINDOW_SINC 0.42
+#define JINC2_SINC 0.92
 #define JINC2_AR_STRENGTH 0.0
 #endif
 // END PARAMETERS //
