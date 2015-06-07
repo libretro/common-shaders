@@ -1,15 +1,12 @@
-#pragma parameter DILATION_STRENGTH "Dilation Strength" 0.9 0.0 1.0 0.05
-#pragma parameter SHARPNESS "Sharpness Hack" 1.0 1.0 2.0 1.0
+#pragma parameter SHARPNESS "Sharpness" 2.0 0.0 5.0 0.1
 #pragma parameter RED_BOOST "Red Boost" 1.0 1.0 2.0 0.01
 #pragma parameter GREEN_BOOST "Green Boost" 1.0 1.0 2.0 0.01
-#pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.9 0.0 1.0 0.01
-#pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.1 0.0 1.0 0.01
-#pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 0.4 0.0 1.0 0.01
-#pragma parameter COLOR_BOOST "Color Boost" 1.2 1.0 2.0 0.05
-#pragma parameter BEAM_WIDTH_SENSITIVITY "Beam Width Sensitivity" 0.5 0.0 1.0 0.01
-#pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.05 1.0 2.0 0.01
+#pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.72 0.0 1.0 0.02
+#pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.86 0.0 1.0 0.02
+#pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 1.0 0.0 1.0 0.02
+#pragma parameter COLOR_BOOST "Color Boost" 1.3 1.0 2.0 0.05
+#pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.0 1.0 2.0 0.01
 #ifdef PARAMETER_UNIFORM
-uniform float DILATION_STRENGTH;
 uniform float SHARPNESS;
 uniform float RED_BOOST;
 uniform float GREEN_BOOST;
@@ -17,19 +14,16 @@ uniform float SCANLINES_STRENGTH;
 uniform float BEAM_MIN_WIDTH;
 uniform float BEAM_MAX_WIDTH;
 uniform float COLOR_BOOST;
-uniform float BEAM_WIDTH_SENSITIVITY;
 uniform float CRT_TV_BLUE_TINT;
 #else
-#define DILATION_STRENGTH 0.9
-#define SHARPNESS 1.0
+#define SHARPNESS 2.0
 #define RED_BOOST 1.0
 #define GREEN_BOOST 1.0
-#define SCANLINES_STRENGTH 0.9
-#define BEAM_MIN_WIDTH 0.1
-#define BEAM_MAX_WIDTH 0.4
-#define COLOR_BOOST 1.2
-#define BEAM_WIDTH_SENSITIVITY 0.5
-#define CRT_TV_BLUE_TINT 1.05
+#define SCANLINES_STRENGTH 0.72
+#define BEAM_MIN_WIDTH 0.86
+#define BEAM_MAX_WIDTH 1.0
+#define COLOR_BOOST 1.4
+#define CRT_TV_BLUE_TINT 1.0 
 #endif
 // END PARAMETERS //
 
@@ -41,7 +35,7 @@ uniform float CRT_TV_BLUE_TINT;
 /*
    Hyllian's CRT Shader
   
-   Copyright (C) 2011-2014 Hyllian/Jararaca - sergiogdb@gmail.com
+   Copyright (C) 2011-2015 Hyllian/Jararaca - sergiogdb@gmail.com
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -62,14 +56,17 @@ uniform float CRT_TV_BLUE_TINT;
 // Uncomment to enable anti-ringing to horizontal filter.
 //#define ANTI_RINGING
 
-// Uncomment to dilate bright pixels horizontally.
-#define DILATION
+// Uncomment to increase the sharpness of the scanlines.
+//#define SHARPER
 
 // Comment next line if you don't desire the phosphor effect.
 //#define PHOSPHOR
 
 // Uncomment to enable adjustment of red and green saturation.
 //#define RED_GREEN_CONTROL
+
+#define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
 
 // Horizontal cubic filter.
@@ -136,16 +133,25 @@ out_vertex main_vertex
 
 float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
 {
+#ifdef SHARPER
     float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+#else
+    float2 TextureSize = IN.texture_size;
+#endif
 
+    float3 color;
     float2 dx = float2(1.0/TextureSize.x, 0.0);
     float2 dy = float2(0.0, 1.0/TextureSize.y);
-    float2 pix_coord = VAR.texCoord*TextureSize-float2(0.5,0.0);
+    float2 pix_coord = VAR.texCoord*TextureSize+float2(-0.5,0.5);
 
     float2 tc = (floor(pix_coord)+float2(0.5,0.5))/TextureSize;
 
     float2 fp = frac(pix_coord);
 
+    float3 c00 = tex2D(s_p, tc     - dx - dy).xyz;
+    float3 c01 = tex2D(s_p, tc          - dy).xyz;
+    float3 c02 = tex2D(s_p, tc     + dx - dy).xyz;
+    float3 c03 = tex2D(s_p, tc + 2.0*dx - dy).xyz;
     float3 c10 = tex2D(s_p, tc     - dx).xyz;
     float3 c11 = tex2D(s_p, tc         ).xyz;
     float3 c12 = tex2D(s_p, tc     + dx).xyz;
@@ -153,53 +159,30 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
 #ifdef ANTI_RINGING
     //  Get min/max samples
-    float3 min_sample = min(c11, c12);
-    float3 max_sample = max(c11, c12);
+    float3 min_sample = min(min(c01,c11), min(c02,c12));
+    float3 max_sample = max(max(c01,c11), max(c02,c12));
 #endif
 
-    float4x3 color_matrix = float4x3(c10, c11, c12, c13);
+    float4x3 color_matrix0 = float4x3(c00, c01, c02, c03);
+    float4x3 color_matrix1 = float4x3(c10, c11, c12, c13);
 
     float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
-    float3 color   = mul(invX_Px, color_matrix);
+    float3 color0   = mul(invX_Px, color_matrix0);
+    float3 color1   = mul(invX_Px, color_matrix1);
 
-#ifdef DILATION
-    float dz = DILATION_STRENGTH*IN.video_size.x/(IN.output_size.x);
+    float pos0 = fp.y;
+    float pos1 = 1 - fp.y;
 
-    float2 fpf = float2(fp.x + dz, fp.y);
-    float2 fpd = float2(fp.x - dz, fp.y);
+    float3 lum0 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color0);
+    float3 lum1 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color1);
 
-    invX_Px = mul(invX, float4(fpf.x*fpf.x*fpf.x, fpf.x*fpf.x, fpf.x, 1.0));
-    float3 colorf   = mul(invX_Px, color_matrix);
+    float3 d0 = clamp(pos0/(lum0+0.0000001), 0.0, 1.0);
+    float3 d1 = clamp(pos1/(lum1+0.0000001), 0.0, 1.0);
 
-    invX_Px = mul(invX, float4(fpd.x*fpd.x*fpd.x, fpd.x*fpd.x, fpd.x, 1.0));
-    float3 colord   = mul(invX_Px, color_matrix);
+    d0 = exp(-10.0*SCANLINES_STRENGTH*d0*d0);
+    d1 = exp(-10.0*SCANLINES_STRENGTH*d1*d1);
 
-    color = max(color, max(colorf, colord));
-#endif
-
-#ifdef ANTI_RINGING
-    // Anti-ringing
-    color = clamp(color, min_sample, max_sample);
-#endif
-
-    float pos = abs(fp.y - 0.5);
-
-    float3 lum = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color);
-    lum = pow(lum,float3(BEAM_WIDTH_SENSITIVITY));
-
-    float3 d = clamp(pos/lum, 0.0, 1.0);
-
-    d = smoothstep(0.0, 1.0, 1.0-d);
-
-    d = SCANLINES_STRENGTH*(d-1.0)+1.0;
-
-#ifdef RED_GREEN_CONTROL
-    color.rgb *= float3(RED_BOOST, GREEN_BOOST, CRT_TV_BLUE_TINT);
-#else
-    color.b *= CRT_TV_BLUE_TINT;
-#endif
-
-    color = clamp(color*d, 0.0, 1.0);            
+    color = clamp(color0*d0+color1*d1, 0.0, 1.0);            
  
 #ifdef PHOSPHOR
     float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
@@ -214,6 +197,17 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 #endif                   
 
     color *= COLOR_BOOST;
+
+#ifdef RED_GREEN_CONTROL
+    color.rgb *= float3(RED_BOOST, GREEN_BOOST, CRT_TV_BLUE_TINT);
+#else
+    color.b *= CRT_TV_BLUE_TINT;
+#endif
+
+#ifdef ANTI_RINGING
+    // Anti-ringing
+    color = clamp(color, min_sample, max_sample);
+#endif
 
     return float4(color, 1.0);
 }
