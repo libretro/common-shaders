@@ -6,7 +6,7 @@
 #pragma parameter SCANLINES_STRENGTH "Scanline Strength" 0.72 0.0 1.0 0.02
 #pragma parameter BEAM_MIN_WIDTH "Min. Beam Width" 0.86 0.0 1.0 0.02
 #pragma parameter BEAM_MAX_WIDTH "Max Beam Width" 1.0 0.0 1.0 0.02
-#pragma parameter COLOR_BOOST "Color Boost" 1.4 1.0 2.0 0.05
+#pragma parameter COLOR_BOOST "Color Boost" 1.5 1.0 2.0 0.05
 #pragma parameter CRT_TV_BLUE_TINT "CRT TV Blue Tint" 1.0 1.0 2.0 0.01
 #ifdef PARAMETER_UNIFORM
 uniform float InputGamma;
@@ -28,7 +28,7 @@ uniform float CRT_TV_BLUE_TINT;
 #define SCANLINES_STRENGTH 0.72
 #define BEAM_MIN_WIDTH 0.86
 #define BEAM_MAX_WIDTH 1.0
-#define COLOR_BOOST 1.4
+#define COLOR_BOOST 1.5
 #define CRT_TV_BLUE_TINT 1.0 
 #endif
 // END PARAMETERS //
@@ -176,6 +176,11 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float3 color0   = mul(invX_Px, color_matrix0);
     float3 color1   = mul(invX_Px, color_matrix1);
 
+#ifdef ANTI_RINGING
+    // Anti-ringing
+    color = clamp(color, min_sample, max_sample);
+#endif
+
     float pos0 = fp.y;
     float pos1 = 1 - fp.y;
 
@@ -189,7 +194,15 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     d1 = exp(-10.0*SCANLINES_STRENGTH*d1*d1);
 
     color = clamp(color0*d0+color1*d1, 0.0, 1.0);            
- 
+
+    color *= COLOR_BOOST;
+
+#ifdef RED_GREEN_CONTROL
+    color.rgb *= float3(RED_BOOST, GREEN_BOOST, CRT_TV_BLUE_TINT);
+#else
+    color.b *= CRT_TV_BLUE_TINT;
+#endif
+
 #ifdef PHOSPHOR
     float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
 
@@ -201,20 +214,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     color.rgb *= dotMaskWeights;
 #endif                   
-
-    color *= COLOR_BOOST;
-
-#ifdef RED_GREEN_CONTROL
-    color.rgb *= float3(RED_BOOST, GREEN_BOOST, CRT_TV_BLUE_TINT);
-#else
-    color.b *= CRT_TV_BLUE_TINT;
-#endif
-
-#ifdef ANTI_RINGING
-    // Anti-ringing
-    color = clamp(color, min_sample, max_sample);
-#endif
-
 
     color  = GAMMA_OUT(color);
 
