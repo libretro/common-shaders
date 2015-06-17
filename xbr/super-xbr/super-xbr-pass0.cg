@@ -1,4 +1,5 @@
 #pragma parameter XBR_EDGE_STR "Xbr - Edge Strength p0" 1.0 0.0 5.0 0.2
+#pragma parameter XBR_WEIGHT "Xbr - Filter Weight" 1.29 0.00 2.00 0.01
 
 #include "super-xbr-params.inc"
 
@@ -40,16 +41,10 @@
 #define wp5 -1.0
 #define wp6  1.0
 
-#define halfpi  1.5707963267948966192313216916398
-#define pi      3.1415926535897932384626433832795
-#define w8      (0.8486*pi)
-#define w5      (0.5657*pi)
-
-const static float s2 = 1.4142135623730950488016887242097;
+#define weight (XBR_WEIGHT/10.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
 
-const static float4 nb = float4(1.5, 0.5, 0.5, 1.5);
 
 float RGBtoYUV(float3 color)
 {
@@ -90,11 +85,6 @@ float3 min4(float3 a, float3 b, float3 c, float3 d)
 float3 max4(float3 a, float3 b, float3 c, float3 d)
 {
     return max(a, max(b, max(c, d)));
-}
-
-float4 sinc(float4 x, float wb)
-{
-   return ((x==float4(0.0, 0.0, 0.0, 0.0)) ?  float4(wb)  :  sin(x*wb)/x);
 }
 
      
@@ -191,32 +181,32 @@ float4 sinc(float4 x, float wb)
 */
 
 
+	/* Calc edgeness in diagonal directions. */
 	float d_edge  = (d_wd( d, b, g, e, c, p2, h, f, p1, h5, i, f4, i5, i4 ) - d_wd( c, f4, b, f, i4, p0, e, i, p3, d, h, i5, g, h5 ));
 
+	/* Calc edgeness in horizontal/vertical directions. */
 	float hv_edge = (hv_wd(f, i, e, h, c, i5, b, h5) - hv_wd(e, f, h, i, d, f4, g, i4));
 
 	float limits = XBR_EDGE_STR + 0.000001;
 	float edge_strength = smoothstep(0.0, limits, abs(d_edge));
 
-	float4 w = sinc(nb*s2, w5);
+	/* Filter weights. Two taps only. */
+	float4 w = float4(-weight, weight+0.5, weight+0.5, -weight);
 
+	/* Filtering and normalization in four direction generating four colors. */
         float3 c1 = mul(w, float4x3(P2, H, F, P1));
         float3 c2 = mul(w, float4x3(P0, E, I, P3));
-	c1 = c1/dot(w, float4(1));
-	c2 = c2/dot(w, float4(1));
-
-	w = sinc(nb, w8);
-
 	float3 c3 = (mul(w, float4x3( D, E, F, F4)) + mul(w, float4x3( G, H, I, I4)));
         float3 c4 = (mul(w, float4x3( C, F, I, I5)) + mul(w, float4x3( B, E, H, H5)));
 	c3 = c3/dot(w, float4(2));
 	c4 = c4/dot(w, float4(2));
 
+	/* Smoothly blend the two strongest directions (one in diagonal and the other in vert/horiz direction). */
 	float3 color =  lerp(lerp(c1, c2, step(0.0, d_edge)), lerp(c3, c4, step(0.0, hv_edge)), 1 - edge_strength);
 
+	/* Anti-ringing code. */
 	float3 min_sample = min4(  E,   F,   H,   I);
 	float3 max_sample = max4(  E,   F,   H,   I);
-
 	color = clamp(color, min_sample, max_sample);
 
 	return float4(color, 1.0);	
