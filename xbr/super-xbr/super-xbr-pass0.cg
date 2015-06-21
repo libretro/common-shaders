@@ -1,5 +1,5 @@
 #pragma parameter XBR_EDGE_STR "Xbr - Edge Strength p0" 1.0 0.0 5.0 0.2
-#pragma parameter XBR_WEIGHT "Xbr - Filter Weight" 1.29 0.00 2.00 0.01
+#pragma parameter XBR_WEIGHT "Xbr - Filter Weight" 1.29633 0.00 2.00 0.01
 
 #include "super-xbr-params.inc"
 
@@ -41,7 +41,8 @@
 #define wp5 -1.0
 #define wp6  1.0
 
-#define weight (XBR_WEIGHT/10.0)
+#define weight1 (XBR_WEIGHT/10.0)
+#define weight2 (XBR_WEIGHT*1.75068/1.29633/10.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
 
@@ -191,17 +192,18 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	float edge_strength = smoothstep(0.0, limits, abs(d_edge));
 
 	/* Filter weights. Two taps only. */
-	float4 w = float4(-weight, weight+0.5, weight+0.5, -weight);
+	float4 w1 = float4(-weight1, weight1+0.5, weight1+0.5, -weight1);
+	float4 w2 = float4(-weight2, weight2+0.5, weight2+0.5, -weight2);
 
 	/* Filtering and normalization in four direction generating four colors. */
-        float3 c1 = mul(w, float4x3(P2, H, F, P1));
-        float3 c2 = mul(w, float4x3(P0, E, I, P3));
-	float3 c3 = (mul(w, float4x3( D, E, F, F4)) + mul(w, float4x3( G, H, I, I4)));
-        float3 c4 = (mul(w, float4x3( C, F, I, I5)) + mul(w, float4x3( B, E, H, H5)));
-	c3 = c3/dot(w, float4(2));
-	c4 = c4/dot(w, float4(2));
+        float3 c1 = mul(w1, float4x3(P2, H, F, P1));
+        float3 c2 = mul(w1, float4x3(P0, E, I, P3));
+	float3 c3 = (mul(w2, float4x3( D, E, F, F4)) + mul(w2, float4x3( G, H, I, I4)));
+        float3 c4 = (mul(w2, float4x3( C, F, I, I5)) + mul(w2, float4x3( B, E, H, H5)));
+	c3 = c3/2.0;
+	c4 = c4/2.0;
 
-	/* Smoothly blend the two strongest directions (one in diagonal and the other in vert/horiz direction). */
+	/* Smoothly blends the two strongest directions (one in diagonal and the other in vert/horiz direction). */
 	float3 color =  lerp(lerp(c1, c2, step(0.0, d_edge)), lerp(c3, c4, step(0.0, hv_edge)), 1 - edge_strength);
 
 	/* Anti-ringing code. */
