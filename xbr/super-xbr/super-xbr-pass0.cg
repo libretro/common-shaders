@@ -133,7 +133,7 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
     float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
     {
 	//Skip pixels on wrong grid
- 	if (any(frac(VAR.texCoord*IN.texture_size)<float2(0.5))) return tex2D(s0, VAR.texCoord);
+ 	if (any(frac(VAR.texCoord*IN.texture_size)<float2(0.5,0.5))) return tex2D(s0, VAR.texCoord);
 
 	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
 	float2 g2 = float2(0.0, 1.0/IN.texture_size.y);
@@ -198,8 +198,8 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	/* Filtering and normalization in four direction generating four colors. */
         float3 c1 = mul(w1, float4x3(P2, H, F, P1));
         float3 c2 = mul(w1, float4x3(P0, E, I, P3));
-	float3 c3 = (mul(w2, float4x3( D, E, F, F4)) + mul(w2, float4x3( G, H, I, I4)));
-        float3 c4 = (mul(w2, float4x3( C, F, I, I5)) + mul(w2, float4x3( B, E, H, H5)));
+	float3 c3 = mul(w2, float4x3( D, E, F, F4) + float4x3( G, H, I, I4));
+        float3 c4 = mul(w2, float4x3( C, F, I, I5) + float4x3( B, E, H, H5));
 
 	/* Smoothly blends the two strongest directions (one in diagonal and the other in vert/horiz direction). */
 	float3 color =  lerp(lerp(c1, c2, step(0.0, d_edge)), lerp(c3, c4, step(0.0, hv_edge)), 1 - edge_strength);

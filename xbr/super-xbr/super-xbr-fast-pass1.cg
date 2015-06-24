@@ -38,8 +38,7 @@
 #define wp5  0.0
 #define wp6  0.0
 
-#define weight1 (XBR_WEIGHT*1.75068/10.0)
-#define weight2 (XBR_WEIGHT*1.29633/10.0/2.0)
+#define weight (XBR_WEIGHT*1.75068/10.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
 
@@ -70,15 +69,11 @@ float d_wd(float b0, float b1, float c0, float c1, float c2, float d0, float d1,
 	return (wp1*(df(c1,c2) + df(c1,c0) + df(e2,e1) + df(e2,e3)) + wp2*(df(d2,d3) + df(d0,d1)) + wp3*(df(d1,d3) + df(d0,d2)) + wp4*df(d1,d2) + wp5*(df(c0,c2) + df(e1,e3)) + wp6*(df(b0,b1) + df(f2,f3)));
 }
 
-float hv_wd(float i1, float i2, float i3, float i4, float e1, float e2, float e3, float e4)
-{
-	return ( wp4*(df(i1,i2)+df(i3,i4)) + wp1*(df(i1,e1)+df(i2,e2)+df(i3,e3)+df(i4,e4)) + wp3*(df(i1,e2)+df(i3,e4)+df(e1,i2)+df(e3,i4)));
-}
-
 float3 min4(float3 a, float3 b, float3 c, float3 d)
 {
     return min(a, min(b, min(c, d)));
 }
+
 float3 max4(float3 a, float3 b, float3 c, float3 d)
 {
     return max(a, max(b, max(c, d)));
@@ -129,7 +124,7 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
     float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
     {
 	//Skip pixels on wrong grid
-	float2 dir = frac(VAR.texCoord*IN.texture_size/2.0) - float2(0.5,0.5);
+	float2 dir = frac(VAR.texCoord*IN.texture_size/2.0) - float2(0.5, 0.5);
  	if ((dir.x*dir.y)>0.0) return tex2D(s0, VAR.texCoord);
 
 	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
@@ -171,29 +166,25 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	/* Calc edgeness in diagonal directions. */
 	float d_edge  = (d_wd( d, b, g, e, c, p2, h, f, p1, h5, i, f4, i5, i4 ) - d_wd( c, f4, b, f, i4, p0, e, i, p3, d, h, i5, g, h5 ));
 
-	/* Calc edgeness in horizontal/vertical directions. */
-	float hv_edge = (hv_wd(f, i, e, h, c, i5, b, h5) - hv_wd(e, f, h, i, d, f4, g, i4));
-
 	float limits = XBR_EDGE_STR + 0.000001;
-	float edge_strength = smoothstep(0.0, limits, abs(d_edge));
+	float edge_strength = smoothstep(-limits, limits, d_edge);
 
 	/* Filter weights. Two taps only. */
-	float4 w1 = float4(-weight1, weight1+0.5, weight1+0.5, -weight1);
-	float4 w2 = float4(-weight2, weight2+0.25, weight2+0.25, -weight2);
+	float4 w = float4(-weight, weight+0.5, weight+0.5, -weight);
 
-	/* Filtering and normalization in four direction generating four colors. */
-        float3 c1 = mul(w1, float4x3(P2, H, F, P1));
-        float3 c2 = mul(w1, float4x3(P0, E, I, P3));
-	float3 c3 = mul(w2, float4x3( D, E, F, F4) + float4x3( G, H, I, I4));
-        float3 c4 = mul(w2, float4x3( C, F, I, I5) + float4x3( B, E, H, H5));
+	/* Filtering and normalization in two directions generating two colors. */
+        float3 c1 = mul(w, float4x3(P2, H, F, P1));
+        float3 c2 = mul(w, float4x3(P0, E, I, P3));
 
-	/* Smoothly blends the two strongest directions (one in diagonal and the other in vert/horiz direction). */
-	float3 color =  lerp(lerp(c1, c2, step(0.0, d_edge)), lerp(c3, c4, step(0.0, hv_edge)), 1 - edge_strength);
+	/* Smoothly blends the two directions according to edge strength. */
+	float3 color =  lerp(c1, c2, edge_strength);
 
 	/* Anti-ringing code. */
 	float3 min_sample = min4(  E,   F,   H,   I);
 	float3 max_sample = max4(  E,   F,   H,   I);
+	float3 aux = color;
 	color = clamp(color, min_sample, max_sample);
+	color = lerp(aux, color, 1-2.0*abs(edge_strength-0.5));
 
 	return float4(color, 1.0);	
 }
