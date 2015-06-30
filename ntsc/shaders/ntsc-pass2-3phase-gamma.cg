@@ -1,0 +1,24 @@
+#include "ntsc-pass2-vertex.inc"
+#include "ntsc-decode-filter-3phase.inc"
+#include "ntsc-rgbyuv.inc"
+
+#define fetch_offset(offset, one_x) \
+   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+
+#pragma parameter NTSC_CRT_GAMMA "NTSC CRT Gamma" 2.5 0.0 10.0 0.1
+#pragma parameter NTSC_MONITOR_GAMMA "NTSC Monitor Gamma" 2.0 0.0 10.0 0.1
+
+##ifdef PARAMETER_UNIFORM
+uniform float NTSC_CRT_GAMMA;
+uniform float NTSC_MONITOR_GAMMA;
+#else
+#define NTSC_CRT_GAMMA 2.5
+#define NTSC_MONITOR_GAMMA 2.0
+#endif
+
+float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+#include "ntsc-pass2-decode.inc"
+   float3 rgb = yiq2rgb(signal);
+   return float4(pow(rgb, NTSC_CRT_GAMMA / NTSC_MONITOR_GAMMA), 1.0);
+}

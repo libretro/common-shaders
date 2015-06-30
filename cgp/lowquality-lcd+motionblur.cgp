@@ -1,5 +1,5 @@
 shaders = "3"
-shader0 = "../motionblur/motionblur-simple.cg"
+shader0 = "../motionblur/shaders/motionblur-simple.cg"
 shader1 = "../misc/image-adjustment.cg"
 shader2 = "../handheld/lcd_cgwg/lcd-grid.cg"
 

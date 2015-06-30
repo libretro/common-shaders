@@ -1,8 +1,8 @@
 shaders = 4
-shader0 = ntsc-pass1-composite-3phase.cg
-shader1 = ntsc-pass2-3phase.cg
-shader2 = ntsc-gauss-pass.cg
-shader3 = ntsc-stock.cg
+shader0 = shaders/ntsc-pass1-composite-3phase.cg
+shader1 = shaders/ntsc-pass2-3phase.cg
+shader2 = shaders/ntsc-gauss-pass.cg
+shader3 = shaders/ntsc-stock.cg
 
 filter_linear0 = false
 filter_linear1 = false

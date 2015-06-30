@@ -1,0 +1,106 @@
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.8 - Pass 0
+   by Sp00kyFox, 2014
+
+   Neighbor analysis via color metric and dot product of the difference vectors.
+
+*/
+
+
+#pragma parameter MODE "MDAPT Monochrome Analysis"	0.0 0.0 1.0 1.0
+#pragma parameter PWR  "MDAPT Color Metric Exp"		2.0 0.0 10.0 0.1
+
+#ifdef PARAMETER_UNIFORM
+	uniform float MODE, PWR;
+#else
+	#define MODE 0.0
+	#define PWR 2.0
+#endif
+
+#define dot(x,y) saturate(dot(x,y))	// NVIDIA Fix
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+// Reference: http://www.compuphase.com/cmetric.htm
+float eq(float3 A, float3 B)
+{
+	float3 diff = A-B;
+	float  ravg = (A.x + B.x) * 0.5;
+
+	diff *= diff * float3(2.0 + ravg, 4.0, 3.0 - ravg);
+	
+	return pow( smoothstep(3.0, 0.0, sqrt(diff.x + diff.y + diff.z)), PWR );
+}
+
+float and(float a, float b, float c, float d, float e, float f){
+	return min(a, min(b, min(c, min(d, min(e,f)))));
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        OUT.texCoord = texCoord;
+	OUT.t1       = 1.0/IN.texture_size;
+
+        return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	/*
+		  U
+		L C R
+		  D	
+	*/
+
+	float3 C = TEX( 0, 0).xyz;
+	float3 L = TEX(-1, 0).xyz;
+	float3 R = TEX( 1, 0).xyz;
+	float3 U = TEX( 0,-1).xyz;
+	float3 D = TEX( 0, 1).xyz;
+
+
+	float3 res = float3(0.0);
+
+	if(MODE){
+		res.x = all(L == R) && any(C != L);
+		res.y = all(U == D) && any(C != U);
+		res.z = res.x && res.y && all(L == U);
+	}
+	else{
+		float3 dCL = normalize(C-L), dCR = normalize(C-R), dCD = normalize(C-D), dCU = normalize(C-U);
+
+		res.x = dot(dCL, dCR) * eq(L,R);
+		res.y = dot(dCU, dCD) * eq(U,D);
+		res.z = and(res.x, res.y, dot(dCL, dCU) * eq(L,U), dot(dCL, dCD) * eq(L,D), dot(dCR, dCU) * eq(R,U), dot(dCR, dCD) * eq(R,D));
+	}
+
+	return res;
+}

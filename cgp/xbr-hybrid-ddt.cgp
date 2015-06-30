@@ -1,6 +1,6 @@
 shaders = 2
-shader0 = ../xbr-hybrid/2xbr-hybrid.cg
-shader1 = ../ddt/ddt.cg
+shader0 = ../xbr/shaders/xbr-hybrid/2xbr-hybrid.cg
+shader1 = ../ddt/shaders/ddt.cg
 
 filter_linear0 = false
 filter_linear1 = false
