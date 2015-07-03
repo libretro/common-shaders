@@ -1,6 +1,6 @@
 shaders = "4"
 shader0 = "../resources/imgborder-sgb.cg"
-shader1 = "../../crt/tvout-tweaks.cg"
+shader1 = "../../crt/shaders/tvout-tweaks.cg"
 shader2 = "../../misc/image-adjustment.cg"
 shader3 = "../../misc/interlacing.cg"
 
