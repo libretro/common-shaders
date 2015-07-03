@@ -1,6 +1,6 @@
 shaders = "2"
 shader0 = "../resources/imgborder-gameboy-player.cg"
-shader1 = "../../crt/crt-easymode.cg"
+shader1 = "../../crt/shaders/crt-easymode.cg"
 
 scale_type_x0 = "absolute"
 scale_x0 = "608"

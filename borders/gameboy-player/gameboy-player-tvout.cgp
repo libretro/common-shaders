@@ -1,6 +1,6 @@
 shaders = "3"
 shader0 = "../resources/imgborder-gameboy-player.cg"
-shader1 = "../../crt/tvout-tweaks.cg"
+shader1 = "../../crt/shaders/tvout-tweaks.cg"
 shader2 = "../../misc/image-adjustment.cg"
 
 scale_type_x0 = "absolute"
