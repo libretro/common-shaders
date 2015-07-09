@@ -10,7 +10,7 @@
 #pragma parameter overscan_x "CRTGeom Horiz. Overscan %" 100.0 -125.0 125.0 1.0
 #pragma parameter overscan_y "CRTGeom Vert. Overscan %" 100.0 -125.0 125.0 1.0
 #pragma parameter DOTMASK "CRTGeom Dot Mask Toggle" 0.3 0.0 0.3 0.3
-#pragma parameter SHARPER "CRTGeom Sharpness" 1.0 0.0 3.0 0.5
+#pragma parameter SHARPER "CRTGeom Sharpness" 1.0 1.0 3.0 1.0
 #pragma parameter scanline_weight "CRTGeom Scanline Weight" 0.3 0.1 0.5 0.05
 
 #ifdef PARAMETER_UNIFORM
@@ -223,7 +223,7 @@ out_vertex main_vertex
     OUT.cosangle = cos(float2(x_tilt, y_tilt));
     OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
    OUT.texCoord = texCoord;
-    OUT.TextureSize = float2(SHARPER * IN.texture_size.x, SHARPER * IN.texture_size.y);
+    OUT.TextureSize = float2(SHARPER * IN.texture_size.x, IN.texture_size.y);
 
 #ifdef INTERLACED
     OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/200.0),1.0,2.0));
@@ -306,7 +306,7 @@ float4 main_fragment(in out_vertex VAR, uniform input IN, uniform sampler2D s0 :
                 // Calculate Lanczos scaling coefficients describing the effect
                 // of various neighbour texels in a scanline on the current
                 // pixel.
-                float4 coeffs = PI * float4(5.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x);
+                float4 coeffs = PI * float4(1.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x);
 
                 // Prevent division by zero.
                 coeffs = FIX(coeffs);
