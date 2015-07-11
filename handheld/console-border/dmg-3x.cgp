@@ -54,7 +54,7 @@ BORDER_linear = true
 
 parameters = "video_scale;SCALE;OUT_X;OUT_Y;adjacent_texel_alpha_blending;pixel_opacity;shadow_opacity"
 video_scale = "3.0"
-SCALE = "0.6667"
+SCALE = "1.0"
 OUT_X = "2400.0"
 OUT_Y = "1200.0"
 adjacent_texel_alpha_blending = "0.42"
