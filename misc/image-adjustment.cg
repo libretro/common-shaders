@@ -9,6 +9,9 @@
 #pragma parameter R "Red Channel" 1.0 0.0 2.0 0.05
 #pragma parameter G "Green Channel" 1.0 0.0 2.0 0.05
 #pragma parameter B "Blue Channel" 1.0 0.0 2.0 0.05
+#pragma parameter ZOOM "Zoom Factor" 1.0 0.0 4.0 0.01
+#pragma parameter XPOS "X Modifier" 0.0 -2.0 2.0 0.01
+#pragma parameter YPOS "Y Modifier" 0.0 -2.0 2.0 0.01
 #ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
 uniform float monitor_gamma;
@@ -21,6 +24,9 @@ uniform float bright_boost;
 uniform float R;
 uniform float G;
 uniform float B;
+uniform float ZOOM;
+uniform float XPOS;
+uniform float YPOS;
 #else
 #define overscan_percent_x 0.0         // crop width of image by X%; default is 0.0
 #define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
@@ -33,6 +39,9 @@ uniform float B;
 #define R 1.0
 #define G 1.0
 #define B 1.0
+#define ZOOM 1.0
+#define XPOS 0.0
+#define YPOS 0.0
 #endif
 // END PARAMETERS //
 
@@ -69,7 +78,7 @@ void main_vertex
    oColor = color;
    float2 shift = 0.5 * IN.video_size / IN.texture_size;
    float2 overscan_coord = (texCoord - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
-   otexCoord = overscan_coord;
+   otexCoord = (overscan_coord / ZOOM) + float2(XPOS, YPOS);
 }
 
 struct output 
