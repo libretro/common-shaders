@@ -10,8 +10,10 @@
 #pragma parameter G "Green Channel" 1.0 0.0 2.0 0.05
 #pragma parameter B "Blue Channel" 1.0 0.0 2.0 0.05
 #pragma parameter ZOOM "Zoom Factor" 1.0 0.0 4.0 0.01
-#pragma parameter XPOS "X Modifier" 0.0 -2.0 2.0 0.01
-#pragma parameter YPOS "Y Modifier" 0.0 -2.0 2.0 0.01
+#pragma parameter XPOS "X Modifier" 0.0 -2.0 2.0 0.005
+#pragma parameter YPOS "Y Modifier" 0.0 -2.0 2.0 0.005
+#pragma parameter V_OSMASK "Overscan Mask Y" 0.0 0.0 1.0 0.001
+#pragma parameter H_OSMASK "Overscan Mask X" 0.0 0.0 1.0 0.001
 #ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
 uniform float monitor_gamma;
@@ -27,6 +29,8 @@ uniform float B;
 uniform float ZOOM;
 uniform float XPOS;
 uniform float YPOS;
+uniform float V_OSMASK;
+uniform float H_OSMASK;
 #else
 #define overscan_percent_x 0.0         // crop width of image by X%; default is 0.0
 #define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
@@ -42,6 +46,8 @@ uniform float YPOS;
 #define ZOOM 1.0
 #define XPOS 0.0
 #define YPOS 0.0
+#define V_OSMASK 0.0
+#define H_OSMASK 0.0
 #endif
 // END PARAMETERS //
 
@@ -77,8 +83,8 @@ void main_vertex
    oPosition = mul(modelViewProj, position);
    oColor = color;
    float2 shift = 0.5 * IN.video_size / IN.texture_size;
-   float2 overscan_coord = (texCoord - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
-   otexCoord = (overscan_coord / ZOOM) + float2(XPOS, YPOS);
+   float2 overscan_coord = ((texCoord - shift) / ZOOM) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
+   otexCoord = overscan_coord + float2(XPOS, YPOS);
 }
 
 struct output 
@@ -94,6 +100,7 @@ float3 grayscale(float3 col)
 
 float4 main_fragment(float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
+float2 fragcoord = texCoord.xy * (IN.texture_size.xy / IN.video_size.xy);
    float3 res = tex2D(s0, texCoord).rgb; // sample the texture
    float3 gamma = float3(monitor_gamma / target_gamma); // setup ratio of display's gamma vs desired gamma
    float3 AvgLumin = float3(0.5, 0.5, 0.5);
@@ -104,5 +111,14 @@ float4 main_fragment(float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uni
    conColor = saturate(conColor * luminance); // apply luminance
    conColor += float3(bright_boost); // apply brightboost
    conColor *= float3(R, G, B);
+if (fragcoord.y > V_OSMASK && fragcoord.y < (1.0 - V_OSMASK))
+conColor = conColor;
+else
+conColor = 0.0;
+
+if (fragcoord.x > H_OSMASK && fragcoord.x < (1.0 - H_OSMASK))
+conColor = conColor;
+else
+conColor = 0.0;
    return float4(conColor, 1.0);
 }
