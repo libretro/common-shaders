@@ -104,26 +104,36 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
         float4 position : POSITION;
         float4 color    : COLOR;
         float2 texCoord : TEXCOORD0;
+        float4 t1       : TEXCOORD1;
+        float4 t2       : TEXCOORD2;
+        float4 t3       : TEXCOORD3;
+        float4 t4       : TEXCOORD4;
     };
      
     /*    VERTEX_SHADER    */
     out_vertex main_vertex
     (
-        float4 position    : POSITION,
+        float4 position : POSITION,
         float4 color    : COLOR,
-        float2 texCoord1   : TEXCOORD0,
+        float2 texCoord : TEXCOORD0,
      
         uniform float4x4 modelViewProj,
         uniform input IN
     )
     {
 
-	float2 tex = texCoord1;
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float  dx = ps.x;
+	float  dy = ps.y;
 
         out_vertex OUT = {
             mul(modelViewProj, position),
             color,
-            tex
+            texCoord,
+            texCoord.xyxy + float4(-dx, -dy, 2.0*dx, 2.0*dy),
+            texCoord.xyxy + float4(  0, -dy,     dx, 2.0*dy),
+            texCoord.xyxy + float4(-dx,   0, 2.0*dx,     dy),
+            texCoord.xyxy + float4(  0,   0,     dx,     dy)
         };
      
         return OUT;
@@ -132,30 +142,25 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
      
     float4 main_fragment(in out_vertex VAR, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
     {
-	//Skip pixels on wrong grid
- 	if (any(frac(VAR.texCoord*IN.texture_size)<float2(0.5,0.5))) return tex2D(s0, VAR.texCoord);
+	float3 P0 = tex2D(s0, VAR.t1.xy).xyz;
+	float3 P1 = tex2D(s0, VAR.t1.zy).xyz;
+	float3 P2 = tex2D(s0, VAR.t1.xw).xyz;
+	float3 P3 = tex2D(s0, VAR.t1.zw).xyz;
 
-	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
-	float2 g2 = float2(0.0, 1.0/IN.texture_size.y);
+	float3  B = tex2D(s0, VAR.t2.xy).xyz;
+	float3  C = tex2D(s0, VAR.t2.zy).xyz;
+	float3 H5 = tex2D(s0, VAR.t2.xw).xyz;
+	float3 I5 = tex2D(s0, VAR.t2.zw).xyz;
 
-	float3 P0 = tex2D(s0, VAR.texCoord     -g1    -g2).xyz;
-	float3 P1 = tex2D(s0, VAR.texCoord +2.0*g1    -g2).xyz;
-	float3 P2 = tex2D(s0, VAR.texCoord     -g1+2.0*g2).xyz;
-	float3 P3 = tex2D(s0, VAR.texCoord +2.0*g1+2.0*g2).xyz;
+	float3  D = tex2D(s0, VAR.t3.xy).xyz;
+	float3 F4 = tex2D(s0, VAR.t3.zy).xyz;
+	float3  G = tex2D(s0, VAR.t3.xw).xyz;
+	float3 I4 = tex2D(s0, VAR.t3.zw).xyz;
 
-	float3  B = tex2D(s0, VAR.texCoord    -g2).xyz;
-	float3  C = tex2D(s0, VAR.texCoord +g1-g2).xyz;
-	float3  D = tex2D(s0, VAR.texCoord -g1   ).xyz;
-	float3  E = tex2D(s0, VAR.texCoord       ).xyz;
-	float3  F = tex2D(s0, VAR.texCoord +g1   ).xyz;
-	float3  G = tex2D(s0, VAR.texCoord -g1+g2).xyz;
-	float3  H = tex2D(s0, VAR.texCoord    +g2).xyz;
-	float3  I = tex2D(s0, VAR.texCoord +g1+g2).xyz;
-
-	float3 F4 = tex2D(s0,VAR.texCoord    +2.0*g1   ).xyz;
-	float3 I4 = tex2D(s0,VAR.texCoord +g2+2.0*g1   ).xyz;
-	float3 H5 = tex2D(s0,VAR.texCoord +2.0*g2      ).xyz;
-	float3 I5 = tex2D(s0,VAR.texCoord +2.0*g2+g1   ).xyz;
+	float3  E = tex2D(s0, VAR.t4.xy).xyz;
+	float3  F = tex2D(s0, VAR.t4.zy).xyz;
+	float3  H = tex2D(s0, VAR.t4.xw).xyz;
+	float3  I = tex2D(s0, VAR.t4.zw).xyz;
 
 	float b = RGBtoYUV( B );
 	float c = RGBtoYUV( C );
@@ -170,16 +175,6 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	float i5 = RGBtoYUV( I5 ); float p1 = RGBtoYUV( P1 );
 	float h5 = RGBtoYUV( H5 ); float p2 = RGBtoYUV( P2 );
 	float f4 = RGBtoYUV( F4 ); float p3 = RGBtoYUV( P3 );
-
-/*
-                              P1
-     |P0|B |C |P1|         C     F4          |a0|b1|c2|d3|
-     |D |E |F |F4|      B     F     I4       |b0|c1|d2|e3|   |e1|i1|i2|e2|
-     |G |H |I |I4|   P0    E  A  I     P3    |c0|d1|e2|f3|   |e3|i3|i4|e4|
-     |P2|H5|I5|P3|      D     H     I5       |d0|e1|f2|g3|
-                           G     H5
-                              P2
-*/
 
 
 	/* Calc edgeness in diagonal directions. */
