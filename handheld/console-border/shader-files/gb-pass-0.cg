@@ -1,10 +1,15 @@
 #pragma parameter video_scale "Video Scale" 3.0 3.0 5.0 1.0
-
+#pragma parameter baseline_alpha "Baseline Alpha" 0.05 -1.0 1.0 0.01
+#pragma parameter response_time "LCD Response Time" 0.20 0.0 0.777 0.111
+#pragma parameter grey_balance "Grey Balance" 2.6 2.0 4.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float video_scale;
+uniform float baseline_alpha;
+uniform float response_time;
+uniform float grey_balance;
 #else
 #define video_scale 3.0
-#endif
+
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -47,7 +52,7 @@ uniform float video_scale;
 #define baseline_alpha 0.05	//analogous to the contrast slider on the original Gameboy, higher values darken the pixels - [-1, 1]  [DEFAULT: 0.05]
 #define response_time 0.20	//simulate response time, higher values result in longer color transition periods - [0, 1] [DEFAULT: 0.20]
 #define grey_balance 2.6 //useful to fine-tune the balance between the different shades of grey - [2, 4] [DEFAULT: 2.6]
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
