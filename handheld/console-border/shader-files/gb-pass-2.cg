@@ -1,3 +1,8 @@
+#pragma parameter shadow_blur1 "Shadow Blur 1" 2.0 0.0 5.0 0.1
+#ifdef PARAMETER_UNIFORM
+uniform float shadow_blur1;
+#else
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // DMG Shader v1.2                                                       //
@@ -36,8 +41,8 @@
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define shadow_blur 2.0	//blurriness of the shadow [0, 5]  [DEFAULT: 2.0]
-
+#define shadow_blur1 2.0	//blurriness of the shadow [0, 5]  [DEFAULT: 2.0]
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,9 +124,9 @@ fixed4 gaussian_blur(sampler2D texture, float2 tex_coord, texture_info tex_info)
     float offsets[5] = float[](0.0, 1.0, 2.0, 3.0, 4.0);
     fixed weights[5] = fixed[]( 0.13,  		//precalculated using the Gaussian function:
 				0.13,  		//  G(x) = (1 / sqrt(2 * pi * sigma^2)) * e^(-x^2 / (2 * sigma^2))
-				0.13 - (shadow_blur / 100),  		//where sigma = 4.0 and x = offset in range [0, 5]
-				0.13 - (3 * shadow_blur / 100),  		//normalized to 1 to prevent image darkening by multiplying each weight by:
-				0.13 - (5 * shadow_blur / 100) ); 		//  1 / sum(all weights)
+				0.13 - (shadow_blur1 / 100),  		//where sigma = 4.0 and x = offset in range [0, 5]
+				0.13 - (3 * shadow_blur1 / 100),  		//normalized to 1 to prevent image darkening by multiplying each weight by:
+				0.13 - (5 * shadow_blur1 / 100) ); 		//  1 / sum(all weights)
 
 
   //sample the current fragment and apply its weight

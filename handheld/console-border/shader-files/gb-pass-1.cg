@@ -1,9 +1,9 @@
+#pragma parameter blending_mode "Blending Mode" 0.0 0.0 1.0 1.0
 #pragma parameter adjacent_texel_alpha_blending "Texel Alpha Blending" 0.38 0.01 1.0 0.01
 #ifdef PARAMETER_UNIFORM
+uniform float blending_mode;
 uniform float adjacent_texel_alpha_blending;
 #else
-#define adjacent_texel_alpha_blending 0.38
-#endif
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -43,8 +43,10 @@ uniform float adjacent_texel_alpha_blending;
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define blending_mode 0				//0 - only the space between dots is blending, 1 - all texels are blended [DEFAULT: 0]
-//#define adjacent_texel_alpha_blending 0.38	//the amount of alpha swapped between neighboring texels [DEFAULT: 0.38]
+#define blending_mode 0.0				//0 - only the space between dots is blending, 1 - all texels are blended [DEFAULT: 0]
+#define adjacent_texel_alpha_blending 0.38	//the amount of alpha swapped between neighboring texels [DEFAULT: 0.38]
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
