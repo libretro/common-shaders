@@ -6,6 +6,7 @@
 #pragma parameter out_res_y "Vert. Output Res" 1080.0 480.0 2160.0 40.0
 #pragma parameter ZOOM "Zoom" 4.0 0.5 10 0.5
 #pragma parameter SPEED "Speed" 4.0 0.5 10 0.5
+#pragma parameter border_on_top "Border On Top" 1.0 0.0 1.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float box_scale;
 uniform float location;
@@ -15,6 +16,7 @@ uniform float in_res_x;
 uniform float in_res_y;
 uniform float ZOOM;
 uniform float SPEED;
+uniform float border_on_top;
 #else
 #define box_scale 4.0
 #define location 0.5
@@ -24,6 +26,7 @@ uniform float SPEED;
 #define in_res_y 240
 #define ZOOM 4.0
 #define SPEED 4.0
+#define border_on_top 1.0
 #endif
 // END PARAMETERS //
 #include "color-grid.inc"

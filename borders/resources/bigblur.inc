@@ -11,6 +11,8 @@ struct input
 struct passprev
 {
 sampler2D texture : TEXUNIT1;
+float2 texture_size;
+float2 video_size;
 };
 
 void main_vertex
@@ -31,12 +33,14 @@ void main_vertex
    float2 tex2 : TEXCOORD2,
    out float2 oTex2 : TEXCOORD2,
 
-   uniform input IN
+   uniform input IN,
+   uniform input PASSPREV3
 )
 {
    oPosition = mul(modelViewProj, position);
    oColor = color;
-   oTex2 = (tex2 / border_zoom) + float2(0.05 * border_zoom, 0.05 * border_zoom);  
+   float2 shift = 0.5 * PASSPREV3.video_size / PASSPREV3.texture_size;
+   oTex2 = ((tex2 - shift) / 1.0) + 2.0 * shift;  
    float2 out_res = float2(out_res_x, out_res_y);
    float2 corrected_size = float2(in_res_x, in_res_y);
    float2 scale = (IN.output_size / corrected_size) / box_scale;
@@ -61,7 +65,8 @@ float4 main_fragment (
    uniform sampler2D s0 : TEXUNIT0,
    uniform input IN) : COLOR
 {
- float4 big = float4(tex2D(s0, (tex / border_zoom) + float2(0.3 * IN.video_size / IN.texture_size)));
+ float2 shift = 0.5 * PASSPREV3.video_size / PASSPREV3.texture_size;
+ float4 big = float4(tex2D(s0, ((tex - shift) / border_zoom) + shift));
  float4 frame = tex2D(PASSPREV3.texture, tex);
  float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
    return lerp(frame, big, background.a);

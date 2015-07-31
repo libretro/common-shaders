@@ -73,7 +73,7 @@ float4 main_fragment (
    IN_global = IN;
 	const float3x3 p = float3x3(13.323122,21.1212,21.8112,23.5112,28.7312,14.7212,21.71123,11.9312,61.3934);
 	float2 uv = tex.xy*(IN.texture_size.xy/IN.video_size.xy);
-	float3 acc = float3(0.0);
+	float3 acc = float3(R, G, B);
 	float dof = 5.*sin(IN.frame_count*.1);
 	for (int i=0;i<LAYERS;i++) {
 		float fi = float(i);
@@ -91,7 +91,10 @@ float4 main_fragment (
 	}
 	float4 snowscape = float4(float3(acc),1.0);
 	
-	float4 frame = tex2D(s0, tex);
+   float4 frame = tex2D(s0, tex);
+   float2 fragcoord = tex.xy * (IN.texture_size.xy/IN.video_size.xy);
    float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
+   if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0 && border_on_top > 0.5)
+   background.a *= 0.0;
    return lerp(frame, snowscape, background.a);
 }

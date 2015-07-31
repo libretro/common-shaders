@@ -72,7 +72,10 @@ float4 main_fragment (
 
 	float4 mudscape = float4(float3(c*c*c*c), 9999.0) + color;
 	
-	float4 frame = tex2D(s0, tex);
+   float4 frame = tex2D(s0, tex);
+   float2 fragcoord = tex.xy * (IN.texture_size.xy/IN.video_size.xy);
    float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
+   if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0 && border_on_top > 0.5)
+   background.a *= 0.0;
    return lerp(frame, mudscape, background.a);
 }
