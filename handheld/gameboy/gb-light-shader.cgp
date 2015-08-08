@@ -31,3 +31,6 @@ COLOR_PALETTE = resources/sample-palettes/gblight-palette.png
 COLOR_PALETTE_linear = false
 BACKGROUND = resources/sample-bgs/paper-bg.png
 BACKGROUND_linear = true
+
+parameters = "screen_light"
+screen_light = "1.4"
