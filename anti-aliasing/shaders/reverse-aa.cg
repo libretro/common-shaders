@@ -1,0 +1,159 @@
+/* COMPATIBILITY
+   - Cg   compilers
+*/
+
+/*
+   Reverse Antialiasing Shader
+  
+   Adapted from the C source (see Copyright below) to shader
+   cg language by Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This shader works best in 2x scale. 
+
+*/
+
+
+
+/*
+ *
+ *  Copyright (c) 2012, Christoph Feck <christoph@maxiom.de>
+ *  All Rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *    * Redistributions of source code must retain the above copyright notice,
+ *      this list of conditions and the following disclaimer.
+ *
+ *    * Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in the
+ *      documentation and/or other materials provided with the distribution.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+#pragma parameter REVERSEAA_SHARPNESS "ReverseAA Sharpness" 2.0 0.0 10.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float REVERSEAA_SHARPNESS;
+#else
+#define REVERSEAA_SHARPNESS 2.0
+#endif
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+
+struct out_vertex {
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float4 t1       : TEXCOORD1;
+    float4 t2       : TEXCOORD2;
+    float4 t3       : TEXCOORD3;
+    float4 t4       : TEXCOORD4;
+    float4 t5       : TEXCOORD5;
+    float4 t6       : TEXCOORD6;
+    float4 t7       : TEXCOORD7;
+};
+
+
+float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
+{
+    float3 t, m;
+    float4x3 pre = float4x3(pre2, pre1,   px, pos1);
+    float4x3 pos = float4x3(pre1,   px, pos1, pos2);
+    float4x3  df = pos - pre;
+
+    m = (px < 0.5) ? px : (1.0-px);
+    m = REVERSEAA_SHARPNESS * min(m, min(abs(df[1]), abs(df[2])));
+    t = (7 * (df[1] + df[2]) - 3 * (df[0] + df[3])) / 16;
+    t = clamp(t, -m, m);
+   
+    return t;
+}
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord1 : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+
+    OUT.position = mul(modelViewProj, position);
+    OUT.color = color;
+
+    float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+    float dx = ps.x;
+    float dy = ps.y;
+
+    //    A1 B1 C1
+    // A0  A  B  C C4
+    // D0  D  E  F F4
+    // G0  G  H  I I4
+    //    G5 H5 I5
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+
+    OUT.texCoord = texCoord;
+    OUT.t1 = texCoord.xxxy + float4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
+    OUT.t2 = texCoord.xxxy + float4( -dx, 0, dx,    -dy); //  A  B  C
+    OUT.t3 = texCoord.xxxy + float4( -dx, 0, dx,      0); //  D  E  F
+    OUT.t4 = texCoord.xxxy + float4( -dx, 0, dx,     dy); //  G  H  I
+    OUT.t5 = texCoord.xxxy + float4( -dx, 0, dx, 2.0*dy); // G5 H5 I5
+    OUT.t6 = texCoord.xyyy + float4(-2.0*dx,-dy, 0,  dy); // A0 D0 G0
+    OUT.t7 = texCoord.xyyy + float4( 2.0*dx,-dy, 0,  dy); // C4 F4 I4
+
+    return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+    float2 fp = 2*frac(VAR.texCoord*IN.texture_size) - 1;
+
+    float3 B1 = tex2D(decal, VAR.t1.yw).rgb;
+    float3 B  = tex2D(decal, VAR.t2.yw).rgb;
+    float3 D  = tex2D(decal, VAR.t3.xw).rgb;
+    float3 E  = tex2D(decal, VAR.t3.yw).rgb;
+    float3 F  = tex2D(decal, VAR.t3.zw).rgb;
+    float3 H  = tex2D(decal, VAR.t4.yw).rgb;
+    float3 H5 = tex2D(decal, VAR.t5.yw).rgb;
+    float3 D0 = tex2D(decal, VAR.t6.xz).rgb;
+    float3 F4 = tex2D(decal, VAR.t7.xz).rgb;
+
+    float3 t1 = res2x(B1, B,  E, H, H5);
+    float3 t2 = res2x(D0, D,  E, F, F4);
+
+    float3 res = saturate(E + fp.y*t1 + fp.x*t2);
+
+    return float4(res, 1.0);
+}
+

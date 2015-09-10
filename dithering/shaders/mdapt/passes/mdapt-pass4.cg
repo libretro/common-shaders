@@ -1,0 +1,170 @@
+/*
+   Merge Dithering and Pseudo Transparency Shader v2.8 - Pass 4
+   by Sp00kyFox, 2014
+
+   Blends pixels based on detected dithering patterns.
+
+*/
+
+
+#pragma parameter VL    "MDAPT Vertical Lines"	0.0 0.0 1.0 1.0
+#pragma parameter CB    "MDAPT Checkerboard"	1.0 0.0 1.0 1.0
+#pragma parameter DEBUG "MDAPT Adjust View"	0.0 0.0 1.0 1.0
+
+#ifdef PARAMETER_UNIFORM
+	uniform float VL, CB, DEBUG;
+#else
+	#define VL 0.0
+	#define CB 1.0
+	#define DEBUG 0.0
+#endif
+
+
+#define TEX(dx,dy)   tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+#define TEXt0(dx,dy) tex2D(PASSPREV5.texture, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+bool eq(float3 A, float3 B){
+	return all(A == B);
+}
+
+float and(float a, float b){
+	return min(a,b);
+}
+
+float or(float a, float b){
+	return max(a,b);
+}
+
+float or(float a, float b, float c, float d, float e, float f, float g, float h, float i){
+	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, max(h,i))))))));
+}
+
+float2 and(float2 a, float2 b){
+	return min(a,b);
+}
+
+float2 or(float2 a, float2 b){
+	return max(a,b);
+}
+
+float2 or(float2 a, float2 b, float2 c, float2 d){
+	return max(a, max(b, max(c,d)));
+}
+
+
+struct prev
+{
+	float2 video_size;
+	float2 texture_size;
+	sampler2D texture;
+};
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        OUT.texCoord = texCoord;
+	OUT.t1       = 1.0/IN.texture_size;
+
+        return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, prev PASSPREV5, uniform input IN) : COLOR
+{
+
+	/*
+		UL U UR
+		L  C R
+		DL D DR	
+	*/
+
+	float4 C = TEX( 0, 0);		float3 c = TEXt0( 0, 0).xyz;
+	float2 L = TEX(-1, 0).xy;	float3 l = TEXt0(-1, 0).xyz;
+	float2 R = TEX( 1, 0).xy;	float3 r = TEXt0( 1, 0).xyz;
+	float2 U = TEX( 0,-1).xy;
+	float2 D = TEX( 0, 1).xy;
+
+	float  prVL = 0.0,		prCB = 0.0;
+	float3 fVL  = float3(0.0),	fCB  = float3(0.0);
+
+
+	// Backpropagation
+	C.xy = or(C.xy, and(C.zw, or(L.xy, R.xy, U.xy, D.xy)));
+
+
+	if(VL){
+		float prSum = L.x + R.x;		
+
+		prVL = max(L.x, R.x);
+		prVL = (prVL == 0.0) ? 1.0 : prSum/prVL;
+	
+		fVL  = (prVL*c + L.x*l + R.x*r)/(prVL + prSum);
+		prVL = C.x;
+	}
+
+
+	if(CB){	
+		float3 u = TEXt0( 0,-1).xyz;
+		float3 d = TEXt0( 0, 1).xyz;
+
+		float eqCL = eq(c,l);
+		float eqCR = eq(c,r);
+		float eqCU = eq(c,u);
+		float eqCD = eq(c,d);
+
+		float prU = or(U.y, eqCU);
+		float prD = or(D.y, eqCD);
+		float prL = or(L.y, eqCL);
+		float prR = or(R.y, eqCR);
+
+
+		float prSum = prU  + prD  + prL  + prR;
+
+		prCB = max(prL, max(prR, max(prU,prD)));
+		prCB = (prCB == 0.0) ? 1.0 : prSum/prCB; 
+		
+		//standard formula: C/2 + (L + R + D + U)/8
+		fCB = (prCB*c + prU*u + prD*d + prL*l + prR*r)/(prCB + prSum);
+
+
+		float UL = TEX(-1,-1).y;	float3 ul = TEXt0(-1,-1).xyz;
+		float UR = TEX( 1,-1).y;	float3 ur = TEXt0( 1,-1).xyz;
+		float DL = TEX(-1, 1).y;	float3 dl = TEXt0(-1, 1).xyz;
+		float DR = TEX( 1, 1).y;	float3 dr = TEXt0( 1, 1).xyz;
+
+		// Checkerboard Smoothing
+		prCB = or(C.y, and(L.y, eqCL), and(R.y, eqCR), and(U.y, eqCU), and(D.y, eqCD), and(UL, eq(c,ul)), and(UR, eq(c,ur)), and(DL, eq(c,dl)), and(DR, eq(c,dr)));
+	}
+
+	
+	if(DEBUG)
+		return float3(prVL, prCB, 0.0);
+	
+	return (prCB >= prVL) ? lerp(c, fCB, prCB) : lerp(c, fVL, prVL);
+}

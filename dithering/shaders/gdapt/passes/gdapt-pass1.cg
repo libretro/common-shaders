@@ -1,0 +1,102 @@
+/*
+   Genesis Dithering and Pseudo Transparency Shader v1.3 - Pass 1
+   by Sp00kyFox, 2014
+
+   Blends pixels based on detected dithering patterns.
+
+*/
+
+
+#pragma parameter STEPS "GDAPT Error Prevention LVL"	1.0 0.0 5.0 1.0
+#pragma parameter DEBUG "GDAPT Adjust View"		0.0 0.0 1.0 1.0
+
+#ifdef PARAMETER_UNIFORM
+	uniform float STEPS, DEBUG;
+#else
+	#define STEPS 1.0
+	#define DEBUG 0.0
+#endif
+
+
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+        float4 position : POSITION;
+        float2 texCoord : TEXCOORD0;
+        float2 t1;
+};
+
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+        out_vertex OUT;
+
+        OUT.position = mul(modelViewProj, position);
+
+        OUT.texCoord = texCoord;
+	OUT.t1       = 1.0/IN.texture_size;
+
+        return OUT;
+}
+
+/*    FRAGMENT SHADER    */
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+
+	float4 C = TEX( 0, 0);
+	float4 L = TEX(-1, 0);
+	float4 R = TEX( 1, 0);
+	
+
+	float str = 0.0;
+
+	if(STEPS == 0.0){
+		str = C.w;
+	}
+	else if(STEPS == 1.0){
+		str = min(max(L.w, R.w), C.w);
+	}
+	else if(STEPS == 2.0){
+		str = min(max(min(max(TEX(-2,0).w, R.w), L.w), min(R.w, TEX(2,0).w)), C.w);				
+	}
+	else if(STEPS == 3.0){
+		float tmp = min(R.w, TEX(2,0).w);
+		str = min(max(min(max(min(max(TEX(-3,0).w, R.w), TEX(-2,0).w), tmp), L.w), min(tmp, TEX(3,0).w)), C.w);
+	}
+	else if(STEPS == 4.0){
+		float tmp1 = min(R.w, TEX(2,0).w);
+		float tmp2 = min(tmp1, TEX(3,0).w);
+		str = min(max(min(max(min(max(min(max(TEX(-4,0).w, R.w), TEX(-3,0).w), tmp1), TEX(-2,0).w), tmp2), L.w), min(tmp2, TEX(4,0).w)), C.w);
+	}
+	else{
+		float tmp1 = min(R.w, TEX(2,0).w);
+		float tmp2 = min(tmp1, TEX(3,0).w);
+		float tmp3 = min(tmp2, TEX(4,0).w);
+		str = min(max(min(max(min(max(min(max(min(max(TEX(-5,0).w, R.w), TEX(-4,0).w), tmp1), TEX(-3,0).w), tmp2), TEX(-2,0).w), tmp3), L.w), min(tmp3, TEX(5,0).w)), C.w);
+	}
+
+
+	if(DEBUG)
+		return float3(str);
+
+	float sum  = L.w + R.w;
+	float wght = max(L.w, R.w);
+	      wght = (wght == 0.0) ? 1.0 : sum/wght;
+
+	return lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + sum), str);	
+}

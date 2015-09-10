@@ -1,0 +1,128 @@
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Hyllian's CRT Shader
+  
+   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+*/
+
+// Uncomment to increase the sharpness of the scanlines.
+//#define SHARPER
+
+// Control the level of sharpness when SHARPER is enabled.
+#define SHARPNESS              2.0
+
+        // Constants used with gamma correction.
+        #define InputGamma 2.4
+        #define OutputGamma 2.2
+
+        #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+
+
+const static float4x4 invX = float4x4(    -0.5,  1.0,     -0.5, 0.0,
+                                           1.5, -2.5,      0.0, 1.0,
+                                          -1.5,  2.0,      0.5, 0.0,
+                                           0.5, -0.5,      0.0, 0.0);
+
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float  frame_count;
+    float  frame_direction;
+    float frame_rotation;
+};
+
+
+struct out_vertex {
+    float2 texCoord : TEXCOORD0;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+    float4 position      : POSITION,
+    out float4 oPosition : POSITION,
+    float2 texCoord      : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+#ifdef SHARPER
+    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+#else
+    float2 TextureSize = IN.texture_size;
+#endif
+    float2 ps = 1.0/TextureSize;
+
+    oPosition = mul(modelViewProj, position);
+
+    out_vertex OUT = {
+        texCoord + ps*float2(-0.49, 0.0)
+    };
+
+    return OUT;
+}
+
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+{
+#ifdef SHARPER
+    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+#else
+    float2 TextureSize = IN.texture_size;
+#endif
+
+    float2 dx = float2(1.0/TextureSize.x, 0.0);
+    float2 dy = float2(0.0, 1.0/TextureSize.y);
+
+    float2 tc = (floor(VAR.texCoord*TextureSize)+float2(0.5,0.5))/TextureSize;
+
+    float2 fp = frac(VAR.texCoord*TextureSize);
+
+    float3 c10 = tex2D(s_p, tc     - dx).xyz;
+    float3 c11 = tex2D(s_p, tc         ).xyz;
+    float3 c12 = tex2D(s_p, tc     + dx).xyz;
+    float3 c13 = tex2D(s_p, tc + 2.0*dx).xyz;
+
+    float4x3 color_matrix = float4x3(c10, c11, c12, c13);
+
+    float4 invX_Px = mul(invX, float4(fp.x*fp.x*fp.x, fp.x*fp.x, fp.x, 1.0));
+    float3 color   = mul(invX_Px, color_matrix);
+
+    color = GAMMA_IN(color);
+
+    float d = smoothstep(0.0, 1.0, 1.0 - abs(fp.y - 0.5));
+
+    color *=d;
+
+    return float4(GAMMA_OUT(color), 1.0);
+}
+

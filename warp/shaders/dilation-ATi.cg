@@ -1,0 +1,101 @@
+/*
+   Hyllian's dilation Shader
+   
+   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+*/
+
+#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+
+const static half y_weight        = 48.0;
+const static half u_weight        = 7.0;
+const static half v_weight        = 6.0;
+const static half3x3 yuv          = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
+
+
+struct input
+{
+	half2 video_size;
+	float2 texture_size;
+	half2 output_size;
+};
+
+
+struct out_vertex {
+	half4 position : POSITION;
+	half4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float2 t1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	half4 position	: POSITION,
+	half4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform half4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	//    A1 B1 C1
+	// A0  A  B  C C4
+	// D0  D  E  F F4
+	// G0  G  H  I I4
+	//    G5 H5 I5
+
+	OUT.texCoord = texCoord;
+ 	OUT.t1 = float2(dx, dy); // F H
+
+	return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+half4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	half3 B  = TEX( 0,-1).rgb;
+	half3 D  = TEX(-1, 0).rgb;
+	half3 E  = TEX( 0, 0).rgb;
+	half3 F  = TEX( 1, 0).rgb;
+	half3 H  = TEX( 0, 1).rgb;
+
+	float4 b = mul( half4x3(B, D, H, F), yuv_weighted[0] );
+	float4 e = mul( half4x3(E, E, E, E), yuv_weighted[0] );
+
+
+	float di = max(max(b.x, b.y), max(b.z, max(b.w, e.x)));
+	half3 res = (di==b.x) ? B : (di==b.y) ? D : (di==b.z) ? H : (di==b.w) ? F : E;
+
+	return half4(res, 1.0);
+}
+

@@ -1,0 +1,174 @@
+#pragma parameter blending_mode "Blending Mode" 0.0 0.0 1.0 1.0
+#pragma parameter adjacent_texel_alpha_blending "Texel Alpha Blending" 0.38 0.01 1.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float blending_mode;
+uniform float adjacent_texel_alpha_blending;
+#else
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// DMG Shader v1.2                                                       //
+//                                                                       //
+// Author: Hi-Ban                                                        //
+//                                                                       //
+// This is a modification and mix of other shaders. Although some bits   //
+// of code have been modified to achieve a more realistic look, all the  //
+// original credits and licenses of the various codes have been left     //
+// intact in the shader files.                                           //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// Gameboy Classic Shader v0.2.2                                         //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define blending_mode 0.0				//0 - only the space between dots is blending, 1 - all texels are blended [DEFAULT: 0]
+#define adjacent_texel_alpha_blending 0.38	//the amount of alpha swapped between neighboring texels [DEFAULT: 0.38]
+
+#endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture : TEXUNIT0;
+};
+
+struct blur_coords
+{
+    fixed2 tex_coord_1 : TEXCOORD1;
+    fixed2 tex_coord_2 : TEXCOORD2;
+    fixed2 tex_coord_3 : TEXCOORD3;
+    fixed2 tex_coord_4 : TEXCOORD4;
+    fixed2 lower_bound : TEXCOORD5;
+    fixed2 upper_bound : TEXCOORD6;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex definitions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out blur_coords oBlurCoords,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+
+
+  //define the neighboring texel coordinates for use in blur
+
+    fixed2 texel = 1.0 / IN.texture_size;	//size of one texel
+
+    oBlurCoords = blur_coords 
+    (
+	texCoord + fixed2(0.0, texel.y),	//down
+	texCoord + fixed2(0.0, -texel.y),	//up
+	texCoord + fixed2(texel.x, 0.0),	//right
+	texCoord + fixed2(-texel.x, 0.0),	//left
+	fixed2(0.0),				//lower texture bounds
+	texel * (IN.output_size - 2.0)		//upper texture bounds
+    );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define blending_modifier(color) saturate(fixed(color.a == 0) + blending_mode)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment functions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//a simple blur technique that softens harsh color transitions
+//specialized to only blur alpha values and limited to only blurring texels lying in the spaces between two or more texels //FIX ME
+
+fixed simple_blur(input IN, fixed4 COLOR, blur_coords BLUR_COORDS)
+{
+  //clamp the blur coords to the input texture size so it doesn't attempt to sample off the texture (it'll retrieve float4(0.0) and darken the edges otherwise)
+
+    BLUR_COORDS.tex_coord_1 = clamp(BLUR_COORDS.tex_coord_1, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+    BLUR_COORDS.tex_coord_2 = clamp(BLUR_COORDS.tex_coord_2, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+    BLUR_COORDS.tex_coord_3 = clamp(BLUR_COORDS.tex_coord_3, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+    BLUR_COORDS.tex_coord_4 = clamp(BLUR_COORDS.tex_coord_4, BLUR_COORDS.lower_bound, BLUR_COORDS.upper_bound);
+
+
+  //sample adjacent texels based on the coordinates above
+
+    fixed4 adjacent_texel_1 = tex2D(IN.texture, BLUR_COORDS.tex_coord_1);
+    fixed4 adjacent_texel_2 = tex2D(IN.texture, BLUR_COORDS.tex_coord_2);
+    fixed4 adjacent_texel_3 = tex2D(IN.texture, BLUR_COORDS.tex_coord_3);
+    fixed4 adjacent_texel_4 = tex2D(IN.texture, BLUR_COORDS.tex_coord_4);
+
+
+  //sum the alpha differences between neighboring texels, apply modifiers, then subtract the result from the current fragment alpha value
+
+    COLOR.a -= ( (COLOR.a - adjacent_texel_1.a) + 
+		 (COLOR.a - adjacent_texel_2.a) + 
+		 (COLOR.a - adjacent_texel_3.a) + 
+		 (COLOR.a - adjacent_texel_4.a) ) * adjacent_texel_alpha_blending * blending_modifier(COLOR);
+
+
+  //return new alpha value
+
+    return COLOR.a;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in blur_coords blur_coords,
+		      uniform input IN ) 		: COLOR
+{
+  //sample the input textures
+
+    fixed4 out_color = tex2D(IN.texture, texCoord);
+
+
+  //apply the blur effect
+
+    out_color.a = simple_blur(IN, out_color, blur_coords);
+
+
+  //return
+
+    return out_color;
+}

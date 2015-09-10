@@ -1,0 +1,129 @@
+#pragma parameter INTERLACING_TOGGLE "Interlacing Detection Toggle" 1.0 0.0 1.0 1.0
+#pragma parameter PERCENT "Scanline Brightness %" 0.9 0.0 1.0 0.05
+#pragma parameter DOTMASK "cgwg Dot Mask Toggle" 0.3 0.0 0.3 0.3
+#pragma parameter LOTTE_TOGGLE "Lotte Dotmask Toggle" 0.0 0.0 0.3 0.3
+#pragma parameter BRIGHTBOOST "Interlaced BrightBoost" 1.1 0.0 2.0 0.05
+
+#ifdef PARAMETER_UNIFORM
+uniform float PERCENT;
+uniform float DOTMASK;
+uniform float INTERLACING_TOGGLE;
+uniform float LOTTE_TOGGLE;
+uniform float BRIGHTBOOST;
+#else
+#define PERCENT 0.7
+#define DOTMASK 0.3
+#define INTERLACING_TOGGLE 1.0
+#define LOTTE_TOGGLE 0.0
+#define BRIGHTBOOST 1.1
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Interlacing
+   Author: hunterk
+   License: GPL (due to use of cgwg's GPLed dotmask code)
+   
+   Note: This shader is designed to work with the typical interlaced output from an emulator, which displays both even and odd fields twice.
+   This shader will un-weave the image, resulting in a standard, alternating-field interlacing.
+*/
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+struct orig
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   float2 texCoord : TEXCOORD0;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 texCoord : TEXCOORD,
+   out float2 oTexCoord : TEXCOORD,
+
+   uniform input IN
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   oTexCoord = texCoord;
+}
+
+const float3x3 yiq_mat = float3x3(
+      0.2989, 0.5870, 0.1140,
+      0.5959, -0.2744, -0.3216,
+      0.2115, -0.5229, 0.3114
+);
+
+float3 rgb2yiq(float3 col)
+{
+   return mul(yiq_mat, col);
+}
+
+// lotte's Shadow mask.
+float3 Mask(float2 pos){
+  pos.x+=pos.y*3.0;
+  float3 mask=float3(1.0 - LOTTE_TOGGLE);
+  pos.x=fract(pos.x/6.0);
+  if(pos.x<0.333)mask.r = (1.0 + LOTTE_TOGGLE);
+  else if(pos.x<0.666)mask.g = (1.0 + LOTTE_TOGGLE);
+  else mask.b = (1.0 + LOTTE_TOGGLE);
+  return mask;}
+
+#define one_pixel float2(1.0 / IN.texture_size)
+
+float4 main_fragment (in float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform orig ORIG, uniform input IN) : COLOR
+{
+   float4 res = tex2D(s0, texCoord);
+   float one_right = rgb2yiq(tex2D(s0, texCoord + float2(0.5 * one_pixel.x, 0.0)).rgb).r;
+   float one_left = rgb2yiq(tex2D(s0, texCoord - float2(0.5 * one_pixel.x, 0.0)).rgb).r;
+   float y = 0.0;
+   float4 lineblank = float4(1.0);
+   float4 lotte_mask = float4(Mask(floor(texCoord.xy*(IN.texture_size.xy/IN.video_size.xy)*IN.output_size.xy)+float2(0.5,0.5)), 1.0);
+   
+// cgwg's aperture grille emulation:
+// Output pixels are alternately tinted green and magenta.
+   float4 dotMaskWeights = float4(lerp(
+        float3(1.0, 1.0 - DOTMASK, 1.0),
+        float3(1.0 - DOTMASK, 1.0, 1.0 - DOTMASK),
+        floor(fmod((texCoord.x * IN.texture_size.x * IN.output_size.x / IN.video_size.x), 2.0))
+        ), 1.0);
+
+   // assume anything with a vertical resolution greater than 400 lines is interlaced
+   if (ORIG.video_size.y > 400.0)
+   {
+   y = ORIG.texture_size.y * texCoord.y + (IN.frame_count * INTERLACING_TOGGLE);
+   lineblank = float4(0.0);
+   res *= BRIGHTBOOST;
+   }
+   else
+      y = 2.0 * ORIG.texture_size.y * texCoord.y;
+
+   if (fmod(y, 2.0) > 0.99999) return res * dotMaskWeights * lotte_mask * 1.15;
+   else
+      return (float4((clamp((one_right + one_left) / 2.0, 0.0, PERCENT)))) * lineblank * res * dotMaskWeights * lotte_mask * 1.15;
+}

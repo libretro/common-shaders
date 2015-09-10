@@ -1,0 +1,98 @@
+/////////////////////////////  GPL LICENSE NOTICE  /////////////////////////////
+
+//  crt-royale: A full-featured CRT shader, with cheese.
+//  Copyright (C) 2014 TroggleMonkey <trogglemonkey@gmx.com>
+//
+//  This program is free software; you can redistribute it and/or modify it
+//  under the terms of the GNU General Public License as published by the Free
+//  Software Foundation; either version 2 of the License, or any later version.
+//
+//  This program is distributed in the hope that it will be useful, but WITHOUT
+//  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+//  FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+//  more details.
+//
+//  You should have received a copy of the GNU General Public License along with
+//  this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+//  Place, Suite 330, Boston, MA 02111-1307 USA
+
+
+/////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
+
+#include "../user-settings.h"
+#include "derived-settings-and-constants.h"
+#include "bind-shader-params.h"
+
+
+//////////////////////////////////  INCLUDES  //////////////////////////////////
+
+#include "../../../../include/gamma-management.h"
+#include "bloom-functions.h"
+#include "phosphor-mask-resizing.h"
+
+
+/////////////////////////////////  STRUCTURES  /////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+struct out_vertex
+{
+    float4 position             : POSITION;
+    float2 tex_uv               : TEXCOORD0;
+    float2 bloom_dxdy           : TEXCOORD1;
+    float bloom_sigma_runtime   : TEXCOORD2;
+};
+
+
+////////////////////////////////  VERTEX SHADER  ///////////////////////////////
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 tex_uv   : TEXCOORD0,
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.tex_uv = tex_uv;
+
+    //  Get the uv sample distance between output pixels.  Calculate dxdy like
+    //  blurs/vertex-shader-blur-fast-vertical.h.
+    const float2 dxdy_scale = IN.video_size/IN.output_size;
+    const float2 dxdy = dxdy_scale/IN.texture_size;
+    //  This blur is vertical-only, so zero out the vertical offset:
+    OUT.bloom_dxdy = float2(0.0, dxdy.y);
+
+    //  Calculate a runtime bloom_sigma in case it's needed:
+    const float mask_tile_size_x = get_resized_mask_tile_size(
+        IN.output_size, IN.output_size * mask_resize_viewport_scale, false).x;
+    OUT.bloom_sigma_runtime = get_min_sigma_to_blur_triad(
+        mask_tile_size_x / mask_triads_per_tile, bloom_diff_thresh);
+    return OUT;
+}
+
+
+///////////////////////////////  FRAGMENT SHADER  //////////////////////////////
+
+float4 main_fragment(in out_vertex VAR,
+    uniform sampler2D input_texture : TEXUNIT0, uniform input IN) : COLOR
+{
+    //  Blur the brightpass horizontally with a 9/17/25/43x blur:
+    const float bloom_sigma = get_final_bloom_sigma(VAR.bloom_sigma_runtime);
+    const float3 color = tex2DblurNfast(input_texture, VAR.tex_uv,
+        VAR.bloom_dxdy, bloom_sigma);
+    //  Encode and output the blurred image:
+    return encode_output(float4(color, 1.0));
+}
+

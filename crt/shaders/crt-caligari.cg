@@ -1,0 +1,169 @@
+#pragma parameter SPOT_WIDTH "CRTCaligari Spot Width" 0.9 0.1 1.5 0.05
+#pragma parameter SPOT_HEIGHT "CRTCaligari Spot Height" 0.65 0.1 1.5 0.05
+#pragma parameter COLOR_BOOST "CRTCaligari Color Boost" 1.45 1.0 2.0 0.05
+#pragma parameter InputGamma "CRTCaligari Input Gamma" 2.4 0.0 5.0 0.1
+#pragma parameter OutputGamma "CRTCaligari Output Gamma" 2.2 0.0 5.0 0.1
+
+#ifdef PARAMETER_UNIFORM
+uniform float SPOT_WIDTH;
+uniform float SPOT_HEIGHT;
+uniform float COLOR_BOOST;
+uniform float InputGamma;
+uniform float OutputGamma;
+#else
+// 0.5 = the spot stays inside the original pixel
+// 1.0 = the spot bleeds up to the center of next pixel
+#define SPOT_WIDTH  0.9
+#define SPOT_HEIGHT 0.65
+// Used to counteract the desaturation effect of weighting.
+#define COLOR_BOOST 1.45
+// Constants used with gamma correction.
+#define InputGamma 2.4
+#define OutputGamma 2.2
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+    Phosphor shader - Copyright (C) 2011 caligari.
+
+    Ported by Hyllian.
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+struct tex_coords
+{
+   float2 texCoord : TEXCOORD0;
+   float2 onex;
+   float2 oney;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+/* Default Vertex shader */
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 tex : TEXCOORD,
+
+   uniform input IN,
+   out tex_coords coords : TEXCOORD1
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+
+   coords.texCoord = tex + float2(0.0, 0.0);
+   coords.onex = float2(1.0 / IN.texture_size.x, 0.0);
+   coords.oney = float2(0.0, 1.0 / IN.texture_size.y);
+}
+
+#define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+
+#define TEX2D(coords)	GAMMA_IN( tex2D(s_p, coords) )
+
+// Macro for weights computing
+#define WEIGHT(w) \
+   if(w>1.0) w=1.0; \
+w = 1.0 - w * w; \
+w = w * w;
+
+
+float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
+{
+   float2 coords = ( co.texCoord * IN.texture_size );
+   float2 pixel_center = floor( coords ) + float2(0.5, 0.5);
+   float2 texture_coords = pixel_center / IN.texture_size;
+
+   float4 color = TEX2D( texture_coords );
+
+   float dx = coords.x - pixel_center.x;
+
+   float h_weight_00 = dx / SPOT_WIDTH;
+   WEIGHT(h_weight_00);
+
+   color *= float4( h_weight_00, h_weight_00, h_weight_00, h_weight_00  );
+
+   // get closest horizontal neighbour to blend
+   float2 coords01;
+   if (dx>0.0) {
+      coords01 = co.onex;
+      dx = 1.0 - dx;
+   } else {
+      coords01 = -co.onex;
+      dx = 1.0 + dx;
+   }
+   float4 colorNB = TEX2D( texture_coords + coords01 );
+
+   float h_weight_01 = dx / SPOT_WIDTH;
+   WEIGHT( h_weight_01 );
+
+   color = color + colorNB * float4( h_weight_01, h_weight_01, h_weight_01, h_weight_01 );
+
+   //////////////////////////////////////////////////////
+   // Vertical Blending
+   float dy = coords.y - pixel_center.y;
+   float v_weight_00 = dy / SPOT_HEIGHT;
+   WEIGHT(v_weight_00);
+   color *= float4( v_weight_00, v_weight_00, v_weight_00, v_weight_00 );
+
+   // get closest vertical neighbour to blend
+   float2 coords10;
+   if (dy>0.0) {
+      coords10 = co.oney;
+      dy = 1.0 - dy;
+   } else {
+      coords10 = -co.oney;
+      dy = 1.0 + dy;
+   }
+   colorNB = TEX2D( texture_coords + coords10 );
+
+   float v_weight_10 = dy / SPOT_HEIGHT;
+   WEIGHT( v_weight_10 );
+
+   color = color + colorNB * float4( v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00, v_weight_10 * h_weight_00 );
+
+   colorNB = TEX2D(  texture_coords + coords01 + coords10 );
+
+   color = color + colorNB * float4( v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01, v_weight_10 * h_weight_01 );
+
+   color *= float4( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
+
+
+   return clamp( GAMMA_OUT(color), 0.0, 1.0 );
+}
+
+
+

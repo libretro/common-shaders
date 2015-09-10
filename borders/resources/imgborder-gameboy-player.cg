@@ -1,0 +1,26 @@
+#pragma parameter box_scale "Box Scale" 2.0 1.0 10.0 1.0
+#pragma parameter location "Location" 0.5 0.2 1.0 0.001
+#pragma parameter in_res_x "Horiz. Input Res" 240 160 600 1.0
+#pragma parameter in_res_y "Vert. Input Res" 160 144 480 1.0
+#pragma parameter out_res_x "Horiz. Output Res" 608.0 256.0 3840.0 40.0
+#pragma parameter out_res_y "Vert. Output Res" 448.0 224.0 2160.0 40.0
+#pragma parameter border_on_top "Border On Top" 1.0 0.0 1.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float box_scale;
+uniform float location;
+uniform float out_res_x;
+uniform float out_res_y;
+uniform float in_res_x;
+uniform float in_res_y;
+uniform float border_on_top;
+#else
+#define box_scale 4.0
+#define location 0.5
+#define out_res_x 1920.0
+#define out_res_y 1080.0
+#define in_res_x 320
+#define in_res_y 240
+#define border_on_top 1.0
+#endif
+// END PARAMETERS //
+#include "imgborder.inc"

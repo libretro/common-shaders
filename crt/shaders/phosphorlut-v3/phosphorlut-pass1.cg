@@ -1,0 +1,65 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+#define brightness 1.6
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD0
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   otexCoord = texCoord;
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct pass_1
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+  sampler2D texture : TEXUNIT0;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment (
+	float2 texCoord : TEXCOORD0,
+	uniform input IN,
+	uniform sampler2D texture : TEXUNIT0,
+	uniform pass_1 PASSPREV3 )     	: COLOR
+{
+	output OUT;
+	float4 pass1 = tex2D(IN.texture, texCoord);
+	float4 pass2 = tex2D(PASSPREV3.texture, texCoord);
+		
+    OUT.color = 1.0 - (1.0 - (pass1 * brightness)) * (1.0 - pass2);
+
+	return OUT;
+}
+	

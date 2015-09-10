@@ -1,0 +1,210 @@
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg compilers
+*/
+
+/*
+   Reverse Antialiasing Shader
+  
+   Adapted from the C source (see Copyright below) to shader
+   cg language by Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This shader works best in 2x scale. 
+
+*/
+
+
+
+/*
+ *
+ *  Copyright (c) 2012, Christoph Feck <christoph@maxiom.de>
+ *  All Rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *    * Redistributions of source code must retain the above copyright notice,
+ *      this list of conditions and the following disclaimer.
+ *
+ *    * Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in the
+ *      documentation and/or other materials provided with the distribution.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+
+        // Constants used with gamma correction.
+        #define InputGamma 2.4
+        #define OutputGamma 2.2
+
+        #define GAMMA_IN(color) pow(color, float3(InputGamma, InputGamma, InputGamma))
+        #define GAMMA_OUT(color) pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+
+        // 0.5 = the spot stays inside the original pixel
+        // 1.0 = the spot bleeds up to the center of next pixel
+	#define SPOT_HEIGHT 0.6
+
+        // Used to counteract the desaturation effect of weighting.
+        #define COLOR_BOOST 1.4
+
+        // Macro for weights computing
+        #define WEIGHT(w) \
+       		if(w>1.0) w=1.0; \
+       		w = 1.0 - w * w; \
+       		w = w * w;\
+
+
+struct input
+{
+    half2 video_size;
+    float2 texture_size;
+    half2 output_size;
+        float frame_count;
+        float frame_direction;
+        float frame_rotation;
+};
+
+
+struct out_vertex {
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float4 t1       : TEXCOORD1;
+    float4 t2       : TEXCOORD2;
+    float4 t3       : TEXCOORD3;
+    float4 t4       : TEXCOORD4;
+    float4 t5       : TEXCOORD5;
+    float4 t6       : TEXCOORD6;
+    float4 t7       : TEXCOORD7;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord1 : TEXCOORD0,
+
+       uniform half4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+
+    OUT.position = mul(modelViewProj, position);
+    OUT.color = color;
+
+    half2 ps = half2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+    half dx = ps.x;
+    half dy = ps.y;
+
+    //    A1 B1 C1
+    // A0  A  B  C C4
+    // D0  D  E  F F4
+    // G0  G  H  I I4
+    //    G5 H5 I5
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+
+    OUT.texCoord = texCoord;
+    OUT.t1 = texCoord.xxxy + half4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
+    OUT.t2 = texCoord.xxxy + half4( -dx, 0, dx,    -dy); //  A  B  C
+    OUT.t3 = texCoord.xxxy + half4( -dx, 0, dx,      0); //  D  E  F
+    OUT.t4 = texCoord.xxxy + half4( -dx, 0, dx,     dy); //  G  H  I
+    OUT.t5 = texCoord.xxxy + half4( -dx, 0, dx, 2.0*dy); // G5 H5 I5
+    OUT.t6 = texCoord.xyyy + half4(-2.0*dx,-dy, 0,  dy); // A0 D0 G0
+    OUT.t7 = texCoord.xyyy + half4( 2.0*dx,-dy, 0,  dy); // C4 F4 I4
+
+    return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+    float2 fp = frac(VAR.texCoord*IN.texture_size);
+
+    half3 B1 = tex2D(decal, VAR.t1.yw).rgb;
+    half3 B  = tex2D(decal, VAR.t2.yw).rgb;
+    half3 D  = tex2D(decal, VAR.t3.xw).rgb;
+    half3 E  = tex2D(decal, VAR.t3.yw).rgb;
+    half3 F  = tex2D(decal, VAR.t3.zw).rgb;
+    half3 H  = tex2D(decal, VAR.t4.yw).rgb;
+    half3 H5 = tex2D(decal, VAR.t5.yw).rgb;
+    half3 D0 = tex2D(decal, VAR.t6.xz).rgb;
+    half3 F4 = tex2D(decal, VAR.t7.xz).rgb;
+
+    float3 n1, n2, n3, n4, s, aa, bb, cc, dd, t, m;
+/*
+    n1 = B1; n2 = B; s = E; n3 = H; n4 = H5;
+    aa = n2-n1; bb = s-n2; cc = n3-s; dd = n4-n3;
+
+    float3 t = (7 * (bb + cc) - 3 * (aa + dd)) / 16;
+
+    float3 m = (s < 0.5) ? 2*s : 2*(1.0-s);
+
+        m = min(m, 2*abs(bb));
+        m = min(m, 2*abs(cc));
+
+    t = clamp(t, -m, m);
+   
+    float3 s1 = (2*fp.y-1)*t + s;
+*/
+    n1 = D0; n2 = D; s = E; n3 = F; n4 = F4;
+    aa = n2-n1; bb = s-n2; cc = n3-s; dd = n4-n3;
+
+    t = (7 * (bb + cc) - 3 * (aa + dd)) / 16;
+
+    m = (s < 0.5) ? 2*s : 2*(1.0-s);
+
+        m = min(m, 2*abs(bb)+0.01);
+        m = min(m, 2*abs(cc)+0.01);
+
+    t = clamp(t, -m, m);
+
+    float3 res = (2*fp.x-1)*t + s;
+
+
+// CRT-caligari - only vertical blend
+
+            float3 color = GAMMA_IN(res);
+
+            float ddy = fp.y - 0.5;
+            float v_weight_00 = ddy / SPOT_HEIGHT;
+            WEIGHT(v_weight_00);
+            color *= float3( v_weight_00, v_weight_00, v_weight_00 );
+
+	    // get closest vertical neighbour to blend
+ 	    float3 coords10;
+            if (ddy>0.0) {
+            	coords10 = H;
+                ddy = 1.0 - ddy;
+            } else {
+                coords10 = B;
+                ddy = 1.0 + ddy;
+            }
+	    float3 colorNB = GAMMA_IN(coords10);
+
+            float v_weight_10 = ddy / SPOT_HEIGHT;
+            WEIGHT( v_weight_10 );
+
+            color += colorNB * float3( v_weight_10, v_weight_10, v_weight_10 );
+
+            color *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
+
+	return float4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
+}
+

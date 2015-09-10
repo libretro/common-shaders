@@ -1,0 +1,63 @@
+/*
+   Author: Pokefan531
+   License: Public domain
+*/
+
+// Shader that replicates the LCD dynamics from a GameBoy Advance
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oTex = tex;
+}
+
+float3 grayscale(float3 col)
+{
+   // Non-conventional way to do grayscale,
+   // but bSNES uses this as grayscale value.
+   return float3(dot(col, float3(0.2126, 0.7152, 0.0722)));
+}
+
+float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
+{
+//part 1
+float saturation = 1.0;
+float Display_gamma = 1.02;
+float CRT_gamma = 2.4;
+float luminance = 1.0;
+
+   float3 gamma = float3(CRT_gamma / Display_gamma);
+   float3 res = tex2D(s0, tex).xyz;
+   res = lerp(grayscale(res), res, saturation); // Apply saturation
+   res = pow(res, gamma.rgb); // Apply gamma
+   float4 c = float4(saturate(res * luminance), 1.0);
+
+//part 2
+	float r = c.x;
+	float g = c.y;
+	float b = c.z;
+	float a = c.w;
+	float w = r * 0.714 + g * 0.251 + b * 0.000;
+	float q = r * 0.071 + g * 0.643 + b * 0.216;
+	float e = r * 0.071 + g * 0.216 + b * 0.643;
+
+//part 3
+saturation = 1.0;
+Display_gamma = 3.6;
+CRT_gamma = 2.4;
+luminance = 1.01;
+
+   res = float3(w, q, e);
+   gamma = gamma = float3(CRT_gamma / Display_gamma);
+   res = lerp(grayscale(res), res, saturation); // Apply saturation
+   res = pow(res, gamma.rgb); // Apply gamma
+   return float4(saturate(res * luminance), 1.0);
+}

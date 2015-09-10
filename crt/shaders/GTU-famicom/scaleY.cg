@@ -1,0 +1,115 @@
+////////////////////////////////////////////////////////
+//	GTU-famicom version 0.50
+//	Author: aliaspider - aliaspider@gmail.com
+//	License: GPLv3
+////////////////////////////////////////////////////////
+
+#pragma parameter noScanlines "no scanlines" 0.0 0.0 1.0 1.0
+#pragma parameter tvVerticalResolution "tv vertical resolution" 250.0 20.0 1000.0 10.0
+#pragma parameter blackLevel "black level" 0.07 -0.30 0.30 0.01
+#pragma parameter contrast "contrast" 1.0 0.0 2.0 0.1
+#pragma parameter gamma "gamma" 1.0 0.5 1.5 0.01
+
+#include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float cropOverscan;
+uniform float noScanlines;
+uniform float tvVerticalResolution;
+uniform float blackLevel;
+uniform float contrast;
+uniform float gamma;
+#endif
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	if(cropOverscan)
+		oPosition.y/=(224.0/240.0);
+
+	oTex = tex;
+}
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+
+
+#define pi			3.14159265358
+#define normalGauss(x) ((exp(-(x)*(x)*0.5))/sqrt(2.0*pi))
+float normalGaussIntegral(float x)
+{
+	float a1 = 0.4361836;
+	float a2 = -0.1201676;
+	float a3 = 0.9372980;
+	float p = 0.3326700;
+	float t = 1.0 / (1.0 + p*abs(x));
+	return (0.5-normalGauss(x) * (t*(a1 + t*(a2 + a3*t))))*sign(x);
+}
+
+
+float3 scanlines( float x , float3 c,input IN){
+	float temp=sqrt(2*pi)*(tvVerticalResolution/IN.video_size.y);
+
+	float rrr=0.5*(IN.video_size.y/IN.output_size.y);
+	float x1=(x+rrr)*temp;
+	float x2=(x-rrr)*temp;
+	c.r=(c.r*(normalGaussIntegral(x1)-normalGaussIntegral(x2)));
+	c.g=(c.g*(normalGaussIntegral(x1)-normalGaussIntegral(x2)));
+	c.b=(c.b*(normalGaussIntegral(x1)-normalGaussIntegral(x2)));
+	c*=(IN.output_size.y/IN.video_size.y);
+	return c;
+}
+
+#define Y(j) (offset.y-(j))
+#define a(x) abs(x)
+#define d(x,b) (pi*b*min(a(x)+0.5,1.0/b))
+#define e(x,b) (pi*b*min(max(a(x)-0.5,-1.0/b),1.0/b))
+#define STU(x,b) ((d(x,b)+sin(d(x,b))-e(x,b)-sin(e(x,b)))/(2.0*pi))
+
+#define SOURCE(j) float2(tex.x,tex.y - Y(j)/IN.texture_size.y)
+#define C(j) (tex2D(s0, SOURCE(j)).xyz)
+
+#define VAL(j) (C(j)*STU(Y(j),(tvVerticalResolution/IN.video_size.y)))
+#define VAL_scanlines(j) (scanlines(Y(j),C(j),IN))
+
+
+float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2	offset	= fract((tex.xy * IN.texture_size.xy) - 0.5);
+	float3	tempColor = float3(0.0);
+
+	float range=ceil(0.5+IN.video_size.y/tvVerticalResolution);
+	range = min ( range, 255.0);
+
+	float i;
+//	for (i=-range;i<range+2.0;i++){
+
+   if (noScanlines)
+      for (i=1.0-range;i<range+1.0;i++)
+         tempColor+=VAL(i);
+   else
+      for (i=1.0-range;i<range+1.0;i++)
+         tempColor+=VAL_scanlines(i);
+
+
+	tempColor-=float3(blackLevel);
+	tempColor*=(contrast/float3(1.0-blackLevel));
+	tempColor=pow(tempColor,float3(gamma));
+	return float4(tempColor, 1.0);
+
+}

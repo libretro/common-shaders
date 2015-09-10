@@ -1,0 +1,6 @@
+shaders = 1
+
+shader0 = ../resources/mudlord-1440p.cg
+
+textures = bg
+bg = border-2560x1600.png

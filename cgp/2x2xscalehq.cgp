@@ -1,7 +1,7 @@
 shaders = "3"
 shader0 = "../misc/image-adjustment.cg"
-shader1 = "../scalehq/2xScaleHQ.cg"
-shader2 = "../windowed/jinc2-sharper.cg"
+shader1 = "../scalehq/shaders/2xScaleHQ.cg"
+shader2 = "../windowed/shaders/jinc2-sharper.cg"
 
 filter_linear0 = "false"
 

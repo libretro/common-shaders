@@ -1,0 +1,6 @@
+shaders = 1
+
+shader0 = ../resources/water-2160p.cg
+
+textures = bg
+bg = border-2160p.png

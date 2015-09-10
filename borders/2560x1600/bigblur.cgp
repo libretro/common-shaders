@@ -1,0 +1,8 @@
+shaders = 4
+shader0 = ../../stock.cg
+shader1 = ../resources/bigblur-horiz.cg
+shader2 = ../resources/bigblur-vert.cg
+shader3 = ../resources/bigblur-1440p.cg
+
+textures = bg
+bg = border-2560x1600.png

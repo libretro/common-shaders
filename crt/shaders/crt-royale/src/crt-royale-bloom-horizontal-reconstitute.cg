@@ -1,0 +1,152 @@
+/////////////////////////////  GPL LICENSE NOTICE  /////////////////////////////
+
+//  crt-royale: A full-featured CRT shader, with cheese.
+//  Copyright (C) 2014 TroggleMonkey <trogglemonkey@gmx.com>
+//
+//  This program is free software; you can redistribute it and/or modify it
+//  under the terms of the GNU General Public License as published by the Free
+//  Software Foundation; either version 2 of the License, or any later version.
+//
+//  This program is distributed in the hope that it will be useful, but WITHOUT
+//  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+//  FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+//  more details.
+//
+//  You should have received a copy of the GNU General Public License along with
+//  this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+//  Place, Suite 330, Boston, MA 02111-1307 USA
+
+
+/////////////////////////////  SETTINGS MANAGEMENT  ////////////////////////////
+
+#include "../user-settings.h"
+#include "derived-settings-and-constants.h"
+#include "bind-shader-params.h"
+
+
+//////////////////////////////////  INCLUDES  //////////////////////////////////
+
+#include "../../../../include/gamma-management.h"
+#include "bloom-functions.h"
+#include "phosphor-mask-resizing.h"
+#include "scanline-functions.h"
+
+
+/////////////////////////////////  STRUCTURES  /////////////////////////////////
+
+struct orig
+{
+    float2 tex_coord;
+    uniform float2 video_size;
+    uniform float2 texture_size;
+    uniform float2 output_size;
+    uniform sampler2D texture;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+struct out_vertex
+{
+    float4 position                     : POSITION;
+    float2 video_uv                     : TEXCOORD0;
+    float2 scanline_tex_uv              : TEXCOORD1;
+    float2 halation_tex_uv              : TEXCOORD2;
+    float2 brightpass_tex_uv            : TEXCOORD3;
+    float2 bloom_tex_uv                 : TEXCOORD4;
+    float2 bloom_dxdy                   : TEXCOORD5;
+    float bloom_sigma_runtime           : TEXCOORD6;
+};
+
+
+////////////////////////////////  VERTEX SHADER  ///////////////////////////////
+
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 tex_uv   : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN,
+    uniform orig ORIG_LINEARIZED,
+    uniform orig HALATION_BLUR,
+    uniform orig MASKED_SCANLINES,
+    uniform orig BRIGHTPASS
+)
+{
+    out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+
+    //  Our various input textures use different coords:
+    const float2 video_uv = tex_uv * IN.texture_size/IN.video_size;
+    OUT.video_uv = video_uv;
+    OUT.scanline_tex_uv = video_uv * MASKED_SCANLINES.video_size /
+        MASKED_SCANLINES.texture_size;
+    OUT.halation_tex_uv = video_uv * HALATION_BLUR.video_size /
+        HALATION_BLUR.texture_size;
+    OUT.brightpass_tex_uv = video_uv * BRIGHTPASS.video_size /
+        BRIGHTPASS.texture_size;
+    OUT.bloom_tex_uv = tex_uv;
+
+    //  We're horizontally blurring the bloom input (vertically blurred
+    //  brightpass).  Get the uv distance between output pixels / input texels
+    //  in the horizontal direction (this pass must NOT resize):
+    OUT.bloom_dxdy = float2(1.0/IN.texture_size.x, 0.0);
+
+    //  Calculate a runtime bloom_sigma in case it's needed:
+    const float mask_tile_size_x = get_resized_mask_tile_size(
+        IN.output_size, IN.output_size * mask_resize_viewport_scale, false).x;
+    OUT.bloom_sigma_runtime = get_min_sigma_to_blur_triad(
+        mask_tile_size_x / mask_triads_per_tile, bloom_diff_thresh);
+    return OUT;
+}
+
+
+///////////////////////////////  FRAGMENT SHADER  //////////////////////////////
+
+float4 main_fragment(in out_vertex VAR, uniform input IN,
+    uniform orig MASKED_SCANLINES,
+    uniform orig HALATION_BLUR,
+    uniform orig BRIGHTPASS,
+    uniform sampler2D bloom_texture : TEXUNIT0) : COLOR
+{
+    //  Blur the vertically blurred brightpass horizontally by 9/17/25/43x:
+    const float bloom_sigma = get_final_bloom_sigma(VAR.bloom_sigma_runtime);
+    const float3 blurred_brightpass = tex2DblurNfast(bloom_texture,
+        VAR.bloom_tex_uv, VAR.bloom_dxdy, bloom_sigma);
+
+    //  Sample the masked scanlines.  Alpha contains the auto-dim factor:
+    const float3 intensity_dim =
+        tex2D_linearize(MASKED_SCANLINES.texture, VAR.scanline_tex_uv).rgb;
+    const float auto_dim_factor = levels_autodim_temp;
+    const float undim_factor = 1.0/auto_dim_factor;
+
+    //  Calculate the mask dimpass, add it to the blurred brightpass, and
+    //  undim (from scanline auto-dim) and amplify (from mask dim) the result:
+    const float mask_amplify = get_mask_amplify();
+    const float3 brightpass = tex2D_linearize(BRIGHTPASS.texture,
+        VAR.brightpass_tex_uv).rgb;
+    const float3 dimpass = intensity_dim - brightpass;
+    const float3 phosphor_bloom = (dimpass + blurred_brightpass) *
+        mask_amplify * undim_factor * levels_contrast;
+
+    //  Sample the halation texture, and let some light bleed into refractive
+    //  diffusion.  Conceptually this occurs before the phosphor bloom, but
+    //  adding it in earlier passes causes black crush in the diffusion colors.
+    const float3 diffusion_color = levels_contrast * tex2D_linearize(
+        HALATION_BLUR.texture, VAR.halation_tex_uv).rgb;
+    const float3 final_bloom = lerp(phosphor_bloom,
+        diffusion_color, diffusion_weight);
+
+    //  Encode and output the bloomed image:
+    return encode_output(float4(final_bloom, 1.0));
+}
+

@@ -1,0 +1,194 @@
+#pragma parameter XBR_Y_WEIGHT "Y Weight" 48.0 0.0 100.0 1.0
+#pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 15.0 0.0 50.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float XBR_Y_WEIGHT;
+uniform float XBR_EQ_THRESHOLD;
+#else
+#define XBR_Y_WEIGHT 48.0
+#define XBR_EQ_THRESHOLD 15.0
+#endif
+// END PARAMETERS //
+
+
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg compilers
+*/
+
+
+/*
+   Hyllian's xBR-lv1-noblend Shader
+   
+   Copyright (C) 2011-2014 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+*/
+
+// Uncomment just one of the three params below to choose the corner detection
+//#define CORNER_A
+//#define CORNER_B
+#define CORNER_C
+
+const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+
+
+float RGBtoYUV(float3 color)
+{
+  return dot(color, XBR_Y_WEIGHT*yuv[0]);
+}
+
+float df(float A, float B)
+{
+  return abs(A-B);
+}
+
+bool eq(float A, float B)
+{
+  return (df(A, B) < XBR_EQ_THRESHOLD);
+}
+
+
+
+float weighted_distance(float a, float b, float c, float d, float e, float f, float g, float h)
+{
+  return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
+}
+
+
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
+
+struct out_vertex {
+  float4 position : POSITION;
+  float2 texCoord : TEXCOORD0;
+  float4 t1 : TEXCOORD1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+  float4 position  : POSITION,
+  float2 texCoord1 : TEXCOORD0,
+
+     uniform float4x4 modelViewProj,
+  uniform input IN
+)
+{
+  out_vertex OUT = (out_vertex)0;
+
+  OUT.position = mul(modelViewProj, position);
+
+  float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+  float dx = ps.x;
+  float dy = ps.y;
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+
+  OUT.texCoord = texCoord;
+  OUT.t1.xy = float2(  0,-dy); // B
+  OUT.t1.zw = float2(-dx,  0); // D
+
+  return OUT;
+}
+
+/*
+    xBR LVL1 works over the pixels below:
+
+        |B |C |
+     |D |E |F |F4|
+     |G |H |I |I4|
+        |H5|I5|
+
+    Consider E as the central pixel. xBR LVL1 needs only to look at 12 texture pixels.
+*/
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+  bool edr, px; // px = pixel, edr = edge detection rule
+  bool interp_restriction_lv1;
+  bool nc; // new_color
+  bool fx; // inequations of straight lines.
+
+  float2 pos  = frac(VAR.texCoord*IN.texture_size)-float2(0.5, 0.5); // pos = pixel position
+  float2 dir = sign(pos); // dir = pixel direction
+
+  float2 g1 = dir*VAR.t1.xy;
+  float2 g2 = dir*VAR.t1.zw;
+
+  float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
+  float3 C = tex2D(decal, VAR.texCoord +g1-g2).xyz;
+  float3 D = tex2D(decal, VAR.texCoord    +g2).xyz;
+  float3 E = tex2D(decal, VAR.texCoord       ).xyz;
+  float3 F = tex2D(decal, VAR.texCoord    -g2).xyz;
+  float3 G = tex2D(decal, VAR.texCoord -g1+g2).xyz;
+  float3 H = tex2D(decal, VAR.texCoord -g1   ).xyz;
+  float3 I = tex2D(decal, VAR.texCoord -g1-g2).xyz;
+
+  float3 F4 = tex2D(decal,VAR.texCoord    -2.0*g2   ).xyz;
+  float3 I4 = tex2D(decal,VAR.texCoord -g1-2.0*g2   ).xyz;
+  float3 H5 = tex2D(decal,VAR.texCoord -2.0*g1      ).xyz;
+  float3 I5 = tex2D(decal,VAR.texCoord -2.0*g1-g2   ).xyz;
+
+  float b = RGBtoYUV( B );
+  float c = RGBtoYUV( C );
+  float d = RGBtoYUV( D );
+  float e = RGBtoYUV( E );
+  float f = RGBtoYUV( F );
+  float g = RGBtoYUV( G );
+  float h = RGBtoYUV( H );
+  float i = RGBtoYUV( I );
+
+  float i4 = RGBtoYUV( I4 );
+  float i5 = RGBtoYUV( I5 );
+  float h5 = RGBtoYUV( H5 );
+  float f4 = RGBtoYUV( F4 );
+
+  fx = ( dot(dir,pos) > 0.5 );
+
+// It uses CORNER_C if none of the others are defined.
+#ifdef CORNER_A
+	interp_restriction_lv1      = ((e!=f) && (e!=h));
+#elif CORNER_B
+	interp_restriction_lv1      = ((e!=f) && (e!=h)  &&  ( !eq(f,b) && !eq(h,d) || eq(e,i) && !eq(f,i4) && !eq(h,i5) || eq(e,g) || eq(e,c) ) );
+#else
+	interp_restriction_lv1      = ((e!=f) && (e!=h)  && ( !eq(f,b) && !eq(f,c) || !eq(h,d) && !eq(h,g) || eq(e,i) && (!eq(f,f4) && !eq(f,i4) || !eq(h,h5) && !eq(h,i5)) || eq(e,g) || eq(e,c)) );
+#endif
+  edr = (weighted_distance( e, c, g, i, h5, f4, h, f) < weighted_distance( h, d, i5, f, i4, b, e, i)) && interp_restriction_lv1;
+
+  nc = ( edr && fx );
+
+  px = (df(e,f) <= df(e,h));
+
+  float3 res = nc ? px ? F : H : E;
+
+  return float4(res, 1.0);
+}
+

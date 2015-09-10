@@ -1,0 +1,73 @@
+////////////////////////////////////////////////////////
+//	GTU version 0.50
+//	Author: aliaspider - aliaspider@gmail.com
+//	License: GPLv3
+////////////////////////////////////////////////////////
+
+#pragma parameter combFilter "comb filter" 0.0 0.0 1.0 1.0
+#pragma parameter phaseOffset "phase offset" 0.0 -0.5 0.5 0.01
+
+#include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float combFilter;
+uniform float phaseOffset;
+#endif
+
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+
+void main_vertex
+(
+   uniform input IN,
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD,
+   out float colorPhase
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oTex = tex;
+
+   float2 pos = (tex.xy*IN.output_size.xy*IN.texture_size.xy/IN.video_size.xy)-0.5;
+   colorPhase=8.0+pos.x+pos.y*4.0+IN.frame_count*4.0 + 4.0 + phaseOffset*12.0;
+}
+
+#define pi			3.14159265358
+
+
+float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD, uniform input IN, in float colorPhase) : COLOR
+{
+	float current=tex2D(s0,tex.xy).r;
+
+	float signal, I, Q;
+
+	if (combFilter)
+	{
+		float prev6=tex2D(s0, tex.xy - float2(6.0 / (IN.output_size.x*IN.texture_size.x/IN.video_size.x),0.0)).r;
+		signal=(current+prev6)/2.0;
+		float chromaSignal=current-signal;
+		I = chromaSignal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
+		Q = chromaSignal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
+	}
+	else
+	{
+		signal=current;
+		I = signal * cos (colorPhase * (2.0 * pi / 12.0))*2.0;
+		Q = signal * sin (colorPhase * (2.0 * pi / 12.0))*2.0;
+	}
+
+	return float4(signal,I,Q,1.0);
+
+}

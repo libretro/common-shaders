@@ -1,0 +1,75 @@
+////////////////////////////////////////////////////////
+//	GTU-famicom version 0.50
+//	Author: aliaspider - aliaspider@gmail.com
+//	License: GPLv3
+////////////////////////////////////////////////////////
+
+#pragma parameter cropOverscan "crop overscan" 0.0 0.0 1.0 1.0
+#pragma parameter signalResolutionY "signal resolution Y" 200.0 20.0 500.0 10.0
+#pragma parameter signalResolutionI "signal resolution I" 125.0 20.0 350.0 10.0
+#pragma parameter signalResolutionQ "signal resolution Q" 125.0 20.0 350.0 10.0
+
+#include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float cropOverscan;
+uniform float signalResolutionY;
+uniform float signalResolutionI;
+uniform float signalResolutionQ;
+#endif
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+   oPosition = mul(modelViewProj, position);
+   if(cropOverscan)
+      oPosition.x/=(240.0/256.0);
+
+   oTex = tex;
+}
+
+#define YIQ_to_RGB 	transpose(mat3x3( 1.0   , 1.0      , 1.0      ,	0.9563   , -0.2721   , -1.1070   ,		0.6210   , -0.6474   , 1.7046   ))
+#define pi			3.14159265358
+#define a(x) abs(x)
+#define d(x,b) (pi*b*min(a(x)+0.5,1.0/b))
+#define e(x,b) (pi*b*min(max(a(x)-0.5,-1.0/b),1.0/b))
+#define STU(x,b) ((d(x,b)+sin(d(x,b))-e(x,b)-sin(e(x,b)))/(2.0*pi))
+#define X(i) (offset-(i))
+#define GETC (tex2D(s0, float2(tex.x - X/IN.texture_size.x,tex.y)).rgb)
+#define VAL float3((c.x*STU(X,(signalResolutionY/IN.video_size.x))),(c.y*STU(X,(signalResolutionI/IN.video_size.x))),(c.z*STU(X,(signalResolutionQ/IN.video_size.x))))
+#define PROCESS(i) X=X(i);c=GETC;tempColor+=VAL;
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+	float	offset	= fract((tex.x * IN.texture_size.x) - 0.5);
+	float3	tempColor = float3(0.0);
+	float 	X;
+	float3 	c;
+
+
+#define SCALEX_RANGE 17
+	float i;
+//	for (i=-range;i<range+2.0;i++){
+	for (i=1.0 - SCALEX_RANGE; i < 1.0 + SCALEX_RANGE; i++){
+		PROCESS(i)
+	}
+
+	tempColor=clamp(mul(YIQ_to_RGB,tempColor),0.0,1.0);
+	return float4(tempColor,1.0);
+}

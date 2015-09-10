@@ -1,0 +1,197 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Hyllian's 3xBR v2.1 Shader
+   
+   Copyright (C) 2011 Hyllian/Jararaca - sergiogdb@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+const static float3 dtt = float3(65536,255,1);
+
+float reduce(float3 color)
+{
+	return dot(color, dtt);
+}
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+        float frame_count;
+        float frame_direction;
+        float frame_rotation;
+};
+
+
+struct out_vertex {
+	float2 texCoord : TEXCOORD0;
+	float4 t1       : TEXCOORD1;
+	float4 t2       : TEXCOORD2;
+	float4 t3       : TEXCOORD3;
+	float4 t4       : TEXCOORD4;
+	float4 t5       : TEXCOORD5;
+	float4 t6       : TEXCOORD6;
+	float4 t7       : TEXCOORD7;
+	float4 t8       : TEXCOORD8;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+   out float4 oPosition : POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	oPosition = mul(modelViewProj, position);
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1.xy = texCoord + float2(-dx,  0);
+	OUT.t2.xy = texCoord + float2( dx,  0);
+	OUT.t3.xy = texCoord + float2(  0,-dy);
+	OUT.t4.xy = texCoord + float2(  0, dy);
+	OUT.t1.zw = texCoord + float2(-dx,-dy);
+	OUT.t2.zw = texCoord + float2(-dx, dy);
+	OUT.t3.zw = texCoord + float2( dx,-dy);
+	OUT.t4.zw = texCoord + float2( dx, dy);
+	OUT.t5.xy = texCoord + float2(   -dx,-dy-dy);
+	OUT.t5.zw = texCoord + float2(   +dx,-dy-dy);
+	OUT.t6.xy = texCoord + float2(-dx-dx,-dy   );
+	OUT.t6.zw = texCoord + float2(-dx-dx,+dy   );
+	OUT.t7.xy = texCoord + float2(+dx+dx,-dy   );
+	OUT.t7.zw = texCoord + float2(+dx+dx,+dy   );
+	OUT.t8.xy = texCoord + float2(   -dx,+dy+dy);
+	OUT.t8.zw = texCoord + float2(   +dx,+dy+dy);
+
+	return OUT;
+}
+
+#define FILTRO(PE, PI, PH, PF, PG, PC, PD, PB, PA, G5, C4, G0, C1, I4, I5, N2, N5, N6, N7, N8, F, H) \
+	if ( PE!=PH && PH==PF && ( (PE!=PI && (PE!=PB || PE!=PD || PB==C1 && PD==G0 || PF!=PB && PF!=PC || PH!=PD && PH!=PG)) \
+	   || (PE==PG && (PI==PH || PE==PD || PH!=PD)) \
+	   || (PE==PC && (PI==PH || PE==PB || PF!=PB)) )) \
+                 {\
+			if (PE==PC && PE==PD && PH==PG)\
+			{\
+				E[N5]  = (3*E[N5]+F)*0.25;\
+				E[N6]  = E[N5];\
+				E[N7]  = E[N7] + F - E[N5];\
+				E[N8]  = H;\
+			}\
+			else if (PE==PG && PE==PB && PF==PC)\
+			{\
+				E[N7]  = (3*E[N7]+H)*0.25;\
+				E[N2]  = E[N7];\
+				E[N5]  = E[N5] + H - E[N7];\
+				E[N8]  = F;\
+			}\
+			else\
+			{\
+                      		E[N8] = lerp(E[N8], F, 0.875);\
+                      		E[N5] = E[N5] + F - E[N8];\
+		      		E[N7] = E[N5];\
+			}\
+                 }\
+	else if (PE!=PH && PE!=PF && (PE==PC && (PF!=PI && (PH==PI && PF!=PB || PE!=PI && PF==C4) || PE!=PI && PE==PG)))\
+	{\
+                      		E[N8] = lerp(E[N8], F, 0.875);\
+                      		E[N5] = E[N5] + F - E[N8];\
+		      		E[N7] = E[N5];\
+	}\
+	else if (PE!=PH && PE!=PF && (PH!=PI && PE==PG && (PF==PI && PH!=PD || PE!=PI && PH==G5)))\
+	{\
+                      		E[N8] = lerp(E[N8], H, 0.875);\
+                      		E[N5] = E[N5] + H - E[N8];\
+		      		E[N7] = E[N5];\
+	}\
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float2 fp = frac(VAR.texCoord*IN.texture_size);
+
+	// Reading the texels
+
+	float3 A = tex2D(decal, VAR.t1.zw).xyz;
+	float3 B = tex2D(decal, VAR.t3.xy).xyz;
+	float3 C = tex2D(decal, VAR.t3.zw).xyz;
+	float3 D = tex2D(decal, VAR.t1.xy).xyz;
+	float3 E0 = tex2D(decal, VAR.texCoord).xyz;
+	float3 F = tex2D(decal, VAR.t2.xy).xyz;
+	float3 G = tex2D(decal, VAR.t2.zw).xyz;
+	float3 H = tex2D(decal, VAR.t4.xy).xyz;
+	float3 I = tex2D(decal, VAR.t4.zw).xyz;
+
+	float3  A1 = tex2D(decal, VAR.t5.xy).xyz;
+	float3  C1 = tex2D(decal, VAR.t5.zw).xyz;
+	float3  A0 = tex2D(decal, VAR.t6.xy).xyz;
+	float3  G0 = tex2D(decal, VAR.t6.zw).xyz;
+	float3  C4 = tex2D(decal, VAR.t7.xy).xyz;
+	float3  I4 = tex2D(decal, VAR.t7.zw).xyz;
+	float3  G5 = tex2D(decal, VAR.t8.xy).xyz;
+	float3  I5 = tex2D(decal, VAR.t8.zw).xyz;
+
+	float3 E[9];
+	
+	E[0] = E[1] = E[2] = E0;
+	E[3] = E[4] = E[5] = E0;
+	E[6] = E[7] = E[8] = E0;
+		
+	float a = reduce(A);
+	float b = reduce(B);
+	float c = reduce(C);
+	float d = reduce(D);
+	float e = reduce(E0);
+	float f = reduce(F);
+	float g = reduce(G);
+	float h = reduce(H);
+	float i = reduce(I);
+
+	float  a1 = reduce( A1);
+	float  c1 = reduce( C1);
+	float  a0 = reduce( A0);
+	float  g0 = reduce( G0);
+	float  c4 = reduce( C4);
+	float  i4 = reduce( I4);
+	float  g5 = reduce( G5);
+	float  i5 = reduce( I5);
+
+
+	FILTRO(e, i, h, f, g, c, d, b, a, g5, c4, g0, c1, i4, i5,  2,  5,  6,  7,  8, F, H);
+	FILTRO(e, c, f, b, i, a, h, d, g, i4, a1, i5, a0, c1, c4,  0,  1,  8,  5,  2, B, F);
+	FILTRO(e, a, b, d, c, g, f, h, i, c1, g0, c4, g5, a0, a1,  6,  3,  2,  1,  0, D, B);
+	FILTRO(e, g, d, h, a, i, b, f, c, a0, i5, a1, i4, g5, g0,  8,  7,  0,  3,  6, H, D);
+	
+	float3 res;
+
+	res = (fp.x < 1.0/3.0) ? ((fp.y < 1.0/3.0) ? E[0] : (fp.y < 2.0/3.0) ? E[3] : E[6]) : ((fp.x < 2.0/3.0) ? ((fp.y < 1.0/3.0) ? E[1] : (fp.y < 2.0/3.0) ? E[4] : E[7]) : ((fp.y < 1.0/3.0) ? E[2] : (fp.y < 2.0/3.0) ? E[5] : E[8]) );
+
+	return float4(res, 1.0);
+}

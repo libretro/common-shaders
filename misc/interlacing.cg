@@ -1,9 +1,15 @@
 #pragma parameter percent "Interlacing Scanline Bright %" 0.0 0.0 1.0 0.05
+#pragma parameter enable_480i "480i Enable" 1.0 0.0 1.0 1.0
+#pragma parameter top_field_first "Top Field First Enable" 0.0 0.0 1.0 1.0
 
 #ifdef PARAMETER_UNIFORM
 uniform float percent;
+uniform float enable_480i;
+uniform float top_field_first;
 #else
 #define percent 0.0
+#define enable_480i 1.0
+#define top_field_first 0.0
 #endif
 
 /* COMPATIBILITY 
@@ -56,9 +62,9 @@ float4 main_fragment (in float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0,
    float y = 0.0;
 
    // assume anything with a vertical resolution greater than 400 lines is interlaced
-   if (IN.video_size.y > 400.0) y = IN.texture_size.y * texCoord.y + IN.frame_count;
+   if (IN.video_size.y > 400.0) y = IN.texture_size.y * texCoord.y + (IN.frame_count * enable_480i) + top_field_first;
    else
-      y = 2.0 * IN.texture_size.y * texCoord.y;
+      y = 2.0 * IN.texture_size.y * texCoord.y + top_field_first;
 
    if (fmod(y, 2.0) > 0.99999) return res;
    else

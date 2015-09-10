@@ -1,0 +1,26 @@
+#pragma parameter box_scale "Box Scale" 6.0 1.0 10.0 1.0
+#pragma parameter location "Location" 0.5 0.2 0.5 0.3
+#pragma parameter in_res_x "Horiz. Input Res" 320 200 600 1.0
+#pragma parameter in_res_y "Vert. Input Res" 240 120 480 1.0
+#pragma parameter out_res_x "Horiz. Output Res" 2560.0 640.0 3840.0 40.0
+#pragma parameter out_res_y "Vert. Output Res" 1600.0 480.0 2160.0 40.0
+#pragma parameter border_on_top "Border On Top" 1.0 0.0 1.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float box_scale;
+uniform float location;
+uniform float out_res_x;
+uniform float out_res_y;
+uniform float in_res_x;
+uniform float in_res_y;
+uniform float border_on_top;
+#else
+#define box_scale 6.0
+#define location 0.5
+#define out_res_x 2560.0
+#define out_res_y 1600.0
+#define in_res_x 320
+#define in_res_y 240
+#define border_on_top 1.0
+#endif
+// END PARAMETERS //
+#include "water.inc"

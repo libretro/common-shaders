@@ -1,0 +1,161 @@
+#pragma parameter contrast "Contrast" 0.70 0.0 1.0 0.05
+#pragma parameter screen_light "Ambient Screen Light" 0.85 0.0 2.0 0.05
+#pragma parameter pixel_opacity "Pixel Opacity" 0.90 0.01 1.0 0.01
+#pragma parameter bg_smoothing "Background Smooth" 0.00 0.0 1.0 0.05
+#pragma parameter shadow_opacity "Shadow Opacity" 0.90 0.01 1.0 0.01
+#pragma parameter shadow_offset_x "Shadow Offset Horiz" -1.5 -5.0 5.0 0.5
+#pragma parameter shadow_offset_y "Shadow Offset Vert" 1.5 -5.0 5.0 0.5
+#pragma parameter screen_offset_x "Screen Offset Horiz" 0.0 -5.0 5.0 0.5
+#pragma parameter screen_offset_y "Screen Offset Vert" 0.0 -5.0 5.0 0.5
+#ifdef PARAMETER_UNIFORM
+uniform float contrast;
+uniform float screen_light;
+uniform float pixel_opacity;
+uniform float bg_smoothing;
+uniform float shadow_opacity;
+uniform float shadow_offset_x;
+uniform float shadow_offset_y;
+uniform float screen_offset_x;
+uniform float screen_offset_y;
+#else
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// DMG Shader v1.2                                                       //
+//                                                                       //
+// Author: Hi-Ban                                                        //
+//                                                                       //
+// This is a modification and mix of other shaders. Although some bits   //
+// of code have been modified to achieve a more realistic look, all the  //
+// original credits and licenses of the various codes have been left     //
+// intact in the shader files.                                           //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////
+//                                                                       //
+// Gameboy Classic Shader v0.2.2                                         //
+//                                                                       //
+// Copyright (C) 2013 Harlequin : unknown92835@gmail.com                 //
+//                                                                       //
+// This program is free software: you can redistribute it and/or modify  //
+// it under the terms of the GNU General Public License as published by  //
+// the Free Software Foundation, either version 3 of the License, or     //
+// (at your option) any later version.                                   //
+//                                                                       //
+// This program is distributed in the hope that it will be useful,       //
+// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
+// GNU General Public License for more details.                          //
+//                                                                       //
+// You should have received a copy of the GNU General Public License     //
+// along with this program.  If not, see <http://www.gnu.org/licenses/>. //
+//                                                                       //
+///////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//config                                                                                                                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define contrast 0.70   	//useful to fine-tune the colors. higher values make the "black" color closer to black - [0, 1] [DEFAULT: 0.70]
+#define screen_light 0.85   //controls the ambient light of the screen. lower values darken the screen - [0, 2] [DEFAULT: 0.85]
+#define pixel_opacity 0.90	//controls the opacity of the dot-matrix pixels. lower values make pixels more transparent - [0, 1] [DEFAULT: 0.90]
+#define bg_smoothing 0.00	//higher values suppress changes in background color directly beneath the foreground to improve image clarity - [0, 1] [DEFAULT: 0.00]
+#define shadow_opacity 0.90	//how strongly shadows affect the background, higher values darken the shadows - [0, 1] [DEFAULT: 0.90]
+#define shadow_offset_x -1.5	//how far the shadow should be shifted to the right in pixels - [-infinity, infinity] [DEFAULT: -1.5]
+#define shadow_offset_y 1.5	//how far the shadow should be shifted to down in pixels - [-infinity, infinity] [DEFAULT: 1.5]
+#define screen_offset_x 0	//screen offset - [-infinity, infinity] [DEFAULT: 0]
+#define screen_offset_y 0	//screen offset - [-infinity, infinity] [DEFAULT: 0]
+#endif
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//structs                                                                                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    sampler2D texture : TEXUNIT0;
+};
+
+struct pass_2
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex definitions                                                                                                                      //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//vertex shader                                                                                                                           //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void main_vertex( float4 position      			: POSITION,
+  		  out float4 oPosition 			: POSITION,
+  		  float2 texCoord      			: TEXCOORD0,
+  		  out float2 oTexCoord 			: TEXCOORD0,
+		  out float2 oTexel			: TEXCOORD1,
+  		  uniform float4x4 modelViewProj,
+  		  uniform input IN )
+{
+    oPosition = mul(modelViewProj, position);
+    oTexCoord = texCoord;
+
+    oTexel = 1.0 / IN.texture_size;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment definitions                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define bg_color tex2D(COLOR_PALETTE, fixed2(0.25, 0.5))				//sample the background color from the palette
+#define shadow_alpha (contrast * shadow_opacity)					//blending factor used when overlaying shadows on the background
+#define shadow_offset float2(shadow_offset_x * texel.x, shadow_offset_y * texel.y)	//offset for the shadow
+#define screen_offset float2(screen_offset_x * texel.x, screen_offset_y * texel.y)	//offset for the entire screen
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//fragment shader                                                                                                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 main_fragment( float2 texCoord        		: TEXCOORD0, 
+		      in float2 texel			: TEXCOORD1,
+		      uniform input IN,
+		      uniform pass_2 PASS2,
+		      uniform sampler2D COLOR_PALETTE	: TEXUNIT2,
+		      uniform sampler2D BACKGROUND	: TEXUNIT3 ) 		: COLOR
+{
+  //sample all the relevant textures	
+
+    fixed4 foreground = tex2D(PASS2.texture, texCoord - screen_offset);
+    fixed4 background = tex2D(BACKGROUND, texCoord);
+    fixed4 shadows    = tex2D(IN.texture, texCoord - (shadow_offset + screen_offset));
+    fixed4 background_color = bg_color;
+
+
+  //foreground and background are blended with the background color
+
+    foreground *= (1);
+    background -= (background - 0.5) * bg_smoothing * fixed(foreground.a > 0.0);	//suppress drastic background color changes under the foreground to improve clarity
+
+    background.rgb = saturate(fixed3( 				//allows for highlights, background = bg_color when the background color is 0.5 gray
+	bg_color.r + lerp(-1.0, 1.0, background.r), 
+	bg_color.g + lerp(-1.0, 1.0, background.g), 
+	bg_color.b + lerp(-1.0, 1.0, background.b) ));
+
+  //shadows are alpha blended with the background
+
+    fixed4 out_color = (shadows * shadows.a * shadow_alpha) + (background * (1 - shadows.a * shadow_alpha));
+
+
+  //foreground is alpha blended with the shadowed background
+
+    out_color = (foreground * foreground.a *(1.0 - foreground.a * foreground.a * contrast)) + (out_color * (screen_light - foreground.a * contrast * pixel_opacity));
+
+
+  //return fragment
+
+    return out_color; 
+}

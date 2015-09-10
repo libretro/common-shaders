@@ -1,0 +1,107 @@
+/*
+   Hyllian's erosion Shader
+   
+   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+*/
+
+const static float y_weight        = 48.0;
+const static float u_weight        = 7.0;
+const static float v_weight        = 6.0;
+const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+const static float3x3 yuv_weighted = float3x3(y_weight*yuv[0], u_weight*yuv[1], v_weight*yuv[2]);
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t2       : TEXCOORD2;
+	float4 t3       : TEXCOORD3;
+	float4 t4       : TEXCOORD4;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord1 : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+	OUT.color = color;
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	//    A1 B1 C1
+	// A0  A  B  C C4
+	// D0  D  E  F F4
+	// G0  G  H  I I4
+	//    G5 H5 I5
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+
+	OUT.texCoord = texCoord;
+	OUT.t2 = texCoord.xxxy + float4( -dx, 0, dx,    -dy); //  A  B  C
+	OUT.t3 = texCoord.xxxy + float4( -dx, 0, dx,      0); //  D  E  F
+	OUT.t4 = texCoord.xxxy + float4( -dx, 0, dx,     dy); //  G  H  I
+
+	return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+	float3 B  = tex2D(decal, VAR.t2.yw).rgb;
+	float3 D  = tex2D(decal, VAR.t3.xw).rgb;
+	float3 E  = tex2D(decal, VAR.t3.yw).rgb;
+	float3 F  = tex2D(decal, VAR.t3.zw).rgb;
+
+	float3 H  = tex2D(decal, VAR.t4.yw).rgb;
+
+	float4 b = mul( float4x3(B, D, H, F), yuv_weighted[0] );
+	float4 e = mul( float4x3(E, E, E, E), yuv_weighted[0] );
+
+
+	float di = min(min(b.x, b.y), min(b.z, min(b.w, e.x)));
+	float3 res = (di==b.x) ? B : (di==b.y) ? D : (di==b.z) ? H : (di==b.w) ? F : E;
+
+	return float4(res, 1.0);
+}
+

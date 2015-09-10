@@ -1,0 +1,110 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+    CRT-interlaced-halation shader - pass1
+
+    Like the CRT-interlaced shader, but adds a subtle glow around bright areas
+    of the screen.
+
+    Copyright (C) 2010-2012 cgwg, Themaister and DOLLS
+
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+
+    (cgwg gave their consent to have the original version of this shader
+    distributed under the GPL in this message:
+
+        http://board.byuu.org/viewtopic.php?p=26075#p26075
+
+        "Feel free to distribute my shaders under the GPL. After all, the
+        barrel distortion code was taken from the Curvature shader, which is
+        under the GPL."
+    )
+*/
+
+
+
+        #define display_gamma 2.2
+        #define TEX2D(c) pow(tex2D(decal,(c)),float4(display_gamma))
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+
+struct out_vertex {
+    float4 position : POSITION;
+    float4 color : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float4 t1       : TEXCOORD1;
+    float4 t2       : TEXCOORD2;
+    float4 t3       : TEXCOORD3;
+};
+
+
+
+/* VERTEX_SHADER */
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color : COLOR,
+    float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+
+    OUT.position = mul(modelViewProj, position);
+    OUT.color = color;
+
+    float dx = 1.0/IN.texture_size.x;
+
+    OUT.texCoord = texCoord;
+    OUT.t1 = texCoord.xxxy + float4( -4.0*dx, -3.0*dx, -2.0*dx, 0);
+    OUT.t2 = texCoord.xxxy + float4(     -dx,       0,      dx, 0);
+    OUT.t3 = texCoord.xxxy + float4(  2.0*dx,  3.0*dx,  4.0*dx, 0);
+
+    return OUT;
+}
+
+
+/* FRAGMENT SHADER */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+                float wid = 2.0;
+
+                float c1 = exp(-1.0/wid/wid);
+                float c2 = exp(-4.0/wid/wid);
+                float c3 = exp(-9.0/wid/wid);
+                float c4 = exp(-16.0/wid/wid);
+                float norm = 1.0 / (1.0 + 2.0*(c1+c2+c3+c4));
+
+                float4 sum = float4(0.0, 0.0, 0.0, 0.0);
+
+                sum += TEX2D(VAR.t1.xw) * float4(c4);
+                sum += TEX2D(VAR.t1.yw) * float4(c3);
+                sum += TEX2D(VAR.t1.zw) * float4(c2);
+                sum += TEX2D(VAR.t2.xw) * float4(c1);
+                sum += TEX2D(VAR.texCoord);
+                sum += TEX2D(VAR.t2.zw) * float4(c1);
+                sum += TEX2D(VAR.t3.xw) * float4(c2);
+                sum += TEX2D(VAR.t3.yw) * float4(c3);
+                sum += TEX2D(VAR.t3.zw) * float4(c4);
+
+                return float4(pow(sum*float4(norm), float4(1.0/display_gamma)));
+}
+
+

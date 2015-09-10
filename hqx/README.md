@@ -24,7 +24,7 @@ used by the preset files by default.
 ## Implementation
 
 Like the original HQx filter this shader requires a lookup table. In HQx this lookup table
-contains the weights used for interpolation the pixels through a weighted average. More
+contains the weights used for interpolating the pixels through a weighted average. More
 information on the original algorithm can be found [in the documentation](https://code.google.com/p/hqx/wiki/ReadMe).
 
 The HQx algorithm interpolates the original pixel (w5) with its 8 neighbours.

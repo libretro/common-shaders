@@ -1,0 +1,80 @@
+////////////////////////////////////////////////////////
+//	GTU-famicom version 0.50
+//	Author: aliaspider - aliaspider@gmail.com
+//	License: GPLv3      
+////////////////////////////////////////////////////////
+
+#pragma parameter signalResolution "signal resolution" 700.0 20.0 2000.0 10.0
+#pragma parameter addNoise "add noise" 0.0 0.0 1.0 1.0
+#pragma parameter noiseStrengh "noise strengh" 0.0 0.0 1.0 0.1
+
+#include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float signalResolution;
+uniform float addNoise;
+uniform float noiseStrengh;
+#endif
+
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+   out float2 oTex : TEXCOORD
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oTex = tex;
+}
+
+
+#define pi			3.14159265358
+#define a(x) abs(x)
+#define d(x,b) (pi*b*min(a(x)+0.5,1.0/b))
+#define e(x,b) (pi*b*min(max(a(x)-0.5,-1.0/b),1.0/b))
+#define STU(x,b) ((d(x,b)+sin(d(x,b))-e(x,b)-sin(e(x,b)))/(2.0*pi))
+#define X(i) (offset-(i))
+#define S(i) (tex2D(s0, float2(tex.x - X(i)/IN.texture_size.x,tex.y)).x)
+#define VAL(i) (S(i)*STU(X(i),(signalResolution/IN.video_size.x)))
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+float rand(float2 co){
+    return fract(sin(dot(co.xy ,float2(12.9898,78.233))) * 43758.5453);
+}
+
+float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+
+   float offset	= fract((tex.x * IN.texture_size.x) - 0.5);
+
+   float signal = 0.0;
+
+#define LOWPASS_RANGE 3
+
+   float i;
+   for (i = 1.0 - LOWPASS_RANGE; i < 1.0 + LOWPASS_RANGE; i++)
+      signal+=VAL(i);
+
+   if(addNoise)
+   {
+      float2 pos =(tex.xy * IN.video_size.xy);
+      signal +=(rand(float2(pos.x*pos.y,IN.frame_count))-0.5)*noiseStrengh;
+   }
+
+   return float4(signal);
+}
+
+
+

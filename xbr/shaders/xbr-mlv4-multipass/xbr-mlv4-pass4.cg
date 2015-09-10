@@ -1,0 +1,201 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+
+   Hyllian's xBR MultiLevel4 Shader - Pass4
+   
+   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+*/
+
+#define round(X) floor((X)+0.5)
+
+const static float3 bin            = float3( 4.0f,  2.0f,  1.0f);
+const static float4 low            = float4(-64.0f, -64.0f, -64.0f, -64.0f);
+const static float4 high           = float4( 64.0f,  64.0f,  64.0f,  64.0f);
+
+const static float2x4 sym_vectors  = float2x4(1,  1,   -1, -1,    1, -1,   -1,  1);
+
+
+float4 remapFrom01(float4 v, float4 low, float4 high)
+{
+	return round(lerp(low, high, v));
+}
+
+float c_df(float3 c1, float3 c2)
+{
+	float3 df = abs(c1 - c2);
+	return df.r + df.g + df.b;
+}
+
+
+float4 unpack_info(float i)
+{
+	float4 info;
+	info.x = round(modf(i/2.0f, i));
+	info.y = round(modf(i/2.0f, i));
+	info.z = round(modf(i/2.0f, i));
+	info.w = i;
+
+	return info;
+}
+
+
+float df(float A, float B)
+{
+	return abs(A-B);
+}
+
+
+#define GET_PIXEL(PARAM, PIXEL)\
+	info = PARAM;\
+	ay.z = round(  modf( info/2.0f, info )  );\
+	ay.y = round(  modf( info/2.0f, info )  );\
+	ay.x = round(  modf( info/2.0f, info )  );\
+	ax.z = round(  modf( info/2.0f, info )  );\
+	ax.y = round(  modf( info/2.0f, info )  );\
+	ax.x = round(  info  );\
+	iq.x = dot( ax, bin ) - 2.0;\
+	iq.y = dot( ay, bin ) - 2.0;\
+	PIXEL = tex2D( PASSPREV4.texture, co.texCoord + iq.x*co.t1.xy + iq.y*co.t1.zw ).xyz;\
+
+
+
+struct prev
+{
+	uniform float2 video_size;
+	uniform float2 texture_size;
+	uniform sampler2D texture;
+};
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t1       : TEXCOORD1;
+	float  scale_factor;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	prev PASSPREV4,
+	out out_vertex co
+)
+{
+	co.position = mul(modelViewProj, position);
+	co.color = color;
+
+	float2 ps = float2(1.0/PASSPREV4.texture_size.x, 1.0/PASSPREV4.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	//      A3 B3 C3
+	//      A1 B1 C1
+	//A2 A0  A  B  C C4 C6
+	//D2 D0  D  E  F F4 F6
+	//G2 G0  G  H  I I4 I6
+	//      G5 H5 I5
+	//      G7 H7 I7
+
+	co.texCoord = texCoord;
+	co.t1           = float4(dx, 0, 0, dy);  // F  H
+	co.scale_factor = IN.output_size.x/PASSPREV4.video_size.x;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, prev PASSPREV4, uniform input IN) : COLOR
+{
+	float2 fp = frac( co.texCoord*PASSPREV4.texture_size ) - float2( 0.5, 0.5 ); // pos = pixel position
+
+	float2 pxcoord = floor(co.texCoord*PASSPREV4.texture_size)/PASSPREV4.texture_size;
+
+	float4 UL = tex2D(decal, pxcoord + 0.25*co.t1.xy + 0.25*co.t1.zw );
+	float4 UR = tex2D(decal, pxcoord + 0.75*co.t1.xy + 0.25*co.t1.zw );
+	float4 DL = tex2D(decal, pxcoord + 0.25*co.t1.xy + 0.75*co.t1.zw );
+	float4 DR = tex2D(decal, pxcoord + 0.75*co.t1.xy + 0.75*co.t1.zw );
+
+	float4 ulparam = remapFrom01( UL, low, high ); // retrieve 1st pass info
+	float4 urparam = remapFrom01( UR, low, high ); // retrieve 1st pass info
+	float4 dlparam = remapFrom01( DL, low, high ); // retrieve 1st pass info
+	float4 drparam = remapFrom01( DR, low, high ); // retrieve 1st pass info
+
+	float3 E = tex2D( PASSPREV4.texture, co.texCoord ).xyz;
+
+	float3 ax, ay, PX, PY, PZ, PW;
+	float info;
+	float2 iq;
+
+	GET_PIXEL(ulparam.w, PX);
+	GET_PIXEL(urparam.w, PY);
+	GET_PIXEL(dlparam.w, PZ);
+	GET_PIXEL(drparam.w, PW);
+
+	float3 fp1 = float3( fp, -1 );
+
+	float3 color;
+	float4 fx;
+
+	float4 inc   = float4(abs(ulparam.x/ulparam.y), abs(urparam.x/urparam.y), abs(dlparam.x/dlparam.y), abs(drparam.x/drparam.y));
+	float4 level = max(inc, 1.0/inc);
+
+	fx.x    = saturate( dot( fp1, ulparam.xyz ) * co.scale_factor/( 8 * level.x ) + 0.5 );
+	fx.y    = saturate( dot( fp1, urparam.xyz ) * co.scale_factor/( 8 * level.y ) + 0.5 );
+	fx.z    = saturate( dot( fp1, dlparam.xyz ) * co.scale_factor/( 8 * level.z ) + 0.5 );
+	fx.w    = saturate( dot( fp1, drparam.xyz ) * co.scale_factor/( 8 * level.w ) + 0.5 );
+
+	float3 c1, c2, c3, c4;
+
+	c1 = lerp( E, PX, fx.x );
+	c2 = lerp( E, PY, fx.y );
+	c3 = lerp( E, PZ, fx.z );
+	c4 = lerp( E, PW, fx.w );
+
+	color = c1;
+	color = ( (c_df(c2, E) > c_df(color, E)) ) ? c2 : color;
+	color = ( (c_df(c3, E) > c_df(color, E)) ) ? c3 : color;
+	color = ( (c_df(c4, E) > c_df(color, E)) ) ? c4 : color;
+
+	return float4( color, 1.0 );
+}
+
+

@@ -1,0 +1,72 @@
+#pragma parameter PHOSPHOR_SCALE_X "Phosphor Scale X" 1.0 0.5 3.0 0.5
+#pragma parameter PHOSPHOR_SCALE_Y "Phosphor Scale Y" 1.0 0.5 3.0 0.5
+#ifdef PARAMETER_UNIFORM
+uniform float PHOSPHOR_SCALE_X;
+uniform float PHOSPHOR_SCALE_Y;
+#else
+#define PHOSPHOR_SCALE_X 1.0
+#define PHOSPHOR_SCALE_Y 1.5
+#endif
+// END PARAMETERS //
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+// VERTEX SHADER //
+
+void main_vertex
+(
+ float4 position	: POSITION,
+ float4 color	: COLOR,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float4 oColor    : COLOR,
+ out float2 otexCoord : TEXCOORD0
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   otexCoord = texCoord;
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+  sampler2D texture : TEXUNIT0;
+};
+
+// FRAGMENT SHADER //
+
+output main_fragment (
+	float2 texCoord : TEXCOORD0,
+	uniform input IN,
+	uniform sampler2D texture : TEXUNIT0,
+	uniform sampler2D PHOSPHOR_LUT : TEXUNIT1
+)
+{
+	output OUT;
+
+	float2 LUTeffectiveCoord = float2(frac(texCoord.x * IN.texture_size.x / PHOSPHOR_SCALE_X), frac(texCoord.y * IN.texture_size.y / PHOSPHOR_SCALE_Y));
+	float4 image = tex2D(IN.texture, texCoord);
+	float4 screen = tex2D(PHOSPHOR_LUT, LUTeffectiveCoord);
+	
+    OUT.color = screen * image;
+
+	return OUT;
+}
+	

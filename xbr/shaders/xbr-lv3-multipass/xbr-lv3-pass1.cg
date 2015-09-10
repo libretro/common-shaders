@@ -1,0 +1,221 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+
+/*
+   Hyllian's xBR level 3 pass1 Shader
+   
+   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+*/
+
+#define round(X) floor((X)+0.5)
+
+const static float2x4 sym_vectors  = float2x4(1,  1,   -1, -1,    1, -1,   -1,  1);
+
+const float3 lines[12] = {
+   1.0, 1.0, 0.75,
+   1.0, 1.0, 0.5,
+   2.0, 1.0, 0.5,
+   1.0, 2.0, 0.5,
+   3.0, 1.0, 0.5,
+   1.0, 3.0, 0.5,
+
+  -1.0,  2.0, 0.5,
+   2.0, -1.0, 0.5,
+  -1.0,  3.0, 0.5,
+   3.0, -1.0, 0.5,
+
+   3.0, 1.0, 1.5,
+   1.0, 3.0, 1.5
+};
+
+
+float remapFrom01(float v, float high)
+{
+	return (high*v + 0.5);
+}
+
+
+float3 remapFrom01(float3 v, float3 low, float3 high)
+{
+	return round(lerp(low, high, v));
+}
+
+float4 unpack_info(float i)
+{
+	float4 info;
+	info.x = round(modf(i/2.0f, i));
+	info.y = round(modf(i/2.0f, i));
+	info.z = round(modf(i/2.0f, i));
+	info.w = i;
+
+	return info;
+}
+
+struct orig
+{
+	float2 tex_coord;
+	uniform float2 texture_size;
+	uniform sampler2D texture;
+};
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float4 color    : COLOR;
+	float2 texCoord : TEXCOORD0;
+	float4 t1       : TEXCOORD1;
+	float2 orig_tex;
+	float2 delta;
+};
+
+/*    VERTEX_SHADER    */
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	orig ORIG,
+	out out_vertex co
+)
+{
+	co.position = mul(modelViewProj, position);
+	co.color = color;
+
+	float2 ps = float2(1.0/ORIG.texture_size.x, 1.0/ORIG.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	//      A3 B3 C3
+	//      A1 B1 C1
+	//A2 A0  A  B  C C4 C6
+	//D2 D0  D  E  F F4 F6
+	//G2 G0  G  H  I I4 I6
+	//      G5 H5 I5
+	//      G7 H7 I7
+
+	co.texCoord = texCoord;
+	co.orig_tex = ORIG.tex_coord;
+	co.t1       = float4(dx, 0, 0, dy);  // F  H
+	co.delta    = float2(IN.video_size.x/IN.output_size.x, 0.5*IN.video_size.x/IN.output_size.x); // Delta is the thickness of interpolation
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex co, uniform sampler2D decal : TEXUNIT0, orig ORIG, uniform input IN) : COLOR
+{
+	float2 px; // px = pixel to blend
+	float pxr, pxd, line, edr3_nrl, edr3_ndu;
+
+	float2 pos = frac(co.texCoord*IN.texture_size)-float2(0.5, 0.5); // pos = pixel position
+	float2 dir = sign(pos); // dir = pixel direction
+
+	float2 g1 = dir*( saturate(-dir.y*dir.x)*co.t1.zw + saturate( dir.y*dir.x)*co.t1.xy);
+	float2 g2 = dir*( saturate( dir.y*dir.x)*co.t1.zw + saturate(-dir.y*dir.x)*co.t1.xy);
+
+	float3 F   = tex2D(ORIG.texture, co.orig_tex +g1).xyz;
+	float3 B   = tex2D(ORIG.texture, co.orig_tex -g2).xyz;
+	float3 D   = tex2D(ORIG.texture, co.orig_tex -g1).xyz;
+	float3 H   = tex2D(ORIG.texture, co.orig_tex +g2).xyz;
+	float3 E   = tex2D(ORIG.texture, co.orig_tex    ).xyz;
+
+	float3 F4  = tex2D(ORIG.texture, co.orig_tex +2.0*g1).xyz;
+	float3 I   = tex2D(ORIG.texture, co.orig_tex  +g1+g2).xyz;
+	float3 H5  = tex2D(ORIG.texture, co.orig_tex +2.0*g2).xyz;
+
+	float4 icomp    = round(saturate(mul(dir, sym_vectors))); // choose info component
+	float  info     = remapFrom01(dot(tex2D(decal, co.texCoord   ), icomp), 255.0f); // retrieve 1st pass info
+	float  info_nr  = remapFrom01(dot(tex2D(decal, co.texCoord+g1), icomp), 255.0f); // 1st pass info from neighbor r
+	float  info_nd  = remapFrom01(dot(tex2D(decal, co.texCoord+g2), icomp), 255.0f); // 1st pass info from neighbor d
+
+	modf(info/2.0f, info); // discard info
+	modf(info/2.0f, info); // discard info
+	px.x = round(modf(info/2.0f, info));
+	px.y = round(modf(info/2.0f, info));
+
+	float4 flags = unpack_info(info); // retrieve 1st pass flags
+
+	edr3_nrl = round(modf(info_nr/2.0f, info_nr));
+	modf(info_nr/2.0f, info_nr); // discard info_nr
+	modf(info_nr/2.0f, info_nr); // discard info_nr
+	pxr      = round(modf(info_nr/2.0f, info_nr));
+
+	modf(info_nd/2.0f, info_nd); // discard info_nd
+	edr3_ndu = round(modf(info_nd/2.0f, info_nd));
+	modf(info_nd/2.0f, info_nd); // discard info_nd
+	pxd      = round(modf(info_nd/2.0f, info_nd));
+
+	float aux = round(dot(float4(8.0, 4.0, 2.0, 1.0), flags));
+	float3 slep;
+
+
+	if (aux >= 6.0)
+	{
+		slep = (aux==6.0 ? lines[6] : (aux==7.0 ? lines[7] : (aux==8.0 ? lines[8] : (aux==9.0 ? lines[9] : (aux==10.0 ? lines[10] : lines[11])))));
+	}
+	else
+	{
+		slep = (aux==0.0 ? lines[0] : (aux==1.0 ? lines[1] : (aux==2.0 ? lines[2] : (aux==3.0 ? lines[3] : (aux==4.0 ? lines[4] : lines[5])))));
+	}
+
+
+	float2 fp = (dir.x*dir.y) > 0.0 ? abs(pos) : abs(pos.yx);
+
+	float3 fp1 = float3(fp.yx, -1);
+
+	float3 color = E;
+	float fx;
+
+	if (aux < 10.0)
+	{
+		fx    = saturate(dot(fp1, slep)/(2*co.delta.x)+0.5);
+		color = lerp(E, lerp(lerp(H, F, px.y), lerp(D, B, px.y), px.x), fx); // interpolate if there's edge
+	}
+	else if (edr3_nrl)
+	{
+		fx    = saturate(dot(fp1, lines[10])/(2*co.delta.x)+0.5);
+		color = lerp(E, lerp(I, F4, pxr), fx); // interpolate if there's edge
+	}
+	else if (edr3_ndu)
+	{
+		fx    = saturate(dot(fp1, lines[11])/(2*co.delta.x)+0.5);
+		color = lerp(E, lerp(H5, I, pxd), fx); // interpolate if there's edge
+	}
+
+	return float4(color, 1.0);
+}
+
+

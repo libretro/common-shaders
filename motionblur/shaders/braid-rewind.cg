@@ -1,0 +1,88 @@
+/*
+    Braid Rewind
+    Authors: hunterk, cgwg
+ 
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+*/
+
+struct previous
+{
+   uniform sampler2D texture;
+   float2 tex_coord;
+};
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+
+   float4 color : COLOR,
+   out float4 oColor : COLOR,
+
+   float2 texCoord : TEXCOORD,
+   out float2 oTexCoord : TEXCOORD,
+
+   uniform input IN
+)
+{
+   oPosition = mul(modelViewProj, position);
+   oColor = color;
+   oTexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 col    : COLOR;
+};
+
+output main_fragment(in sampler2D s0 : TEXUNIT0, in float2 texCoord : TEXCOORD0,
+uniform input IN,
+      previous PREV,
+      previous PREV1,
+      previous PREV2,
+      previous PREV3,
+      previous PREV4,
+      previous PREV5,
+      previous PREV6
+)
+{
+   float4 current = tex2D(s0, texCoord);
+
+   float4 color = tex2D(PREV6.texture, texCoord);
+   color = color + tex2D(PREV5.texture, texCoord);
+   color = color + tex2D(PREV4.texture, texCoord);
+   color = color + tex2D(PREV3.texture, texCoord);
+   color = color + tex2D(PREV2.texture, texCoord);
+   color = color + tex2D(PREV1.texture, texCoord);
+   color = color + tex2D(PREV.texture, texCoord);
+   color = color + current;
+
+   float4 sepia = float4(1.0,0.8,0.6,1.0); 
+
+   if (IN.frame_direction < 0.0)
+   {
+      current = ((current + (color / 7.0)) / 2.0) * sepia;
+   }
+   else
+   {
+      current = current;
+   }
+
+   output OUT;
+   OUT.col = current;
+   return OUT;
+}

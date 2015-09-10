@@ -1,0 +1,40 @@
+#pragma parameter mixfactor "Motionblur Fadeout" 0.75 0.0 1.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float mixfactor;
+#else
+#define mixfactor 0.75
+#endif
+
+struct input
+{
+float2 tex_coord;
+float4 vertex_coord;
+uniform float4x4 mvp_matrix;
+uniform sampler2D texture;
+};
+
+struct vertex_data
+{
+float2 tex;
+float2 feedback_tex;
+};
+
+void main_vertex
+(
+input IN,
+input FEEDBACK,
+out float4 oPosition : POSITION,
+out vertex_data vert
+)
+{
+oPosition = mul(IN.mvp_matrix, IN.vertex_coord);
+vert = vertex_data(IN.tex_coord, FEEDBACK.tex_coord);
+}
+
+float4 main_fragment(in vertex_data vert, input IN, input FEEDBACK) : COLOR
+{
+float4 current = pow(tex2D(IN.texture, vert.tex).rgba, float4(2.2));
+float4 fdback = pow(tex2D(FEEDBACK.texture, vert.feedback_tex).rgba, float4(2.2));
+float4 mixed = (1.0 - mixfactor) * current + mixfactor * fdback;
+return pow(mixed, float4(1.0 / 2.2));
+}

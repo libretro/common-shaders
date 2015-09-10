@@ -1,0 +1,172 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+// "LeiFX" shader - "dither" and reduction process
+// 
+// 	Copyright (C) 2013-2014 leilei
+// 
+// This program is free software; you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the Free
+// Software Foundation; either version 2 of the License, or (at your option)
+// any later version.
+
+// This table came from the wikipedia article about Ordered Dithering. NOT MAME.  Just to clarify.
+float erroredtable[16] = {
+	16,4,13,1,   
+	8,12,5,9,
+	14,2,15,3,
+	6,10,7,11		
+};
+
+
+#define DITHERAMOUNT		0.5f // was 0.33f
+#define DITHERBIAS		-1  // 0 to 16, biases the value of the dither up.  - was 8
+
+#pragma parameter LEIFX_LINES "LeiFX Line Intensity" 0.05 0.00 1.00 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float LEIFX_LINES;
+#else
+#define LEIFX_LINES 0.05f
+#endif
+
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+   	output OUT;
+	OUT.color = tex2D(decal, texCoord);
+
+
+	float2 res;
+	res.x = IN.texture_size.x;
+	res.y = IN.texture_size.y;
+	
+	float2 ditheu = texCoord.xy * res.xy;
+
+	ditheu.x = texCoord.x * res.x;
+	ditheu.y = texCoord.y * res.y;
+
+	// Dither. Total rewrite.
+	// NOW, WHAT PIXEL AM I!??
+
+	int ditdex = 	int(mod(ditheu.x, 4.0)) * 4 + int(mod(ditheu.y, 4.0)); // 4x4!
+	int3 color;
+	int3 colord;
+	color.r = OUT.color.r * 255;
+	color.g = OUT.color.g * 255;
+	color.b = OUT.color.b * 255;
+	int yeh = 0;
+	int ohyes = 0;
+
+
+	// looping through a lookup table matrix
+	//for (yeh=ditdex; yeh<(ditdex+16); yeh++) ohyes = pow(erroredtable[yeh-15], 0.72f);
+	// Unfortunately, RetroArch doesn't support loops so I have to unroll this. =(
+	// Dither method adapted from xTibor on Shadertoy ("Ordered Dithering"), generously
+	// put into the public domain.  Thanks!
+	if (yeh++==ditdex) ohyes = erroredtable[0];
+	else if (yeh++==ditdex) ohyes = erroredtable[1];
+	else if (yeh++==ditdex) ohyes = erroredtable[2];
+	else if (yeh++==ditdex) ohyes = erroredtable[3];
+	else if (yeh++==ditdex) ohyes = erroredtable[4];
+	else if (yeh++==ditdex) ohyes = erroredtable[5];
+	else if (yeh++==ditdex) ohyes = erroredtable[6];
+	else if (yeh++==ditdex) ohyes = erroredtable[7];
+	else if (yeh++==ditdex) ohyes = erroredtable[8];
+	else if (yeh++==ditdex) ohyes = erroredtable[9];
+	else if (yeh++==ditdex) ohyes = erroredtable[10];
+	else if (yeh++==ditdex) ohyes = erroredtable[11];
+	else if (yeh++==ditdex) ohyes = erroredtable[12];
+	else if (yeh++==ditdex) ohyes = erroredtable[13];
+	else if (yeh++==ditdex) ohyes = erroredtable[14];
+	else if (yeh++==ditdex) ohyes = erroredtable[15];
+
+	// Adjust the dither thing
+	ohyes = 17 - (ohyes - 1); // invert
+	ohyes *= DITHERAMOUNT;
+	ohyes += DITHERBIAS;
+
+	colord.r = color.r + ohyes;
+	colord.g = color.g + (ohyes / 2);
+	colord.b = color.b + ohyes;
+	OUT.color.rgb = colord.rgb * 0.003921568627451; // divide by 255, i don't trust em
+
+
+
+
+	//
+	// Reduce to 16-bit color
+	//
+
+	float3 why = 1;
+	float3 reduceme = 1;
+	float radooct = 32;	// 32 is usually the proper value
+
+	reduceme.r = pow(OUT.color.r, why);  
+	reduceme.r *= radooct;	
+	reduceme.r = int(floor(reduceme.r));	
+	reduceme.r /= radooct; 
+	reduceme.r = pow(reduceme.r, why);
+
+	reduceme.g = pow(OUT.color.g, why);  
+	reduceme.g *= radooct * 2;	
+	reduceme.g = int(floor(reduceme.g));	
+	reduceme.g /= radooct * 2; 
+	reduceme.g = pow(reduceme.g, why);
+
+	reduceme.b = pow(OUT.color.b, why);  
+	reduceme.b *= radooct;	
+	reduceme.b = int(floor(reduceme.b));	
+	reduceme.b /= radooct; 
+	reduceme.b = pow(reduceme.b, why);
+
+	OUT.color.rgb = reduceme.rgb;
+
+	// Add the purple line of lineness here, so the filter process catches it and gets gammaed.
+	{
+		float leifx_linegamma = (LEIFX_LINES / 10);
+		float horzline1 = 	(mod(ditheu.y, 	2.0));
+		if (horzline1 < 1)	leifx_linegamma = 0;
+	
+		OUT.color.r += leifx_linegamma;
+		OUT.color.b += leifx_linegamma;	
+	}
+
+
+   return OUT;
+}
