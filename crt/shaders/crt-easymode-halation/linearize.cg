@@ -1,0 +1,26 @@
+#pragma parameter GAMMA_INPUT "Gamma Input" 2.4 0.1 5.0 0.01
+
+#ifdef PARAMETER_UNIFORM
+uniform float GAMMA_INPUT;
+#else
+#define GAMMA_INPUT 2.4
+#endif
+
+void main_vertex
+(
+    float4 position : POSITION,
+    out float4 oPosition : POSITION,
+    uniform float4x4 modelViewProj,
+
+    float2 tex : TEXCOORD,
+    out float2 oTex : TEXCOORD
+)
+{
+    oPosition = mul(modelViewProj, position);
+    oTex = tex;
+}
+
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0) : COLOR
+{
+    return pow(tex2D(tex, coords), GAMMA_INPUT);
+}

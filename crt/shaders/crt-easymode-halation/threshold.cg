@@ -1,0 +1,35 @@
+void main_vertex
+(
+    float4 position : POSITION,
+    out float4 oPosition : POSITION,
+    uniform float4x4 modelViewProj,
+
+    float2 tex : TEXCOORD,
+    out float2 oTex : TEXCOORD
+)
+{
+    oPosition = mul(modelViewProj, position);
+    oTex = tex;
+}
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+struct prev
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASS1) : COLOR
+{
+    float3 diff = saturate(tex2D(tex, coords).rgb - tex2D(PASS1.texture, coords).rgb);
+
+    return float4(diff, 1.0);
+}
