@@ -1,0 +1,279 @@
+/*
+    CRT Shader by EasyMode
+    License: GPL
+*/
+
+#pragma parameter GAMMA_OUTPUT "Gamma Output" 2.2 0.1 5.0 0.01
+#pragma parameter SHARPNESS_H "Sharpness Horizontal" 0.6 0.0 1.0 0.05
+#pragma parameter SHARPNESS_V "Sharpness Vertical" 1.0 0.0 1.0 0.05
+#pragma parameter MASK_TYPE "Mask Type" 4.0 0.0 7.0 1.0
+#pragma parameter MASK_STRENGTH_MIN "Mask Strength Min." 0.2 0.0 0.5 0.01
+#pragma parameter MASK_STRENGTH_MAX "Mask Strength Max." 0.2 0.0 0.5 0.01
+#pragma parameter MASK_SIZE "Mask Size" 1.0 1.0 100.0 1.0
+#pragma parameter SCANLINE_STRENGTH_MIN "Scanline Strength Min." 0.2 0.0 1.0 0.05
+#pragma parameter SCANLINE_STRENGTH_MAX "Scanline Strength Max." 0.4 0.0 1.0 0.05
+#pragma parameter SCANLINE_BEAM_MIN "Scanline Beam Min." 1.0 0.25 5.0 0.05
+#pragma parameter SCANLINE_BEAM_MAX "Scanline Beam Max." 1.0 0.25 5.0 0.05
+#pragma parameter GEOM_CURVATURE "Geom Curvature" 0.0 0.0 0.1 0.01
+#pragma parameter GEOM_WARP "Geom Warp" 0.0 0.0 0.1 0.01
+#pragma parameter GEOM_CORNER_SIZE "Geom Corner Size" 0.0 0.0 0.1 0.01
+#pragma parameter GEOM_CORNER_SMOOTH "Geom Corner Smoothness" 150.0 50.0 1000.0 25.0
+#pragma parameter INTERLACING_TOGGLE "Interlacing Toggle" 1.0 0.0 1.0 1.0
+#pragma parameter HALATION "Halation" 0.03 0.0 1.0 0.01
+#pragma parameter DIFFUSION "Diffusion" 0.0 0.0 1.0 0.01
+#pragma parameter BRIGHTNESS "Brightness" 1.0 0.0 2.0 0.05
+
+#ifdef PARAMETER_UNIFORM
+uniform float BRIGHTNESS;
+uniform float DIFFUSION;
+uniform float GAMMA_OUTPUT;
+uniform float GEOM_CORNER_SIZE;
+uniform float GEOM_CORNER_SMOOTH;
+uniform float GEOM_CURVATURE;
+uniform float GEOM_WARP;
+uniform float HALATION;
+uniform float INTERLACING_TOGGLE;
+uniform float MASK_SIZE;
+uniform float MASK_STRENGTH_MAX;
+uniform float MASK_STRENGTH_MIN;
+uniform float MASK_TYPE;
+uniform float SCANLINE_BEAM_MAX;
+uniform float SCANLINE_BEAM_MIN;
+uniform float SCANLINE_STRENGTH_MAX;
+uniform float SCANLINE_STRENGTH_MIN;
+uniform float SHARPNESS_H;
+uniform float SHARPNESS_V;
+#else
+#define BRIGHTNESS 1.0
+#define DIFFUSION 0.0
+#define GAMMA_OUTPUT 2.2
+#define GEOM_CORNER_SIZE 0.0
+#define GEOM_CORNER_SMOOTH 150.0
+#define GEOM_CURVATURE 0.0
+#define GEOM_WARP 0.0
+#define HALATION 0.03
+#define INTERLACING_TOGGLE 1.0
+#define MASK_SIZE 1.0
+#define MASK_STRENGTH_MAX 0.2
+#define MASK_STRENGTH_MIN 0.2
+#define MASK_TYPE 4.0
+#define SCANLINE_BEAM_MAX 1.0
+#define SCANLINE_BEAM_MIN 1.0
+#define SCANLINE_STRENGTH_MAX 0.4
+#define SCANLINE_STRENGTH_MIN 0.2
+#define SHARPNESS_H 0.6
+#define SHARPNESS_V 1.0
+#endif
+
+#define FIX(c) max(abs(c), 1e-5)
+#define PI 3.141592653589
+#define TEX2D(c) tex2D(tex, c)
+
+void main_vertex
+(
+    float4 position : POSITION,
+    out float4 oPosition : POSITION,
+    uniform float4x4 modelViewProj,
+    
+    float2 tex : TEXCOORD,
+    out float2 oTex : TEXCOORD
+)
+{
+    oPosition = mul(modelViewProj, position);
+    oTex = tex;
+}
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+struct prev
+{
+    sampler2D texture : TEXUNIT1;
+};
+
+float curve_distance(float x, float sharp)
+{
+    float x_step = step(0.5, x);
+    float curve = 0.5 - sqrt(0.25 - (x - x_step) * (x - x_step)) * sign(0.5 - x);
+
+    return lerp(x, curve, sharp);
+}
+
+float4x4 get_color_matrix(sampler2D tex, float2 co, float2 dx)
+{
+    return float4x4(TEX2D(co - dx), TEX2D(co), TEX2D(co + dx), TEX2D(co + 2.0 * dx));
+}
+
+float4 filter_lanczos(float4 coeffs, float4x4 color_matrix)
+{
+    float4 col = mul(coeffs, color_matrix);
+    float4 sample_min = min(color_matrix[1], color_matrix[2]);
+    float4 sample_max = max(color_matrix[1], color_matrix[2]);
+
+    col = clamp(col, sample_min, sample_max);
+
+    return col;
+}
+
+float3 get_scanline_weight(float pos, float beam, float strength)
+{
+    float weight = 1.0 - pow(cos(pos * 2.0 * PI) * 0.5 + 0.5, beam);
+    
+    weight = weight * strength * 2.0 + (1.0 - strength);
+    
+    return float3(weight);
+}
+
+float2 curve_coordinate(float2 co, float curvature)
+{
+    float2 curve = float2(curvature, curvature * 0.75);
+    float2 co2 = co + co * curve - curve / 2.0;
+    float2 co_weight = float2(co.y, co.x) * 2.0 - 1.0;
+
+    co = lerp(co, co2, co_weight * co_weight);
+
+    return co;
+}
+
+float get_corner_weight(float2 co, float2 corner, float smooth)
+{
+    float corner_weight;
+    
+    co = min(co, float2(1.0) - co) * float2(1.0, 0.75);
+    co = (corner - min(co, corner));
+    corner_weight = saturate((corner.x - sqrt(dot(co, co))) * smooth);
+    corner_weight = lerp(1.0, corner_weight, ceil(corner.x));
+    
+    return corner_weight;
+}
+
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASS1) : COLOR
+{
+    float2 tex_size = IN.texture_size;
+    float2 midpoint = float2(0.5, 0.5);
+    float scan_offset = 0.0;
+
+    if (INTERLACING_TOGGLE && IN.video_size.y >= 400)
+    {
+        tex_size.y *= 0.5;
+
+        if (mod(IN.frame_count, 2.0))
+        {
+            midpoint.y = 0.75;
+            scan_offset = 0.5;
+        }        
+        else midpoint.y = 0.25;
+    }
+
+    float2 co = coords * tex_size / IN.video_size;
+    float2 xy = curve_coordinate(co, GEOM_WARP);
+    float corner_weight = get_corner_weight(curve_coordinate(co, GEOM_CURVATURE), float2(GEOM_CORNER_SIZE), GEOM_CORNER_SMOOTH);
+
+    xy *= IN.video_size / tex_size;
+
+    float2 dx = float2(1.0 / tex_size.x, 0.0);
+    float2 dy = float2(0.0, 1.0 / tex_size.y);
+    float2 pix_co = xy * tex_size - midpoint;
+    float2 tex_co = (floor(pix_co) + midpoint) / tex_size;
+    float2 dist = frac(pix_co);
+    float curve_x, curve_y;
+    float3 col, col2, diff;
+
+    curve_x = curve_distance(dist.x, SHARPNESS_H * SHARPNESS_H);
+    curve_y = curve_distance(dist.y, SHARPNESS_V * SHARPNESS_V);
+
+    float4 coeffs_x = PI * float4(1.0 + curve_x, curve_x, 1.0 - curve_x, 2.0 - curve_x);
+    float4 coeffs_y = PI * float4(1.0 + curve_y, curve_y, 1.0 - curve_y, 2.0 - curve_y);
+
+    coeffs_x = FIX(coeffs_x);
+    coeffs_x = 2.0 * sin(coeffs_x) * sin(coeffs_x / 2.0) / (coeffs_x * coeffs_x);
+    coeffs_x /= dot(coeffs_x, float4(1.0));
+
+    coeffs_y = FIX(coeffs_y);
+    coeffs_y = 2.0 * sin(coeffs_y) * sin(coeffs_y / 2.0) / (coeffs_y * coeffs_y);
+    coeffs_y /= dot(coeffs_y, float4(1.0));
+
+    float4x4 color_matrix;
+
+    color_matrix[0] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co - dy, dx));
+    color_matrix[1] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co, dx));
+    color_matrix[2] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co + dy, dx));
+    color_matrix[3] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co + 2.0 * dy, dx));
+
+    col = filter_lanczos(coeffs_y, color_matrix).rgb;
+    diff = tex2D(tex, xy).rgb;
+
+    float rgb_max = max(col.r, max(col.g, col.b));
+    float sample_offset = (IN.video_size.y / IN.output_size.y) * 0.5;
+    float scan_pos = xy.y * tex_size.y + scan_offset;
+    float scan_strength = lerp(SCANLINE_STRENGTH_MAX, SCANLINE_STRENGTH_MIN, rgb_max);
+    float scan_beam = clamp(rgb_max * SCANLINE_BEAM_MAX, SCANLINE_BEAM_MIN, SCANLINE_BEAM_MAX);
+    float scan_weight = 0.0;
+
+    float mask_colors;
+    float mask_dot_width;
+    float mask_dot_height;
+    float mask_stagger;
+    float mask_dither;
+    float4 mask_config;
+
+    if      (MASK_TYPE == 1) mask_config = float4(2.0, 1.0, 1.0, 0.0);
+    else if (MASK_TYPE == 2) mask_config = float4(3.0, 1.0, 1.0, 0.0);
+    else if (MASK_TYPE == 3) mask_config = float4(2.1, 1.0, 1.0, 0.0);
+    else if (MASK_TYPE == 4) mask_config = float4(3.1, 1.0, 1.0, 0.0);
+    else if (MASK_TYPE == 5) mask_config = float4(2.0, 1.0, 1.0, 1.0);
+    else if (MASK_TYPE == 6) mask_config = float4(3.0, 2.0, 1.0, 3.0);
+    else if (MASK_TYPE == 7) mask_config = float4(3.0, 2.0, 2.0, 3.0);
+
+    mask_colors = floor(mask_config.x);
+    mask_dot_width = mask_config.y;
+    mask_dot_height = mask_config.z;
+    mask_stagger = mask_config.w;
+    mask_dither = frac(mask_config.x) * 10.0;
+
+    float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, mask_dot_height * MASK_SIZE)));
+    int dot_no = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * mask_stagger) / mask_dot_width, mask_colors));
+    int dither = mod(mod_fac.y + mod(floor(mod_fac.x / mask_colors), 2.0), 2.0);
+
+    float mask_strength = lerp(MASK_STRENGTH_MAX, MASK_STRENGTH_MIN, rgb_max);
+    float mask_dark, mask_bright, mask_mul;
+    float3 mask_weight;
+
+    mask_dark = 1.0 - mask_strength;
+    mask_bright = 1.0 + mask_strength * 2.0;
+
+    if (dot_no == 0) mask_weight = lerp(float3(mask_bright, mask_bright, mask_bright), float3(mask_bright, mask_dark, mask_dark), mask_colors - 2.0);
+    else if (dot_no == 1) mask_weight = lerp(float3(mask_dark, mask_dark, mask_dark), float3(mask_dark, mask_bright, mask_dark), mask_colors - 2.0);
+    else mask_weight = float3(mask_dark, mask_dark, mask_bright);
+
+    if (dither) mask_mul = mask_dark;
+    else mask_mul = mask_bright;
+
+    mask_weight *= lerp(1.0, mask_mul, mask_dither);
+    mask_weight = lerp(float3(1.0), mask_weight, saturate(MASK_TYPE));
+
+    col2 = (col * mask_weight);
+    col2 *= BRIGHTNESS;
+
+    scan_weight = get_scanline_weight(scan_pos - sample_offset, scan_beam, scan_strength);
+    col = saturate(col2 * scan_weight);
+    scan_weight = get_scanline_weight(scan_pos, scan_beam, scan_strength);
+    col += saturate(col2 * scan_weight);
+    scan_weight = get_scanline_weight(scan_pos + sample_offset, scan_beam, scan_strength);
+    col += saturate(col2 * scan_weight);
+    col /= 3.0;
+
+    col *= float3(corner_weight);
+    col += diff * mask_weight * HALATION * float3(corner_weight);
+    col += diff * DIFFUSION * float3(corner_weight);
+    col = pow(col, float3(1.0 / GAMMA_OUTPUT));
+
+    return float4(col, 1.0);
+}
