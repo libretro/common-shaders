@@ -154,7 +154,7 @@ float get_corner_weight(float2 co, float2 corner, float smooth)
     return corner_weight;
 }
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASS1) : COLOR
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASSPREV4) : COLOR
 {
     float2 tex_size = IN.texture_size;
     float2 midpoint = float2(0.5, 0.5);
@@ -202,10 +202,10 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
 
     float4x4 color_matrix;
 
-    color_matrix[0] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co - dy, dx));
-    color_matrix[1] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co, dx));
-    color_matrix[2] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co + dy, dx));
-    color_matrix[3] = filter_lanczos(coeffs_x, get_color_matrix(PASS1.texture, tex_co + 2.0 * dy, dx));
+    color_matrix[0] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co - dy, dx));
+    color_matrix[1] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co, dx));
+    color_matrix[2] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co + dy, dx));
+    color_matrix[3] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co + 2.0 * dy, dx));
 
     col = filter_lanczos(coeffs_y, color_matrix).rgb;
     diff = tex2D(tex, xy).rgb;
