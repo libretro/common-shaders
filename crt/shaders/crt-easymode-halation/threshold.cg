@@ -27,9 +27,9 @@ struct prev
     sampler2D texture : TEXUNIT1;
 };
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASS1) : COLOR
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASSPREV3) : COLOR
 {
-    float3 diff = saturate(tex2D(tex, coords).rgb - tex2D(PASS1.texture, coords).rgb);
+    float3 diff = saturate(tex2D(tex, coords).rgb - tex2D(PASSPREV3.texture, coords).rgb);
 
     return float4(diff, 1.0);
 }
