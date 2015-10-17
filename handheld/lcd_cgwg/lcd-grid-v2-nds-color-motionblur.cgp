@@ -1,0 +1,49 @@
+shaders = "3"
+shader0 = "../../motionblur/shaders/motionblur-simple.cg"
+shader1 = "../../misc/color-mangler.cg"
+shader2 = "lcd-grid-v2.cg"
+
+filter_linear0 = "false"
+scale_type0 = "source"
+scale0 = "1.0"
+
+filter_linear1 = "false"
+scale_type1 = "source"
+scale1 = "1.0"
+
+filter_linear2 = "false"
+scale_type2 = "viewport"
+scale2 = "1.0"
+
+parameters = "display_gamma;target_gamma;sat;lum;cntrst;r;g;b;rg;rb;gr;gb;br;bg;blr;blg;blb;RSUBPIX_R;RSUBPIX_G;RSUBPIX_B;GSUBPIX_R;GSUBPIX_G;GSUBPIX_B;BSUBPIX_R;BSUBPIX_G;BSUBPIX_B;gain;gamma;blacklevel;ambient;BGR"
+display_gamma = 1.9
+target_gamma = 2.2
+sat = 1.04
+lum = 1.0
+cntrst = 1.0
+blr = 0.0
+blg = 0.0
+blb = 0.0
+r = 0.77
+g = 0.69
+b = 0.8
+rg = 0.06
+rb = 0.06
+gr = 0.22
+gb = 0.1
+br = 0.0
+bg = 0.24
+RSUBPIX_R = "1.000000"
+RSUBPIX_G = "0.000000"
+RSUBPIX_B = "0.000000"
+GSUBPIX_R = "0.000000"
+GSUBPIX_G = "1.000000"
+GSUBPIX_B = "0.000000"
+BSUBPIX_R = "0.000000"
+BSUBPIX_G = "0.000000"
+BSUBPIX_B = "1.000000"
+gain = "1.250000"
+gamma = "3.000000"
+blacklevel = "0.050000"
+ambient = "0.000000"
+BGR = "1.000000"
