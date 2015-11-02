@@ -1,5 +1,5 @@
 
-#define compositeConnection
+// #define compositeConnection
 // #define noScanlines
 
 #define signalResolution		256.0
