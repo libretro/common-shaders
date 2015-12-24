@@ -1,0 +1,24 @@
+shaders = "1"
+
+shader0 = "../misc/color-mangler.cg"
+filter_linear0 = "false"
+scale_type0 = "source"
+
+parameters = "display_gamma;target_gamma;sat;lum;cntrst;blr;blg;blb;r;g;b;rg;rb;gr;gb;br;bg"
+display_gamma = 1.9
+target_gamma = 2.2
+sat = 1.04
+lum = 1.0
+cntrst = 1.0
+blr = 0.0
+blg = 0.0
+blb = 0.0
+r = 0.77
+g = 0.69
+b = 0.8
+rg = 0.06
+rb = 0.06
+gr = 0.22
+gb = 0.1
+br = 0.0
+bg = 0.24
