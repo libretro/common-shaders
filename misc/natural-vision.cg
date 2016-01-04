@@ -1,0 +1,74 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   ShadX's Natural Vision Shader
+
+   Ported and tweaked by Hyllian - 2016
+
+*/
+
+const static float3x3 RGBtoYIQ = float3x3(0.299, 0.596, 0.212, 
+                                          0.587,-0.275,-0.523, 
+                                          0.114,-0.321, 0.311);
+
+const static float3x3 YIQtoRGB = float3x3(1.0, 1.0, 1.0,
+                                          0.95568806036115671171,-0.27158179694405859326,-1.1081773266826619523,
+                                          0.61985809445637075388,-0.64687381613840131330, 1.7050645599191817149);
+
+const static float3 val00 = float3( 1.2, 1.2, 1.2);
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+        float  frame_count;
+        float  frame_direction;
+	float frame_rotation;
+};
+
+
+struct out_vertex {
+	float2 texCoord : TEXCOORD0;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+    out float4 oPosition : POSITION,
+	float2 texCoord1 : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+
+   oPosition = mul(modelViewProj, position);
+
+	// This line fix a bug in ATI cards.
+	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
+
+	out_vertex OUT = { 
+		tex
+	};
+
+	return OUT;
+}
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+{
+  float3 c0,c1;
+
+  c0 = tex2D(s_p, VAR.texCoord).xyz;
+  c1 = mul(c0,RGBtoYIQ);
+  c1 = float3(pow(c1.x,val00.x),c1.yz*val00.yz);
+
+  return float4(mul(c1,YIQtoRGB), 1.0);
+}
+
