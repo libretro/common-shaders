@@ -1,0 +1,219 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+
+/*
+   Super-res shader - Shiandow
+
+   Ported from Shiandow's code by Hyllian, 2016.
+
+   This file is a part of MPDN Extensions.
+   https://github.com/zachsaw/MPDN_Extensions
+  
+   This library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 3.0 of the License, or (at your option) any later version.
+   
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+   
+   You should have received a copy of the GNU Lesser General Public
+   License along with this library.
+*/   
+
+
+// -- Edge detection options -- 
+#define strength 0.8
+#define softness 0.3
+#define acuity   100.0
+#define radius   1.0
+#define power    2.0
+
+#define originalSize PASSPREV3.texture_size
+
+#define dxdy (1.0 / (IN.texture_size))
+#define ddxddy (1.0 / originalSize)
+
+#define sqr(x) dot(x,x)
+
+
+// -- Input processing --
+//Current high res value
+#define Get(x,y)    (tex2D(PASSPREV3.texture,ddxddy*(pos+int2(x,y)+0.5)).xyz)
+#define GetY(x,y)    (tex2D(sDiff,ddxddy*(pos+int2(x,y)+0.5)).a)
+//Downsampled result
+#define Diff(x,y)     (tex2D(sDiff,ddxddy*(pos+int2(x,y)+0.5)).xyz)
+
+const static float3 Y = float3(.2126, .7152, .0722);
+
+
+float RGBtoYUV(float3 color)
+{
+  return dot(color, Y);
+}
+
+
+    struct prev
+    {
+	uniform float2 video_size;
+	uniform float2 texture_size;
+	uniform sampler2D texture;
+    };
+
+     
+    struct input
+    {
+        float2 video_size;
+        float2 texture_size;
+        float2 output_size;
+        float  frame_count;
+        float  frame_direction;
+        float frame_rotation;
+    };
+     
+     
+    struct out_vertex {
+        float4 position : POSITION;
+        float4 color    : COLOR;
+        float2 texCoord : TEXCOORD0;
+    };
+     
+    /*    VERTEX_SHADER    */
+    out_vertex main_vertex
+    (
+        float4 position    : POSITION,
+        float4 color    : COLOR,
+        float2 texCoord1   : TEXCOORD0,
+     
+        uniform float4x4 modelViewProj,
+	prev PASSPREV3,
+        uniform input IN
+    )
+    {
+
+	// This line fix a bug in ATI cards.
+	float2 tex = texCoord1;
+
+        out_vertex OUT = {
+            mul(modelViewProj, position),
+            color,
+            tex
+        };
+     
+        return OUT;
+    }
+     
+     
+float4 main_fragment(in out_vertex VAR, uniform sampler2D sDiff : TEXUNIT0, prev PASSPREV3, uniform input IN) : COLOR
+{
+    float2 tex = VAR.texCoord;
+
+    float4 c0 = tex2D(PASSPREV3.texture, tex);
+
+    // Calculate position
+    float2 pos = tex * PASSPREV3.texture_size - 0.5;
+    float2 offset = pos - round(pos);
+    pos -= offset;
+
+    // Calculate faithfulness force
+    float W = 0;
+    float3 diff = 0;
+    float3 stab = 0;
+    float var = 0;
+
+    float c0y = RGBtoYUV(c0.rgb);
+
+	// Loop unrolled for better compatibility.
+
+	float dI2 = sqr(acuity*(c0y - GetY(-1,-1)));
+        float dXY2 = sqr(float2(-1,-1) - offset);
+        float w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff(-1,-1);
+        stab += w*(c0.rgb - Get(-1,-1));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY(-1, 0)));
+        dXY2 = sqr(float2(-1, 0) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff(-1, 0);
+        stab += w*(c0.rgb - Get(-1, 0));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY(-1, 1)));
+        dXY2 = sqr(float2(-1, 1) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff(-1, 1);
+        stab += w*(c0.rgb - Get(-1, 1));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 0,-1)));
+        dXY2 = sqr(float2( 0,-1) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 0,-1);
+        stab += w*(c0.rgb - Get( 0,-1));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 0, 0)));
+        dXY2 = sqr(float2( 0, 0) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 0, 0);
+        stab += w*(c0.rgb - Get( 0, 0));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 0, 1)));
+        dXY2 = sqr(float2( 0, 1) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 0, 1);
+        stab += w*(c0.rgb - Get( 0, 1));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 1,-1)));
+        dXY2 = sqr(float2( 1,-1) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 1,-1);
+        stab += w*(c0.rgb - Get( 1,-1));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 1, 0)));
+        dXY2 = sqr(float2( 1, 0) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 1, 0);
+        stab += w*(c0.rgb - Get( 1, 0));
+        var += w*dI2;
+        W += w;
+
+	dI2 = sqr(acuity*(c0y - GetY( 1, 1)));
+        dXY2 = sqr(float2( 1, 1) - offset);
+        w = exp(-dXY2/(2*radius*radius))*pow(1 + dI2/power, - power);
+        diff += w*Diff( 1, 1);
+        stab += w*(c0.rgb - Get( 1, 1));
+        var += w*dI2;
+        W += w;
+
+    diff /= W;
+    stab /= W;
+    var = (var / W) - sqr(acuity*stab);
+
+    // Calculate edge statistics
+    float varD = softness * sqr(acuity*stab);
+    float varS = (1 - softness) * var;
+
+    // Apply force
+    c0.xyz -= strength*lerp(diff, stab, softness);
+
+    return c0;
+
+    }
+
