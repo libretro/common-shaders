@@ -1,16 +1,19 @@
 #pragma parameter XBR_SCALE "xBR Scale" 3.0 1.0 5.0 1.0
 #pragma parameter XBR_Y_WEIGHT "Y Weight" 48.0 0.0 100.0 1.0
 #pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 15.0 0.0 50.0 1.0
+#pragma parameter XBR_LV1_COEFFICIENT "Lv1 Coefficient" 0.5 0.0 30.0 0.5
 #pragma parameter XBR_LV2_COEFFICIENT "Lv2 Coefficient" 2.0 1.0 3.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float XBR_SCALE;
 uniform float XBR_Y_WEIGHT;
 uniform float XBR_EQ_THRESHOLD;
+uniform float XBR_LV1_COEFFICIENT;
 uniform float XBR_LV2_COEFFICIENT;
 #else
 #define XBR_SCALE 3.0
 #define XBR_Y_WEIGHT 48.0
 #define XBR_EQ_THRESHOLD 15.0
+#define XBR_LV1_COEFFICIENT 0.5
 #define XBR_LV2_COEFFICIENT 2.0
 #endif
 // END PARAMETERS //
@@ -68,8 +71,7 @@ const static float4 By = float4( 2.0,  0.5, -2.0,-0.5 );
 const static float4 Cy = float4( 2.0,  0.0, -1.0, 0.5 );
 const static float4 Ci = float4(0.25, 0.25, 0.25, 0.25);
 
-const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
-const static float4   epsilon = float4(1e-12, 0.0, 0.0, 0.0);   
+const static float3 Y = float3(0.2126, 0.7152, 0.0722);
 
 
 float4 df(float4 A, float4 B)
@@ -108,7 +110,7 @@ struct input
 struct out_vertex {
 	float4 position : POSITION;
 	float4 color    : COLOR;
-	float2 texCoord1 : TEXCOORD0;
+	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
 	float4 t3       : TEXCOORD3;
@@ -123,7 +125,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord1 : TEXCOORD0,
+	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -144,10 +146,7 @@ out_vertex main_vertex
 	// G0  G  H  I I4
 	//    G5 H5 I5
 
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
-	OUT.texCoord1 = texCoord;
+	OUT.texCoord = texCoord;
 	OUT.t1 = texCoord.xxxy + float4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
 	OUT.t2 = texCoord.xxxy + float4( -dx, 0, dx,    -dy); //  A  B  C
 	OUT.t3 = texCoord.xxxy + float4( -dx, 0, dx,      0); //  D  E  F
@@ -171,7 +170,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 deltaL        = float4(0.5/XBR_SCALE, 1.0/XBR_SCALE, 0.5/XBR_SCALE, 1.0/XBR_SCALE);
 	float4 deltaU        = deltaL.yxwz;
 
-	float2 fp = frac(VAR.texCoord1*IN.texture_size);
+	float2 fp = frac(VAR.texCoord*IN.texture_size);
 
 	float3 A1 = tex2D(decal, VAR.t1.xw).rgb;
 	float3 B1 = tex2D(decal, VAR.t1.yw).rgb;
@@ -201,18 +200,18 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float3 F4 = tex2D(decal, VAR.t7.xz).rgb;
 	float3 I4 = tex2D(decal, VAR.t7.xw).rgb;
 
-	float4 b = mul( float4x3(B, D, H, F), XBR_Y_WEIGHT*yuv[0] );
-	float4 c = mul( float4x3(C, A, G, I), XBR_Y_WEIGHT*yuv[0] );
-	float4 e = mul( float4x3(E, E, E, E), XBR_Y_WEIGHT*yuv[0] );
+	float4 b = mul( float4x3(B, D, H, F), XBR_Y_WEIGHT*Y );
+	float4 c = mul( float4x3(C, A, G, I), XBR_Y_WEIGHT*Y );
+	float4 e = mul( float4x3(E, E, E, E), XBR_Y_WEIGHT*Y );
 	float4 d = b.yzwx;
 	float4 f = b.wxyz;
 	float4 g = c.zwxy;
 	float4 h = b.zwxy;
 	float4 i = c.wxyz;
 
-	float4 i4 = mul( float4x3(I4, C1, A0, G5), XBR_Y_WEIGHT*yuv[0] );
-	float4 i5 = mul( float4x3(I5, C4, A1, G0), XBR_Y_WEIGHT*yuv[0] );
-	float4 h5 = mul( float4x3(H5, F4, B1, D0), XBR_Y_WEIGHT*yuv[0] );
+	float4 i4 = mul( float4x3(I4, C1, A0, G5), XBR_Y_WEIGHT*Y );
+	float4 i5 = mul( float4x3(I5, C4, A1, G0), XBR_Y_WEIGHT*Y );
+	float4 h5 = mul( float4x3(H5, F4, B1, D0), XBR_Y_WEIGHT*Y );
 	float4 f4 = h5.yzwx;
 
 	// These inequations define the line below which interpolation occurs.
@@ -242,35 +241,36 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 fx30  = saturate((fx_left + deltaL -Cx     )/(2*deltaL));
 	float4 fx60  = saturate((fx_up   + deltaU -Cy     )/(2*deltaU));
 
-        edri     = (weighted_distance( e, c, g, i, h5, f4, h, f) < weighted_distance( h, d, i5, f, i4, b, e, i));
-	edr      =  edri && interp_restriction_lv1;
+	float4 wd1 = weighted_distance( e, c, g, i, h5, f4, h, f);
+	float4 wd2 = weighted_distance( h, d, i5, f, i4, b, e, i);
+
+        edri     = (wd1 <= wd2) && interp_restriction_lv0;
+	edr      = (wd1 <  wd2) && interp_restriction_lv1;
 	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;
 	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr;
 
-
-	fx45i = (edri && interp_restriction_lv0)*fx45i;
-	fx45 = edr*fx45;
-	fx30 = edr_left*fx30;
-	fx60 = edr_up*fx60;
+	fx45  = edr*fx45;
+	fx30  = edr_left*fx30;
+	fx60  = edr_up*fx60;
+	fx45i = edri*fx45i;
 
 	px = (df(e,f) <= df(e,h));
 
 #ifdef SMOOTH_TIPS
-	float4 maximos = max(max(fx30, fx60), max(fx45, fx45i)) + epsilon;
+	float4 maximos = max(max(fx30, fx60), max(fx45, fx45i));
 #else
-	float4 maximos = max(max(fx30, fx60), fx45) + epsilon;
+	float4 maximos = max(max(fx30, fx60), fx45);
 #endif
 
-	float top = max(max(maximos.x, maximos.y), max(maximos.z, maximos.w));
-
-	float4 color_picker = step(top, maximos);
-
-        float4x3 colors = float4x3(lerp(H, F, px.x),
-                                   lerp(F, B, px.y),
-                                   lerp(B, D, px.z),
-                                   lerp(D, H, px.w));
-
-        float3 res = lerp(E, mul(color_picker, colors), top - epsilon.x);
+	float3 res1 = E;
+	res1 = lerp(res1, lerp(H, F, px.x), maximos.x);
+	res1 = lerp(res1, lerp(B, D, px.z), maximos.z);
+	
+	float3 res2 = E;
+	res2 = lerp(res2, lerp(F, B, px.y), maximos.y);
+	res2 = lerp(res2, lerp(D, H, px.w), maximos.w);
+	
+	float3 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
 
 	return float4(res, 1.0);
 }

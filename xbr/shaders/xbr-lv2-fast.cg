@@ -24,25 +24,21 @@ uniform float XBR_LV2_COEFFICIENT;
 /*
    Hyllian's xBR-lv2-lq Shader
    
-   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+   Copyright (C) 2011/2015 Hyllian/Jararaca - sergiogdb@gmail.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
    Incorporates some of the ideas from SABR shader. Thanks to Joshua Street.
@@ -67,21 +63,18 @@ const static float4 By = float4( 2.0,  0.5, -2.0,-0.5 );
 const static float4 Cy = float4( 2.0,  0.0, -1.0, 0.5 );
 const static float4 Ci = float4(0.25, 0.25, 0.25, 0.25);
 
-const static float3x3 yuv     = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
-const static float4   epsilon = float4(1e-12, 0.0, 0.0, 0.0);   
+const static float3 Y          = float3(0.2126, 0.7152, 0.0722);
 
 float4 df(float4 A, float4 B)
 {
 	return float4(abs(A-B));
 }
 
-float c_df(float3 c1, float3 c2) {
-                        float3 df = abs(c1 - c2);
-                        return df.r + df.g + df.b;
-                }
-
-
-
+float c_df(float3 c1, float3 c2) 
+{
+        float3 df = abs(c1 - c2);
+        return df.r + df.g + df.b;
+}
 
 bool4 eq(float4 A, float4 B)
 {
@@ -107,7 +100,7 @@ struct input
 struct out_vertex {
 	float4 position  : POSITION;
 	float4 color     : COLOR;
-	float2 texCoord1 : TEXCOORD0;
+	float2 texCoord  : TEXCOORD0;
 	float4 t1        : TEXCOORD1;
 	float4 t2        : TEXCOORD2;
 	float4 t3        : TEXCOORD3;
@@ -118,7 +111,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord1 : TEXCOORD0,
+	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -139,10 +132,7 @@ out_vertex main_vertex
 	// G0  G  H  I I4
 	//    G5 H5 I5
 
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
-	OUT.texCoord1 = texCoord;
+	OUT.texCoord = texCoord;
 	OUT.t1 = texCoord.xxxy + float4( -dx, 0, dx,    -dy); //  A  B  C
 	OUT.t2 = texCoord.xxxy + float4( -dx, 0, dx,      0); //  D  E  F
 	OUT.t3 = texCoord.xxxy + float4( -dx, 0, dx,     dy); //  G  H  I
@@ -162,7 +152,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 deltaL        = float4(0.5/XBR_SCALE, 1.0/XBR_SCALE, 0.5/XBR_SCALE, 1.0/XBR_SCALE);
 	float4 deltaU        = deltaL.yxwz;
 
-	float2 fp = frac(VAR.texCoord1*IN.texture_size);
+	float2 fp = frac(VAR.texCoord*IN.texture_size);
 
 	float3 A  = tex2D(decal, VAR.t1.xw).rgb;
 	float3 B  = tex2D(decal, VAR.t1.yw).rgb;
@@ -177,9 +167,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float3 I  = tex2D(decal, VAR.t3.zw).rgb;
 
 
-	float4 b = mul( float4x3(B, D, H, F), XBR_Y_WEIGHT*yuv[0] );
-	float4 c = mul( float4x3(C, A, G, I), XBR_Y_WEIGHT*yuv[0] );
-	float4 e = mul( float4x3(E, E, E, E), XBR_Y_WEIGHT*yuv[0] );
+	float4 b = mul( float4x3(B, D, H, F), XBR_Y_WEIGHT*Y );
+	float4 c = mul( float4x3(C, A, G, I), XBR_Y_WEIGHT*Y );
+	float4 e = mul( float4x3(E, E, E, E), XBR_Y_WEIGHT*Y );
 	float4 a = c.yzwx;
 	float4 d = b.yzwx;
 	float4 f = b.wxyz;
@@ -206,34 +196,36 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 fx30  = saturate((fx_left + deltaL -Cx     )/(2*deltaL));
 	float4 fx60  = saturate((fx_up   + deltaU -Cy     )/(2*deltaU));
 
-        edri       = (weighted_distance( d, b, g, e, e, c, h, f) < weighted_distance( a, e, b, f, d, h, e, i));
-	edr        =  edri && interp_restriction_lv1;
-	edr_left   = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;
-	edr_up     = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr;
+	float4 wd1 = weighted_distance( d, b, g, e, e, c, h, f);
+	float4 wd2 = weighted_distance( a, e, b, f, d, h, e, i);
 
-	fx45i = (edri && interp_restriction_lv0)*fx45i;
+        edri     = (wd1 <= wd2) && interp_restriction_lv0;
+	edr      = (wd1 <  wd2) && interp_restriction_lv1;
+	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;
+	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr;
+
 	fx45  = edr*fx45;
 	fx30  = edr_left*fx30;
 	fx60  = edr_up*fx60;
+	fx45i = edri*fx45i;
 
 	px = (df(e,f) <= df(e,h));
 
 #ifdef SMOOTH_TIPS
-	float4 maximos = max(max(fx30, fx60), max(fx45, fx45i)) + epsilon;
+	float4 maximos = max(max(fx30, fx60), max(fx45, fx45i));
 #else
-	float4 maximos = max(max(fx30, fx60), fx45) + epsilon;
+	float4 maximos = max(max(fx30, fx60), fx45);
 #endif
 
-	float top = max(max(maximos.x, maximos.y), max(maximos.z, maximos.w));
-
-	float4 color_picker = step(top, maximos);
-
-        float4x3 colors = float4x3(lerp(H, F, px.x),
-                                   lerp(F, B, px.y),
-                                   lerp(B, D, px.z),
-                                   lerp(D, H, px.w));
-
-        float3 res = lerp(E, mul(color_picker, colors), top - epsilon.x);
+	float3 res1 = E;
+	res1 = lerp(res1, lerp(H, F, px.x), maximos.x);
+	res1 = lerp(res1, lerp(B, D, px.z), maximos.z);
+	
+	float3 res2 = E;
+	res2 = lerp(res2, lerp(F, B, px.y), maximos.y);
+	res2 = lerp(res2, lerp(D, H, px.w), maximos.w);
+	
+	float3 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
 
 	return float4(res, 1.0);
 }
