@@ -1,0 +1,152 @@
+/*
+	ScaleFX-hybrid - Pass 3
+	by Sp00kyFox, 2016
+
+Filter:	Nearest
+Scale:	3x
+
+ScaleFX-hybrid combines ScaleFX and a preshader (e.g. reverse AA).
+
+Pass 3 outputs the subpixels based on previously calculated tags.
+
+*/
+
+
+// extract first bool4 from float4 
+bool4 loadEdge(float4 x){
+	return floor(fmod(x*7.5, 2));
+}
+
+// extract second bool4 from float4 
+bool4 loadHori(float4 x){
+	return floor(fmod(x*3.75, 2));
+}
+
+// extract third bool4 from float4 
+bool4 loadVert(float4 x){
+	return floor(fmod(x*1.875, 2));
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 p1 : TEXCOORD3;
+	float4 p2 : TEXCOORD4;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	prev PASSPREV4
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/IN.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = texCoord.xxxy + float4( -dx,   0,  dx,   0);	// D, E, F
+	OUT.t2 = texCoord.xyxy + float4(   0, -dy,   0,  dy);	// B, H
+
+	ps = 1.0/PASSPREV4.texture_size;
+	dx = ps.x, dy = ps.y;
+
+	OUT.p1 = PASSPREV4.tex_coord.xxxy + float4( -dx,   0,  dx,   0);	// D, E, F
+	OUT.p2 = PASSPREV4.tex_coord.xyxy + float4(   0, -dy,   0,  dy);	// B, H
+
+	return OUT;
+}
+
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV4) : COLOR
+{
+	// subpixel determination
+	float2 fp = floor(3.0 * frac(VAR.texCoord*IN.texture_size));
+
+
+	/*
+		  B		x   y	  	  x		E0 E1 E2
+		D E F				w   y		E7 E  E3
+		  H		w   z	  	  z		E6 E5 E4
+	*/
+
+
+	// read texels
+	float4 B = tex2D(decal, VAR.t2.xy);
+	float4 D = tex2D(decal, VAR.t1.xw);
+	float4 E = tex2D(decal, VAR.t1.yw);
+	float4 F = tex2D(decal, VAR.t1.zw);
+	float4 H = tex2D(decal, VAR.t2.zw);
+
+	// extract tags
+	bool4 Be = loadEdge(B),				Bv = loadVert(B);
+	bool4 De = loadEdge(D),	Dh = loadHori(D);
+	bool4 Ee = loadEdge(E),	Eh = loadHori(E),	Ev = loadVert(E);
+	bool4 Fe = loadEdge(F),	Fh = loadHori(F);
+	bool4 He = loadEdge(H),				Hv = loadVert(H);
+
+
+	// mid-segments
+	bool4 mid;
+	mid.x = Ee.x && De.z && Eh.y || Ee.y && Fe.w && Eh.x;
+	mid.y = Ee.y && Be.w && Ev.z || Ee.z && He.x && Ev.y;
+	mid.z = Ee.z && Fe.x && Eh.w || Ee.w && De.y && Eh.z;
+	mid.w = Ee.w && He.y && Ev.x || Ee.x && Be.z && Ev.w;
+
+	// lvl3 corners
+	bool2 lvl3x = bool2(mid.w && Bv.x && Bv.w, mid.x && Dh.x && Dh.y);
+	bool2 lvl3y = bool2(mid.x && Fh.y && Fh.x, mid.y && Bv.y && Bv.z);
+	bool2 lvl3z = bool2(mid.y && Hv.z && Hv.y, mid.z && Fh.z && Fh.w);
+	bool2 lvl3w = bool2(mid.z && Dh.w && Dh.z, mid.w && Hv.w && Hv.x);
+
+
+	// coordinates
+	float2 d = VAR.p1.xw, e = VAR.p1.yw, f = VAR.p1.zw;
+	float2 b = VAR.p2.xy, h = VAR.p2.zw;
+
+	// subpixels
+	float4 E0 = Ee.x ? float4(b,d) : lvl3x.x ? float4(d,e) : lvl3x.y ? float4(b,e) : float4(e,e);
+	float4 E2 = Ee.y ? float4(b,f) : lvl3y.x ? float4(b,e) : lvl3y.y ? float4(f,e) : float4(e,e);
+	float4 E4 = Ee.z ? float4(f,h) : lvl3z.x ? float4(f,e) : lvl3z.y ? float4(h,e) : float4(e,e);
+	float4 E6 = Ee.w ? float4(d,h) : lvl3w.x ? float4(h,e) : lvl3w.y ? float4(d,e) : float4(e,e);
+
+	float4 E1 = mid.x || Ee.x && De.z && Ee.y && Fe.w ? float4(b,e) : float4(e,e);
+	float4 E3 = mid.y || Ee.y && Be.w && Ee.z && He.x ? float4(f,e) : float4(e,e);
+	float4 E5 = mid.z || Ee.z && Fe.x && Ee.w && De.y ? float4(h,e) : float4(e,e);
+	float4 E7 = mid.w || Ee.w && He.y && Ee.x && Be.z ? float4(d,e) : float4(e,e);
+
+
+	// ouput
+	float4 rescoord = fp.y == 0 ? (fp.x == 0 ? E0 : fp.x == 1 ? E1 : E2) : (fp.y == 1 ? (fp.x == 0 ? E7 : fp.x == 1 ? float4(e,e) : E3) : (fp.x == 0 ? E6 : fp.x == 1 ? E5 : E4));
+
+	float3 res1 = tex2D(PASSPREV4.texture, rescoord.xy).rgb;
+	float3 res2 = tex2D(PASSPREV4.texture, rescoord.zw).rgb;
+
+	return all(rescoord.zw == e) ? res1 : 0.5*(res1+res2);
+
+}
