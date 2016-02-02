@@ -4,8 +4,19 @@
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
 
+#pragma parameter noScanlines "No Scanlines" 0.0 0.0 1.0 1.0
+#pragma parameter tvVerticalResolution "TV Vertical Resolution" 250.0 20.0 1000.0 10.0
+#pragma parameter blackLevel "Black Level" 0.07 -0.30 0.30 0.01
+#pragma parameter contrast "Contrast" 1.0 0.0 2.0 0.1
+
 #include "config.h"
 
+#ifdef PARAMETER_UNIFORM
+uniform float noScanlines;
+uniform float tvVerticalResolution;
+uniform float blackLevel;
+uniform float contrast;
+#endif
 
 void main_vertex
 (
@@ -67,11 +78,11 @@ float3 scanlines( float x , float3 c,input IN){
 #define SOURCE(j) float2(tex.x,tex.y - Y(j)/IN.texture_size.y)
 #define C(j) (tex2D(s0, SOURCE(j)).xyz)
 
-#ifdef noScanlines
+
 #define VAL(j) (C(j)*STU(Y(j),(tvVerticalResolution/IN.video_size.y)))
-#else
-#define VAL(j) (scanlines(Y(j),C(j),IN))
-#endif
+
+#define VAL_scanlines(j) (scanlines(Y(j),C(j),IN))
+
 
 
 float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
@@ -82,9 +93,15 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
 	float range=ceil(0.5+IN.video_size.y/tvVerticalResolution);
 
 	float i;
-	for (i=-range;i<range+2.0;i++){
-		tempColor+=VAL(i);
-	}
+
+   if (noScanlines)
+      for (i=-range;i<range+2.0;i++){
+         tempColor+=VAL(i);
+      }
+   else
+      for (i=-range;i<range+2.0;i++){
+         tempColor+=VAL_scanlines(i);
+      }
 
 	tempColor-=float3(blackLevel);
 	tempColor*=(contrast/float3(1.0-blackLevel));

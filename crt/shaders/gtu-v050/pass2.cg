@@ -4,8 +4,17 @@
 //	License: GPLv3      
 ////////////////////////////////////////////////////////
 
+#pragma parameter signalResolution "Signal Resolution Y" 256.0 16.0 1024.0 16.0
+#pragma parameter signalResolutionI "Signal Resolution I" 83.0 1.0 350.0 2.0
+#pragma parameter signalResolutionQ "Signal Resolution Q" 25.0 1.0 350.0 2.0
 
 #include "config.h"
+
+#ifdef PARAMETER_UNIFORM
+uniform float signalResolution;
+uniform float signalResolutionI;
+uniform float signalResolutionQ;
+#endif
 
 void main_vertex
 (
@@ -28,12 +37,12 @@ void main_vertex
 #define STU(x,b) ((d(x,b)+sin(d(x,b))-e(x,b)-sin(e(x,b)))/(2.0*pi))
 #define X(i) (offset-(i))
 #define GETC (tex2D(s0, float2(tex.x - X/IN.texture_size.x,tex.y)).rgb)
-#ifdef compositeConnection
-#define VAL float3((c.x*STU(X,(signalResolution/IN.video_size.x))),(c.y*STU(X,(signalResolutionI/IN.video_size.x))),(c.z*STU(X,(signalResolutionQ/IN.video_size.x))))
-#else
+
+#define VAL_composite float3((c.x*STU(X,(signalResolution/IN.video_size.x))),(c.y*STU(X,(signalResolutionI/IN.video_size.x))),(c.z*STU(X,(signalResolutionQ/IN.video_size.x))))
 #define VAL (c*STU(X,(signalResolution/IN.video_size.x)))
-#endif //COMPOSITE_CONNECTION
+
 #define PROCESS(i) X=X(i);c=GETC;tempColor+=VAL;
+#define PROCESS_composite(i) X=X(i);c=GETC;tempColor+=VAL_composite;
 
 struct input
 {
@@ -52,22 +61,28 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
 	float3	tempColor = float3(0.0);	
 	float 	X;
 	float3 	c;	
-#ifdef compositeConnection	
-	float range=ceil(0.5+IN.video_size.x/min(min(signalResolution,signalResolutionI),signalResolutionQ));
-#else
-	float range=ceil(0.5+IN.video_size.x/signalResolution);
-#endif
+   float range;
+   if (compositeConnection)
+      range=ceil(0.5+IN.video_size.x/min(min(signalResolution,signalResolutionI),signalResolutionQ));
+   else
+      range=ceil(0.5+IN.video_size.x/signalResolution);
 
 	float i;
-	for (i=-range;i<range+2.0;i++){
-		PROCESS(i)
-	}
-	
-#ifdef compositeConnection
-	tempColor=clamp(mul(YIQ_to_RGB,tempColor),0.0,1.0);
-#else
-	tempColor=clamp(tempColor,0.0,1.0);
-#endif
+   if(compositeConnection){
+      for (i=-range;i<range+2.0;i++){
+         PROCESS_composite(i)
+      }
+   }
+   else{
+      for (i=-range;i<range+2.0;i++){
+         PROCESS(i)
+	   }
+   }
+   if(compositeConnection)
+      tempColor=clamp(mul(YIQ_to_RGB,tempColor),0.0,1.0);
+   else
+      tempColor=clamp(tempColor,0.0,1.0);
+
 	// tempColor=clamp(tempColor,0.0,1.0);
 	return float4(tempColor,1.0);
 }
