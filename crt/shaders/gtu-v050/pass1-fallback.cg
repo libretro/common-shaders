@@ -1,14 +1,13 @@
 ////////////////////////////////////////////////////////
-//	GTU version 0.50	
-//	Author: aliaspider - aliaspider@gmail.com
-//	License: GPLv3      
+// GTU version 0.50
+// Author: aliaspider - aliaspider@gmail.com
+// License: GPLv3
 ////////////////////////////////////////////////////////
-
+#pragma parameter compositeConnection "Composite Connection Enable" 0.0 0.0 1.0 1.0
 
 #include "config.h"
 
-
-#define RGB_to_YIQ 	transpose(float3x3( 0.299 , 0.595716 , 0.211456 ,	0.587    , -0.274453 , -0.522591 ,		0.114    , -0.321263 , 0.311135 ))
+#define RGB_to_YIQ   transpose(float3x3( 0.299 , 0.595716 , 0.211456 , 0.587 , -0.274453 , -0.522591 , 0.114 , -0.321263 , 0.311135 ))
 
 void main_vertex
 (
@@ -25,10 +24,9 @@ void main_vertex
 
 float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-   	float4 c=tex2D(s0, tex);
-#ifdef compositeConnection
-	c.rgb=mul(RGB_to_YIQ,c.rgb);
-#endif
-	return c;
+   float4 c=tex2D(s0, tex);
+   if(compositeConnection)
+      c.rgb=mul(RGB_to_YIQ,c.rgb);
+   return c;
 }
 
