@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////
-//	GTU version 0.50	
-//	Author: aliaspider - aliaspider@gmail.com
-//	License: GPLv3      
+// GTU version 0.50
+// Author: aliaspider - aliaspider@gmail.com
+// License: GPLv3
 ////////////////////////////////////////////////////////
 
 #pragma parameter signalResolution "Signal Resolution Y" 256.0 16.0 1024.0 16.0
@@ -29,8 +29,8 @@ void main_vertex
    oTex = tex;
 }
 
-#define YIQ_to_RGB 	transpose(mat3x3( 1.0   , 1.0      , 1.0      ,	0.9563   , -0.2721   , -1.1070   ,		0.6210   , -0.6474   , 1.7046   ))
-#define pi			3.14159265358
+#define YIQ_to_RGB   transpose(mat3x3( 1.0 , 1.0  , 1.0 , 0.9563 , -0.2721 , -1.1070 , 0.6210 , -0.6474 , 1.7046 ))
+#define pi        3.14159265358
 #define a(x) abs(x)
 #define d(x,b) (pi*b*min(a(x)+0.5,1.0/b))
 #define e(x,b) (pi*b*min(max(a(x)-0.5,-1.0/b),1.0/b))
@@ -57,10 +57,10 @@ struct input
 float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
 // return tex2D(s0, tex);
-	float	offset	= fract((tex.x * IN.texture_size.x) - 0.5);
-	float3	tempColor = float3(0.0);	
-	float 	X;
-	float3 	c;	
+   float offset   = fract((tex.x * IN.texture_size.x) - 0.5);
+   float3   tempColor = float3(0.0);
+   float    X;
+   float3   c;
    float range;
    if (compositeConnection)
       range=ceil(0.5+IN.video_size.x/min(min(signalResolution,signalResolutionI),signalResolutionQ));
@@ -69,7 +69,7 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
 
    range = FIXNUM;
 
-	float i;
+   float i;
    if(compositeConnection){
       for (i=-range;i<range+2.0;i++){
          PROCESS_composite(i)
@@ -85,6 +85,6 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
    else
       tempColor=clamp(tempColor,0.0,1.0);
 
-	// tempColor=clamp(tempColor,0.0,1.0);
-	return float4(tempColor,1.0);
+   // tempColor=clamp(tempColor,0.0,1.0);
+   return float4(tempColor,1.0);
 }
