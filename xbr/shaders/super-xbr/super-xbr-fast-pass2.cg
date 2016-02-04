@@ -34,7 +34,7 @@
 #define wp1  1.0
 #define wp2  0.0
 #define wp3  0.0
-#define wp4  2.0
+#define wp4  0.0
 #define wp5 -1.0
 #define wp6  0.0
 
@@ -125,6 +125,8 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
     {
 	float2 g1 = float2(1.0/IN.texture_size.x, 0.0);
 	float2 g2 = float2(0.0, 1.0/IN.texture_size.y);
+	VAR.texCoord -= 1.0/IN.texture_size;
+
 
 	float3 P0 = tex2D(s0, VAR.texCoord     -g1    -g2).xyz;
 	float3 P1 = tex2D(s0, VAR.texCoord +2.0*g1    -g2).xyz;
@@ -187,11 +189,10 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	float3 color =  lerp(c1, c2, edge_strength);
 
 	/* Anti-ringing code. */
-	float3 min_sample = min4(  E,   F,   H,   I);
-	float3 max_sample = max4(  E,   F,   H,   I);
-	float3 aux = color;
+	float3 min_sample = min4( E, F, H, I ) + (1-XBR_ANTI_RINGING)*lerp((P2-H)*(F-P1), (P0-E)*(I-P3), step(0.0, d_edge));
+	float3 max_sample = max4( E, F, H, I ) - (1-XBR_ANTI_RINGING)*lerp((P2-H)*(F-P1), (P0-E)*(I-P3), step(0.0, d_edge));
 	color = clamp(color, min_sample, max_sample);
-	color = lerp(aux, color, 1-2.0*abs(edge_strength-0.5));
+//	color = lerp(aux, color, 1-2.0*abs(edge_strength-0.5));
 
 	return float4(color, 1.0);	
 }
