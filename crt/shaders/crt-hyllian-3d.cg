@@ -1,4 +1,5 @@
-#pragma parameter CRT_RES "CRT - Internal Res Multiplier" 2.0 1.0 8.0 1.0
+#pragma parameter CRT_MULRES_X "CRT - Internal X Res Multiplier" 2.0 1.0 8.0 1.0
+#pragma parameter CRT_MULRES_Y "CRT - Internal Y Res Multiplier" 2.0 1.0 8.0 1.0
 #pragma parameter PHOSPHOR "CRT - Phosphor ON/OFF" 1.0 0.0 1.0 1.0
 #pragma parameter InputGamma "CRT - Input gamma" 2.4 0.0 5.0 0.1
 #pragma parameter OutputGamma "CRT - Output Gamma" 2.2 0.0 5.0 0.1
@@ -12,7 +13,8 @@
 #pragma parameter BEAM_MAX_WIDTH "CRT - Max Beam Width" 1.0 0.0 1.0 0.02
 #pragma parameter CRT_ANTI_RINGING "CRT - Anti-Ringing" 0.8 0.0 1.0 0.1
 #ifdef PARAMETER_UNIFORM
-uniform float CRT_RES;
+uniform float CRT_MULRES_X;
+uniform float CRT_MULRES_Y;
 uniform float PHOSPHOR;
 uniform float InputGamma;
 uniform float OutputGamma;
@@ -26,7 +28,8 @@ uniform float BEAM_MIN_WIDTH;
 uniform float BEAM_MAX_WIDTH;
 uniform float CRT_ANTI_RINGING;
 #else
-#define CRT_RES 2.0
+#define CRT_MULRES_X 2.0
+#define CRT_MULRES_Y 2.0
 #define PHOSPHOR 1.0
 #define InputGamma 2.4
 #define OutputGamma 2.2
@@ -92,7 +95,7 @@ uniform float CRT_ANTI_RINGING;
 
 // Change these params to configure the horizontal filter.
 const static float  B =  0.0; 
-const static float  C =  0.5;  
+const static float  C =  0.5;
 
 const static float4x4 invX = float4x4(            (-B - 6.0*C)/6.0,         (3.0*B + 12.0*C)/6.0,     (-3.0*B - 6.0*C)/6.0,             B/6.0,
                                         (12.0 - 9.0*B - 6.0*C)/6.0, (-18.0 + 12.0*B + 6.0*C)/6.0,                      0.0, (6.0 - 2.0*B)/6.0,
@@ -144,7 +147,7 @@ out_vertex main_vertex
 
 float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
 {
-    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y)/CRT_RES;
+    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y)/float2(CRT_MULRES_X, CRT_MULRES_Y);
 
     float3 color;
     float2 dx = float2(1.0/TextureSize.x, 0.0);
