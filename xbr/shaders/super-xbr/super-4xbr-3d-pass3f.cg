@@ -41,7 +41,7 @@
 #define wp6  0.0
 
 #define weight1 (XBR_WEIGHT*1.29633/10.0)
-#define weight2 (XBR_WEIGHT2*1.75068/10.0/2.0)
+#define weight2 (XBR_WEIGHT*1.75068/10.0/2.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
 

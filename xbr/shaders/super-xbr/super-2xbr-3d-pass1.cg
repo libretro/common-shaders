@@ -33,15 +33,15 @@
 
 #define XBR_RES 2.0
 
-#define wp1  6.0
+#define wp1  1.0
 #define wp2  0.0
 #define wp3  0.0
-#define wp4  0.0
+#define wp4  4.0
 #define wp5  0.0
 #define wp6  0.0
 
 #define weight1 (XBR_WEIGHT*1.75068/10.0)
-#define weight2 (XBR_WEIGHT2*1.29633/10.0/2.0)
+#define weight2 (XBR_WEIGHT*1.29633/10.0/2.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
 
