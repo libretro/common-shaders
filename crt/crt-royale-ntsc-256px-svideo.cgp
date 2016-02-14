@@ -27,7 +27,7 @@ filter_linear1 = false
 
 scale_type_x0 = absolute
 scale_type_y0 = source
-scale_x0 = 1024
+scale_x0 = 1536
 scale_y0 = 1.0
 frame_count_mod0 = 2
 float_framebuffer0 = true
