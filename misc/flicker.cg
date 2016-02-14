@@ -1,4 +1,4 @@
-#pragma parameter percent "Interlacing Scanline Bright %" 0.0 0.0 1.0 0.05
+#pragma parameter percent "Flicker Bright %" 0.0 0.0 1.0 0.05
 
 #ifdef PARAMETER_UNIFORM
 uniform float percent;
