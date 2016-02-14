@@ -5,7 +5,7 @@ filter_linear0 = "false"
 frame_count_mod0 = "2"
 float_framebuffer0 = "true"
 scale_type_x0 = "absolute"
-scale_x0 = "1024"
+scale_x0 = "1536"
 scale_type_y0 = "source"
 scale_y0 = "1.000000"
 
