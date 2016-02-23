@@ -27,6 +27,7 @@
 #pragma parameter hardBloomPix "bloom-x soft" -1.5 -2.0 -0.5 0.1
 #pragma parameter hardBloomScan "bloom-y soft" -2.0 -4.0 -1.0 0.1
 #pragma parameter bloomAmount "bloom amt" 0.15 0.0 1.0 0.05
+#pragma parameter shape "filter kernel shape" 2.0 0.0 10.0 0.05
 
 #ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
 uniform float hardScan;
@@ -41,6 +42,7 @@ uniform float brightboost;
 uniform float hardBloomScan;
 uniform float hardBloomPix;
 uniform float bloomAmount;
+uniform float shape;
 #else
 #define hardScan -8.0
 #define hardPix -3.0
@@ -54,6 +56,7 @@ uniform float bloomAmount;
 #define hardBloomScan -2.0
 #define hardBloomPix -1.5
 #define bloomAmount 1.0/16.0
+#define shape 2.0
 
 #endif
 // ------------- //
@@ -125,7 +128,7 @@ float3 Fetch(float2 pos,float2 off){
 float2 Dist(float2 pos){pos=pos*IN_global.texture_size.xy;return -((pos-floor(pos))-float2(0.5));}
     
 // 1D Gaussian.
-float Gaus(float pos,float scale){return exp2(scale*pos*pos);}
+float Gaus(float pos,float scale){return exp2(scale*pow(abs(pos),shape));}
 
 // 3-tap Gaussian filter along horz line.
 float3 Horz3(float2 pos,float off){
