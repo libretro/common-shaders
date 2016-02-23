@@ -22,7 +22,7 @@
 #pragma parameter maskDark "maskDark" 0.5 0.0 2.0 0.1
 #pragma parameter maskLight "maskLight" 1.5 0.0 2.0 0.1
 #pragma parameter scaleInLinearGamma "scaleInLinearGamma" 1.0 0.0 1.0 1.0
-#pragma parameter shadowMask "shadowMask" 1.0 0.0 1.0 1.0
+#pragma parameter shadowMask "shadowMask" 3.0 0.0 4.0 1.0
 #pragma parameter brightboost "brightness" 1.0 0.0 2.0 0.05
 #pragma parameter hardBloomPix "bloom-x soft" -1.5 -2.0 -0.5 0.1
 #pragma parameter hardBloomScan "bloom-y soft" -2.0 -4.0 -1.0 0.1
@@ -49,7 +49,7 @@ uniform float bloomAmount;
 #define maskDark 0.5
 #define maskLight 1.5
 #define scaleInLinearGamma 1
-#define shadowMask 1
+#define shadowMask 4
 #define brightboost 1
 #define hardBloomScan -2.0
 #define hardBloomPix -1.5
@@ -220,50 +220,56 @@ float2 Warp(float2 pos){
   pos=pos*2.0-1.0;    
   pos*=float2(1.0+(pos.y*pos.y)*warp.x,1.0+(pos.x*pos.x)*warp.y);
   return pos*0.5+0.5;}
-  
-// Very compressed TV style shadow mask.
-float3 Mask1(float2 pos){
-  float line=maskLight;
-  float odd=0.0;
-  if(fract(pos.x/6.0)<0.5)odd=1.0;
-  if(fract((pos.y+odd)/2.0)<0.5)line=maskDark;  
-  pos.x=fract(pos.x/3.0);
-  float3 mask1=float3(maskDark,maskDark,maskDark);
-  if(pos.x<0.333)mask1.r=maskLight;
-  else if(pos.x<0.666)mask1.g=maskLight;
-  else mask1.b=maskLight;
-  mask1*=line;
-  return mask1;}        
 
-// Aperture-grille.
-float3 Mask2(float2 pos){
-  pos.x=fract(pos.x/3.0);
-  float3 mask2=float3(maskDark,maskDark,maskDark);
-  if(pos.x<0.333)mask2.r=maskLight;
-  else if(pos.x<0.666)mask2.g=maskLight;
-  else mask2.b=maskLight;
-  return mask2;}        
+// Shadow mask 
+float3 Mask(float2 pos){
+  float3 mask=float3(maskDark,maskDark,maskDark);
 
-// Stretched VGA style shadow mask (same as prior shaders).
-float3 Mask3(float2 pos){
-  pos.x+=pos.y*3.0;
-  float3 mask3=float3(maskDark,maskDark,maskDark);
-  pos.x=fract(pos.x/6.0);
-  if(pos.x<0.333)mask3.r=maskLight;
-  else if(pos.x<0.666)mask3.g=maskLight;
-  else mask3.b=maskLight;
-  return mask3;}    
+  // Very compressed TV style shadow mask.
+  if (shadowMask == 1) {
+    float line=maskLight;
+    float odd=0.0;
+    if(fract(pos.x/6.0)<0.5)odd=1.0;
+    if(fract((pos.y+odd)/2.0)<0.5)line=maskDark;  
+    pos.x=fract(pos.x/3.0);
+   
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+    mask*=line;  
+  } 
 
-// VGA style shadow mask.
-float3 Mask4(float2 pos){
-  pos.xy=floor(pos.xy*float2(1.0,0.5));
-  pos.x+=pos.y*3.0;
-  float3 mask4=float3(maskDark,maskDark,maskDark);
-  pos.x=fract(pos.x/6.0);
-  if(pos.x<0.333)mask4.r=maskLight;
-  else if(pos.x<0.666)mask4.g=maskLight;
-  else mask4.b=maskLight;
-  return mask4;}    
+  // Aperture-grille.
+  else if (shadowMask == 2) {
+    pos.x=fract(pos.x/3.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  } 
+
+  // Stretched VGA style shadow mask (same as prior shaders).
+  else if (shadowMask == 3) {
+    pos.x+=pos.y*3.0;
+    pos.x=fract(pos.x/6.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  }
+
+  // VGA style shadow mask.
+  else if (shadowMask == 4) {
+    pos.xy=floor(pos.xy*float2(1.0,0.5));
+    pos.x+=pos.y*3.0;
+    pos.x=fract(pos.x/6.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  }
+
+  return mask;}    
 
 float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
@@ -276,7 +282,7 @@ float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, un
   	  outColor.rgb+=Bloom(pos)*bloomAmount;
 
    if(shadowMask)
-      outColor.rgb*=Mask1(floor(tex.xy*(IN.texture_size.xy/IN.video_size.xy)*IN.output_size.xy)+float2(0.5,0.5));
+      outColor.rgb*=Mask(floor(tex.xy*(IN.texture_size.xy/IN.video_size.xy)*IN.output_size.xy)+float2(0.5,0.5));
 	  
    return float4(ToSrgb(outColor.rgb),1.0);
 }
