@@ -5,10 +5,10 @@
 
 /*
    Dot Mask
-   Author: cgwg
+   Authors: cgwg, Timothy Lottes
    License: GPL
    
-   Note: This shader is just the dotmask code from cgwg's CRT shader.
+   Note: This shader is just the dotmask functions from cgwg's CRT shader and crt-lottes.
 */
 
 struct input
@@ -44,13 +44,70 @@ void main_vertex
 
 #define mod_factor texCoord.x * IN.texture_size.x * IN.output_size.x / IN.video_size.x
 
-#pragma parameter DOTMASK_STRENGTH "Dot Mask Strength" 0.3 0.0 1.0 0.01
-
+#pragma parameter DOTMASK_STRENGTH "CGWG Dot Mask Strength" 0.3 0.0 1.0 0.01
+#pragma parameter maskDark "Lottes maskDark" 0.5 0.0 2.0 0.1
+#pragma parameter maskLight "Lottes maskLight" 1.5 0.0 2.0 0.1
+#pragma parameter shadowMask "Mask Style" 3.0 0.0 4.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float DOTMASK_STRENGTH;
+uniform float maskDark;
+uniform float maskLight;
+uniform float shadowMask;
 #else
 #define DOTMASK_STRENGTH 0.3
+#define maskDark 0.5
+#define maskLight 1.5
+#define shadowMask 3.0
 #endif
+
+float3 Mask(float2 pos){
+  float3 mask=float3(maskDark,maskDark,maskDark);
+
+  // Very compressed TV style shadow mask.
+  if (shadowMask == 1) {
+    float line=maskLight;
+    float odd=0.0;
+    if(fract(pos.x/6.0)<0.5)odd=1.0;
+    if(fract((pos.y+odd)/2.0)<0.5)line=maskDark;  
+    pos.x=fract(pos.x/3.0);
+   
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+    mask*=line;  
+  } 
+
+  // Aperture-grille.
+  else if (shadowMask == 2) {
+    pos.x=fract(pos.x/3.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  } 
+
+  // Stretched VGA style shadow mask (same as prior shaders).
+  else if (shadowMask == 3) {
+    pos.x+=pos.y*3.0;
+    pos.x=fract(pos.x/6.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  }
+
+  // VGA style shadow mask.
+  else if (shadowMask == 4) {
+    pos.xy=floor(pos.xy*float2(1.0,0.5));
+    pos.x+=pos.y*3.0;
+    pos.x=fract(pos.x/6.0);
+
+    if(pos.x<0.333)mask.r=maskLight;
+    else if(pos.x<0.666)mask.g=maskLight;
+    else mask.b=maskLight;
+  }
+
+  return mask;}  
 
 float4 main_fragment (in float2 texCoord : TEXCOORD, uniform input IN) : COLOR
 {
@@ -63,9 +120,13 @@ float4 main_fragment (in float2 texCoord : TEXCOORD, uniform input IN) : COLOR
    float3 dotMaskWeights = lerp(
                            float3(1.0, mask, 1.0),
                            float3(mask, 1.0, mask),
-                           floor(fmod(mod_factor, 2.0))
-						   );
+                           floor(fmod(mod_factor, 2.0)));
+if (shadowMask == 0) {
    res *= dotMaskWeights;
+}
+else {
+   res *= Mask(floor(texCoord.xy*(IN.texture_size.xy/IN.video_size.xy)*IN.output_size.xy)+float2(0.5,0.5));
+}
 
       return float4(res, 1.0);
 }
