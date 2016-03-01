@@ -137,13 +137,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	res.w = jd.y || !(jd.x || jd.z) && (jd.w && jSd.y != 0.0 || (jSd.y > jSd.z && (jSd.y > jSd.x && (jSd.z <= jSd.w || jSd.x <= jSd.w) || jSd.w > jSd.z) || jSd.y > jSd.x && jSd.w > jSd.x));
 
 
-	bool4 resH = bool4(ja.z, jb.w, jc.x, jd.y);
-
-	// single pixel detection
-	res = all(res) ? resH : res;
-
-	// end of line detection
-	res = res && (resH || !(res.wxyz && res.yzwx));	
+	// single pixel & end of line detection
+	res = res && (bool4(ja.z, jb.w, jc.x, jd.y) || !(res.wxyz && res.yzwx));	
 
 
 	// output

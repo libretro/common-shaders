@@ -1,0 +1,88 @@
+/*
+	ScaleFX-hybrid - Pass 1
+	by Sp00kyFox, 2016
+
+Filter:	Nearest
+Scale:	1x
+
+ScaleFX-hybrid combines ScaleFX and a preshader (e.g. reverse AA).
+
+Pass 1 determines the distance between the origin and its orthogonal neighbors.
+
+*/
+
+
+const static float4 four4 = float4(4);
+const static float3 one3  = float3(1);
+
+// Reference: http://www.compuphase.com/cmetric.htm
+float4 eq(float4x3 A, float4x3 B)
+{
+	float4x3 diff = A-B;
+	float4   ravg = 0.5 * (A._m00_m10_m20_m30 + B._m00_m10_m20_m30);
+
+	diff *= diff * transpose(float3x4(2.0 + ravg, four4, 3.0 - ravg));
+	
+	return 1.0 - sqrt(mul(diff, one3)) / 3.0;
+}
+
+
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	prev PASSPREV3
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/PASSPREV3.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = PASSPREV3.tex_coord;
+	OUT.t1 = PASSPREV3.tex_coord.xxxy + float4(  -dx,    0,   dx,    0);	// D, E, F
+	OUT.t2 = PASSPREV3.tex_coord.xyxy + float4(    0,  -dy,    0,   dy);	// B, H
+
+	return OUT;
+}
+
+
+float4 main_fragment(in out_vertex VAR, prev PASSPREV3) : COLOR
+{
+
+	/*
+		  B		  x
+		D E F		w   y
+		  H		  z
+	*/
+
+	// read texels
+	float3 d = tex2D(PASSPREV3.texture, VAR.t1.xw).rgb;
+	float3 e = tex2D(PASSPREV3.texture, VAR.t1.yw).rgb;
+	float3 f = tex2D(PASSPREV3.texture, VAR.t1.zw).rgb;
+	float3 b = tex2D(PASSPREV3.texture, VAR.t2.xy).rgb;
+	float3 h = tex2D(PASSPREV3.texture, VAR.t2.zw).rgb;
+
+	// output
+	return eq(float4x3(e,e,e,e), float4x3(b,f,h,d));
+
+}

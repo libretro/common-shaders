@@ -1,0 +1,123 @@
+/*
+	ScaleFX - Pass 4
+	by Sp00kyFox, 2016
+
+Filter:	Nearest
+Scale:	3x
+
+ScaleFX is an improvement of the original Scale3x filter.
+
+Pass 4 outputs the subpixels based on previously calculated tags.
+
+*/
+
+
+// extract even subpixels 
+float4 loadEven(float4 x){
+	return floor(fmod(x*7.5, 4));
+}
+
+// extract odd subpixels 
+bool4 loadOdd(float4 x){
+	return x > 0.5;
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	prev PASSPREV5
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/PASSPREV5.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = PASSPREV5.tex_coord.xxxy + float4( -dx,   0,  dx,   0);	// D, E, F
+	OUT.t2 = PASSPREV5.tex_coord.xyxy + float4(   0, -dy,   0,  dy);	// B, H
+
+	return OUT;
+}
+
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV5) : COLOR
+{
+
+	// determine subpixel
+	float2 fp = floor(3.0 * frac(VAR.texCoord*IN.texture_size));
+
+
+	/*
+		  B		x   y	  	  x		E0 E1 E2
+		D E F				w   y		E7 E  E3
+		  H		w   z	  	  z		E6 E5 E4
+	*/
+
+
+	// coordinates
+	float2 d = VAR.t1.xw;
+	float2 e = VAR.t1.yw;
+	float2 f = VAR.t1.zw;
+	float2 b = VAR.t2.xy;
+	float2 h = VAR.t2.zw;
+
+
+	// read texels
+	float4 E = tex2D(decal, VAR.texCoord);
+
+	// extract tags
+	float4 evn = loadEven(E);
+	bool4  odd = loadOdd(E);
+
+
+	// subpixels
+	float4 E0 = evn.x == 1 ? float4(b,d) : evn.x == 2 ? float4(b,e) : evn.x == 3 ? float4(d,e) : float4(e,e);
+	float4 E2 = evn.y == 1 ? float4(b,f) : evn.y == 2 ? float4(b,e) : evn.y == 3 ? float4(f,e) : float4(e,e);
+	float4 E4 = evn.z == 1 ? float4(f,h) : evn.z == 2 ? float4(h,e) : evn.z == 3 ? float4(f,e) : float4(e,e);
+	float4 E6 = evn.w == 1 ? float4(d,h) : evn.w == 2 ? float4(h,e) : evn.w == 3 ? float4(d,e) : float4(e,e);
+
+	float4 E1 = odd.x ? float4(b,e) : float4(e,e);
+	float4 E3 = odd.y ? float4(f,e) : float4(e,e);
+	float4 E5 = odd.z ? float4(h,e) : float4(e,e);
+	float4 E7 = odd.w ? float4(d,e) : float4(e,e);
+
+
+	// ouput
+	float4 rescoord = fp.y == 0 ? (fp.x == 0 ? E0 : fp.x == 1 ? E1 : E2) : (fp.y == 1 ? (fp.x == 0 ? E7 : fp.x == 1 ? float4(e,e) : E3) : (fp.x == 0 ? E6 : fp.x == 1 ? E5 : E4));
+
+	float3 res1 = tex2D(PASSPREV5.texture, rescoord.xy).rgb;
+	float3 res2 = tex2D(PASSPREV5.texture, rescoord.zw).rgb;
+
+	return all(rescoord.zw == e) ? res1 : 0.5*(res1+res2);
+
+}

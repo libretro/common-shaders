@@ -3,11 +3,11 @@
 	by Sp00kyFox, 2016
 
 Filter:	Nearest
-Scale:	3x
+Scale:	1x
 
 ScaleFX is an improvement of the original Scale3x filter.
 
-Pass 3 outputs the subpixels based on previously calculated tags.
+Pass 3 determines which edge level is present and prepares tags for subpixel output.
 
 */
 
@@ -35,16 +35,13 @@ struct input
 	float2 output_size;
 };
 
-struct prev
-{
-	sampler2D texture;
-};
-
 struct out_vertex {
 	float4 position : POSITION;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
 };
 
 /*    VERTEX_SHADER    */
@@ -65,18 +62,17 @@ out_vertex main_vertex
 	float dx = ps.x, dy = ps.y;
 
 	OUT.texCoord = texCoord;
-	OUT.t1 = texCoord.xxxy + float4( -dx,   0,  dx,   0);	// D, E, F
-	OUT.t2 = texCoord.xyxy + float4(   0, -dy,   0,  dy);	// B, H
+	OUT.t1 = texCoord.xxxy + float4(-1*dx, -2*dx, -3*dx,     0);	// D, D0, D1
+	OUT.t2 = texCoord.xxxy + float4( 1*dx,  2*dx,  3*dx,     0);	// F, F0, F1
+	OUT.t3 = texCoord.xyyy + float4(    0, -1*dy, -2*dy, -3*dy);	// B, B0, B1
+	OUT.t4 = texCoord.xyyy + float4(    0,  1*dy,  2*dy,  3*dy);	// H, H0, H1
 
 	return OUT;
 }
 
 
-float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV4) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
-	// subpixel determination
-	float2 fp = floor(3.0 * frac(VAR.texCoord*IN.texture_size));
-
 
 	/*
 		  B		x   y	  	  x		E0 E1 E2
@@ -85,57 +81,67 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	*/
 
 
-	// coordinates
-	float2 d = VAR.t1.xw, e = VAR.t1.yw, f = VAR.t1.zw;
-	float2 b = VAR.t2.xy, h = VAR.t2.zw;
-
 	// read texels
-	float4 B = tex2D(decal, b);
-	float4 D = tex2D(decal, d);
-	float4 E = tex2D(decal, e);
-	float4 F = tex2D(decal, f);
-	float4 H = tex2D(decal, h);
+	float4 E = tex2D(decal, VAR.texCoord);
+	float4 D = tex2D(decal, VAR.t1.xw), D0 = tex2D(decal, VAR.t1.yw), D1 = tex2D(decal, VAR.t1.zw);
+	float4 F = tex2D(decal, VAR.t2.xw), F0 = tex2D(decal, VAR.t2.yw), F1 = tex2D(decal, VAR.t2.zw);
+	float4 B = tex2D(decal, VAR.t3.xy), B0 = tex2D(decal, VAR.t3.xz), B1 = tex2D(decal, VAR.t3.xw);
+	float4 H = tex2D(decal, VAR.t4.xy), H0 = tex2D(decal, VAR.t4.xz), H1 = tex2D(decal, VAR.t4.xw);
 
 	// extract tags
-	bool4 Be = loadEdge(B),				Bv = loadVert(B);
-	bool4 De = loadEdge(D),	Dh = loadHori(D);
-	bool4 Ee = loadEdge(E),	Eh = loadHori(E),	Ev = loadVert(E);
-	bool4 Fe = loadEdge(F),	Fh = loadHori(F);
-	bool4 He = loadEdge(H),				Hv = loadVert(H);
+	bool4 Ee = loadEdge(E), Eh = loadHori(E), Ev  = loadVert(E);
+	bool4 De = loadEdge(D),	Dh = loadHori(D), D0e = loadEdge(D0), D0h = loadHori(D0), D1h = loadHori(D1);
+	bool4 Fe = loadEdge(F),	Fh = loadHori(F), F0e = loadEdge(F0), F0h = loadHori(F0), F1h = loadHori(F1);
+	bool4 Be = loadEdge(B),	Bv = loadVert(B), B0e = loadEdge(B0), B0v = loadVert(B0), B1v = loadVert(B1);
+	bool4 He = loadEdge(H),	Hv = loadVert(H), H0e = loadEdge(H0), H0v = loadVert(H0), H1v = loadVert(H1);
 
 
-	// mid-segments
-	bool4 mid;
-	mid.x = Ee.x && De.z && Eh.y || Ee.y && Fe.w && Eh.x;
-	mid.y = Ee.y && Be.w && Ev.z || Ee.z && He.x && Ev.y;
-	mid.z = Ee.z && Fe.x && Eh.w || Ee.w && De.y && Eh.z;
-	mid.w = Ee.w && He.y && Ev.x || Ee.x && Be.z && Ev.w;
+	// lvl2 mid
+	bool4 lvl2;
+	lvl2.x = (Ee.x && Eh.y) && De.z || (Ee.y && Eh.x) && Fe.w;
+	lvl2.y = (Ee.y && Ev.z) && Be.w || (Ee.z && Ev.y) && He.x;
+	lvl2.z = (Ee.z && Eh.w) && Fe.x || (Ee.w && Eh.z) && De.y;
+	lvl2.w = (Ee.w && Ev.x) && He.y || (Ee.x && Ev.w) && Be.z;
 
-	// lvl3 corners
-	bool2 lvl3x = bool2(mid.w && Bv.x && Bv.w, mid.x && Dh.x && Dh.y);
-	bool2 lvl3y = bool2(mid.x && Fh.y && Fh.x, mid.y && Bv.y && Bv.z);
-	bool2 lvl3z = bool2(mid.y && Hv.z && Hv.y, mid.z && Fh.z && Fh.w);
-	bool2 lvl3w = bool2(mid.z && Dh.w && Dh.z, mid.w && Hv.w && Hv.x);
+	// lvl3 corners (hori, vert)
+	bool2 lvl3x = bool2(lvl2.x && (Dh.x && Dh.y) && Fh.z, lvl2.w && (Bv.x && Bv.w) && Hv.z);
+	bool2 lvl3y = bool2(lvl2.x && (Fh.y && Fh.x) && Dh.w, lvl2.y && (Bv.y && Bv.z) && Hv.w);
+	bool2 lvl3z = bool2(lvl2.z && (Fh.z && Fh.w) && Dh.x, lvl2.y && (Hv.z && Hv.y) && Bv.x);
+	bool2 lvl3w = bool2(lvl2.z && (Dh.w && Dh.z) && Fh.y, lvl2.w && (Hv.w && Hv.x) && Bv.y);
+
+	// lvl4 corners (hori, vert)
+	bool2 lvl4x = bool2((De.x && Dh.y && Eh.x && Eh.y && Fh.x && Fh.y) && (D0e.z && D0h.w), (Be.x && Bv.w && Ev.x && Ev.w && Hv.x && Hv.w) && (B0e.z && B0v.y));
+	bool2 lvl4y = bool2((Fe.y && Fh.x && Eh.y && Eh.x && Dh.y && Dh.x) && (F0e.w && F0h.z), (Be.y && Bv.z && Ev.y && Ev.z && Hv.y && Hv.z) && (B0e.w && B0v.x));
+	bool2 lvl4z = bool2((Fe.z && Fh.w && Eh.z && Eh.w && Dh.z && Dh.w) && (F0e.x && F0h.y), (He.z && Hv.y && Ev.z && Ev.y && Bv.z && Bv.y) && (H0e.x && H0v.w));
+	bool2 lvl4w = bool2((De.w && Dh.z && Eh.w && Eh.z && Fh.w && Fh.z) && (D0e.y && D0h.x), (He.w && Hv.x && Ev.w && Ev.x && Bv.w && Bv.x) && (H0e.y && H0v.z));
+
+	// lvl5 mid
+	bool4 lvl5;
+	lvl5.x = lvl4x.x && (F0h.x && F0h.y) && (D1h.z && D1h.w) || lvl4y.x && (D0h.y && D0h.x) && (F1h.w && F1h.z);
+	lvl5.y = lvl4y.y && (H0v.y && H0v.z) && (B1v.w && B1v.x) || lvl4z.y && (B0v.z && B0v.y) && (H1v.x && H1v.w);
+	lvl5.z = lvl4z.x && (D0h.z && D0h.w) && (F1h.x && F1h.y) || lvl4w.x && (F0h.w && F0h.z) && (D1h.y && D1h.x);
+	lvl5.w = lvl4w.y && (B0v.w && B0v.x) && (H1v.y && H1v.z) || lvl4x.y && (H0v.x && H0v.w) && (B1v.z && B1v.y);
+
+	// lvl6 corners (hori, vert)
+	bool2 lvl6x = bool2(lvl5.x && (D1h.y && D1h.x), lvl5.w && (B1v.w && B1v.x));
+	bool2 lvl6y = bool2(lvl5.x && (F1h.x && F1h.y), lvl5.y && (B1v.z && B1v.y));
+	bool2 lvl6z = bool2(lvl5.z && (F1h.w && F1h.z), lvl5.y && (H1v.y && H1v.z));
+	bool2 lvl6w = bool2(lvl5.z && (D1h.z && D1h.w), lvl5.w && (H1v.x && H1v.w));
 
 
 	// subpixels
-	float4 E0 = Ee.x ? float4(b,d) : lvl3x.x ? float4(d,e) : lvl3x.y ? float4(b,e) : float4(e,e);
-	float4 E2 = Ee.y ? float4(b,f) : lvl3y.x ? float4(b,e) : lvl3y.y ? float4(f,e) : float4(e,e);
-	float4 E4 = Ee.z ? float4(f,h) : lvl3z.x ? float4(f,e) : lvl3z.y ? float4(h,e) : float4(e,e);
-	float4 E6 = Ee.w ? float4(d,h) : lvl3w.x ? float4(h,e) : lvl3w.y ? float4(d,e) : float4(e,e);
+	float E0 = Ee.x ? 1 : lvl3x.x || lvl4x.x || lvl6x.x ? 2 : lvl3x.y || lvl4x.y || lvl6x.y ? 3 : 0;
+	float E2 = Ee.y ? 1 : lvl3y.x || lvl4y.x || lvl6y.x ? 2 : lvl3y.y || lvl4y.y || lvl6y.y ? 3 : 0;
+	float E4 = Ee.z ? 1 : lvl3z.x || lvl4z.x || lvl6z.x ? 2 : lvl3z.y || lvl4z.y || lvl6z.y ? 3 : 0;
+	float E6 = Ee.w ? 1 : lvl3w.x || lvl4w.x || lvl6w.x ? 2 : lvl3w.y || lvl4w.y || lvl6w.y ? 3 : 0;
 
-	float4 E1 = mid.x || Ee.x && De.z && Ee.y && Fe.w ? float4(b,e) : float4(e,e);
-	float4 E3 = mid.y || Ee.y && Be.w && Ee.z && He.x ? float4(f,e) : float4(e,e);
-	float4 E5 = mid.z || Ee.z && Fe.x && Ee.w && De.y ? float4(h,e) : float4(e,e);
-	float4 E7 = mid.w || Ee.w && He.y && Ee.x && Be.z ? float4(d,e) : float4(e,e);
+	float E1 = lvl2.x || lvl5.x || Ee.x && De.z && Ee.y && Fe.w ? 1 : 0;
+	float E3 = lvl2.y || lvl5.y || Ee.y && Be.w && Ee.z && He.x ? 1 : 0;
+	float E5 = lvl2.z || lvl5.z || Ee.z && Fe.x && Ee.w && De.y ? 1 : 0;
+	float E7 = lvl2.w || lvl5.w || Ee.w && He.y && Ee.x && Be.z ? 1 : 0;
 
 
 	// ouput
-	float4 rescoord = fp.y == 0 ? (fp.x == 0 ? E0 : fp.x == 1 ? E1 : E2) : (fp.y == 1 ? (fp.x == 0 ? E7 : fp.x == 1 ? float4(e,e) : E3) : (fp.x == 0 ? E6 : fp.x == 1 ? E5 : E4));
-
-	float3 res1 = tex2D(PASSPREV4.texture, rescoord.xy).rgb;
-	float3 res2 = tex2D(PASSPREV4.texture, rescoord.zw).rgb;
-
-	return all(rescoord.zw == e) ? res1 : 0.5*(res1+res2);
+	return (float4(E0,E2,E4,E6) + 4.0 * float4(E1,E3,E5,E7)) / 7.0;
 
 }
