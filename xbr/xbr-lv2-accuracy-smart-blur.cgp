@@ -1,0 +1,17 @@
+shaders = "3"
+shader0 = shaders/xbr-lv2-multipass/xbr-lv2-accuracy-pass0.cg
+filter_linear0 = "false"
+float_framebuffer0 = "false"
+scale_type_x0 = "source"
+scale_x0 = "1.000000"
+scale_type_y0 = "source"
+scale_y0 = "1.000000"
+shader1 = shaders/xbr-lv2-multipass/xbr-lv2-accuracy-pass1.cg
+filter_linear1 = "false"
+float_framebuffer1 = "false"
+scale_type1 = "viewport"
+scale1 = "1.000000"
+shader2 = "../blurs/smart-blur.cg"
+filter_linear2 = "false"
+float_framebuffer1 = "false"
+
