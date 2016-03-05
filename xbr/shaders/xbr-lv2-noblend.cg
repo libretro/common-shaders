@@ -1,15 +1,10 @@
-#pragma parameter XBR_Y_WEIGHT "Y Weight" 48.0 0.0 100.0 1.0
-#pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 15.0 0.0 50.0 1.0
+#pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 0.6 0.0 2.0 0.1
 #pragma parameter XBR_LV2_COEFFICIENT "Lv2 Coefficient" 2.0 1.0 3.0 0.1
 #ifdef PARAMETER_UNIFORM
-uniform float XBR_Y_WEIGHT;
-uniform float XBR_U_WEIGHT;
-uniform float XBR_V_WEIGHT;
 uniform float XBR_EQ_THRESHOLD;
 uniform float XBR_LV2_COEFFICIENT;
 #else
-#define XBR_Y_WEIGHT 48.0
-#define XBR_EQ_THRESHOLD 15.0
+#define XBR_EQ_THRESHOLD 0.6
 #define XBR_LV2_COEFFICIENT 2.0
 #endif
 // END PARAMETERS //
@@ -23,13 +18,13 @@ uniform float XBR_LV2_COEFFICIENT;
 /*
    Hyllian's xBR-lv2-noblend Shader
    
-   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+   Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
    in the Software without restriction, including without limitation the rights
    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
+   copies of the Software, and to permit persons to whom the Software is 
    furnished to do so, subject to the following conditions:
 
    The above copyright notice and this permission notice shall be included in
@@ -46,12 +41,12 @@ uniform float XBR_LV2_COEFFICIENT;
 */
 
 // Uncomment just one of the three params below to choose the corner detection
-//#define CORNER_A
+#define CORNER_A
 //#define CORNER_B
-#define CORNER_C
+//#define CORNER_C
 //#define CORNER_D
 
-const static float3x3 yuv          = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.499, 0.499, -0.418, -0.0813);
+const static float3 Y = float3(0.2126, 0.7152, 0.0722);
 
 
 float4 df(float4 A, float4 B)
@@ -103,7 +98,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord1 : TEXCOORD0,
+	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -124,9 +119,6 @@ out_vertex main_vertex
 	// G0  G  H  I I4
 	//    G5 H5 I5
 
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
 	OUT.texCoord = texCoord;
 	OUT.t1 = texCoord.xxxy + float4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
 	OUT.t2 = texCoord.xxxy + float4( -dx, 0, dx,    -dy); //  A  B  C
@@ -143,7 +135,7 @@ out_vertex main_vertex
 /*    FRAGMENT SHADER    */
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
-	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
+	bool4 edri, edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
 	bool4 nc; // new_color
 	bool4 fx, fx_left, fx_up; // inequations of straight lines.
@@ -178,18 +170,18 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float3 F4 = tex2D(decal, VAR.t7.xz).rgb;
 	float3 I4 = tex2D(decal, VAR.t7.xw).rgb;
 
-	float4 b = mul( float4x3(B, D, H, F), XBR_Y_WEIGHT*yuv[0] );
-	float4 c = mul( float4x3(C, A, G, I), XBR_Y_WEIGHT*yuv[0] );
-	float4 e = mul( float4x3(E, E, E, E), XBR_Y_WEIGHT*yuv[0] );
+	float4 b = mul( float4x3(B, D, H, F), Y );
+	float4 c = mul( float4x3(C, A, G, I), Y );
+	float4 e = mul( float4x3(E, E, E, E), Y );
 	float4 d = b.yzwx;
 	float4 f = b.wxyz;
 	float4 g = c.zwxy;
 	float4 h = b.zwxy;
 	float4 i = c.wxyz;
 
-	float4 i4 = mul( float4x3(I4, C1, A0, G5), XBR_Y_WEIGHT*yuv[0] );
-	float4 i5 = mul( float4x3(I5, C4, A1, G0), XBR_Y_WEIGHT*yuv[0] );
-	float4 h5 = mul( float4x3(H5, F4, B1, D0), XBR_Y_WEIGHT*yuv[0] );
+	float4 i4 = mul( float4x3(I4, C1, A0, G5), Y );
+	float4 i5 = mul( float4x3(I5, C4, A1, G0), Y );
+	float4 h5 = mul( float4x3(H5, F4, B1, D0), Y );
 	float4 f4 = h5.yzwx;
 
 	float4 Ao = float4( 1.0, -1.0, -1.0, 1.0 );
@@ -207,35 +199,43 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	fx_left = (Ax*fp.y+Bx*fp.x > Cx);
 	fx_up   = (Ay*fp.y+By*fp.x > Cy);
 
-// It uses CORNER_C if none of the others are defined.
 #ifdef CORNER_A
 	interp_restriction_lv1      = ((e!=f) && (e!=h));
-#elif CORNER_B
+#endif
+#ifdef CORNER_B
 	interp_restriction_lv1      = ((e!=f) && (e!=h)  &&  ( !eq(f,b) && !eq(h,d) || eq(e,i) && !eq(f,i4) && !eq(h,i5) || eq(e,g) || eq(e,c) ) );
-#elif CORNER_D
+#endif
+#ifdef CORNER_D
 	float4 c1 = i4.yzwx;
 	float4 g0 = i5.wxyz;
 	interp_restriction_lv1      = ((e!=f) && (e!=h)  &&  ( !eq(f,b) && !eq(h,d) || eq(e,i) && !eq(f,i4) && !eq(h,i5) || eq(e,g) || eq(e,c) ) && (f!=f4 && f!=i || h!=h5 && h!=i || h!=g || f!=c || eq(b,c1) && eq(d,g0)));
-#else
+#endif
+#ifdef CORNER_C
 	interp_restriction_lv1      = ((e!=f) && (e!=h)  && ( !eq(f,b) && !eq(f,c) || !eq(h,d) && !eq(h,g) || eq(e,i) && (!eq(f,f4) && !eq(f,i4) || !eq(h,h5) && !eq(h,i5)) || eq(e,g) || eq(e,c)) );
 #endif
+
 	interp_restriction_lv2_left = ((e!=g) && (d!=g));
 	interp_restriction_lv2_up   = ((e!=c) && (b!=c));
 
+	float4 wd1 = weighted_distance( e, c, g, i, h5, f4, h, f);
+	float4 wd2 = weighted_distance( h, d, i5, f, i4, b, e, i);
+
+	edri     = (wd1 <= wd2) && interp_restriction_lv1;
+	edr      = (wd1 <  wd2) && interp_restriction_lv1;
+
+	edr      = edr && (!edri.yzwx || !edri.wxyz);
+	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr && (!edri.yzwx && eq(e,c));
+	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr && (!edri.wxyz && eq(e,g));
 
 
-	edr      = (weighted_distance( e, c, g, i, h5, f4, h, f) < weighted_distance( h, d, i5, f, i4, b, e, i)) && interp_restriction_lv1;
-	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left;
-	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up;
-
-	nc = ( edr && (fx || edr_left && fx_left || edr_up && fx_up) );
+	nc = ( edr && ( fx || edr_left && fx_left || edr_up && fx_up ) );
 
 	px = (df(e,f) <= df(e,h));
 
 	float3 res1 = nc.x ? px.x ? F : H : nc.y ? px.y ? B : F : nc.z ? px.z ? D : B : E;
 	float3 res2 = nc.w ? px.w ? H : D : nc.z ? px.z ? D : B : nc.y ? px.y ? B : F : E;
 
-	float2 df12 = abs(mul(float2x3(res1, res2), XBR_Y_WEIGHT*yuv[0]) - e.xy);
+	float2 df12 = abs(mul(float2x3(res1, res2), Y) - e.xy);
 
 	float3 res = lerp(res1, res2, step(df12.x, df12.y));
 

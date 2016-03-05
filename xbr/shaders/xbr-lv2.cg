@@ -1,19 +1,16 @@
-#pragma parameter XBR_SCALE "xBR Scale" 3.0 1.0 5.0 1.0
+#pragma parameter XBR_SCALE "xBR Scale" 4.0 1.0 5.0 1.0
 #pragma parameter XBR_Y_WEIGHT "Y Weight" 48.0 0.0 100.0 1.0
-#pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 15.0 0.0 50.0 1.0
-#pragma parameter XBR_LV1_COEFFICIENT "Lv1 Coefficient" 0.5 0.0 30.0 0.5
+#pragma parameter XBR_EQ_THRESHOLD "Eq Threshold" 25.0 0.0 50.0 1.0
 #pragma parameter XBR_LV2_COEFFICIENT "Lv2 Coefficient" 2.0 1.0 3.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float XBR_SCALE;
 uniform float XBR_Y_WEIGHT;
 uniform float XBR_EQ_THRESHOLD;
-uniform float XBR_LV1_COEFFICIENT;
 uniform float XBR_LV2_COEFFICIENT;
 #else
-#define XBR_SCALE 3.0
+#define XBR_SCALE 4.0
 #define XBR_Y_WEIGHT 48.0
-#define XBR_EQ_THRESHOLD 15.0
-#define XBR_LV1_COEFFICIENT 0.5
+#define XBR_EQ_THRESHOLD 25.0
 #define XBR_LV2_COEFFICIENT 2.0
 #endif
 // END PARAMETERS //
@@ -27,7 +24,7 @@ uniform float XBR_LV2_COEFFICIENT;
 /*
    Hyllian's xBR-lv2 Shader
    
-   Copyright (C) 2011-2015 Hyllian - sergiogdb@gmail.com
+   Copyright (C) 2011-2016 Hyllian - sergiogdb@gmail.com
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -51,14 +48,10 @@ uniform float XBR_LV2_COEFFICIENT;
 */
 
 // Uncomment just one of the three params below to choose the corner detection
-//#define CORNER_A
+#define CORNER_A
 //#define CORNER_B
-#define CORNER_C
+//#define CORNER_C
 //#define CORNER_D
-
-#ifndef CORNER_A
-  #define SMOOTH_TIPS
-#endif
 
 const static float4 Ao = float4( 1.0, -1.0, -1.0, 1.0 );
 const static float4 Bo = float4( 1.0,  1.0, -1.0,-1.0 );
@@ -79,13 +72,11 @@ float4 df(float4 A, float4 B)
 	return float4(abs(A-B));
 }
 
-float c_df(float3 c1, float3 c2) {
-                        float3 df = abs(c1 - c2);
-                        return df.r + df.g + df.b;
-                }
-
-
-
+float c_df(float3 c1, float3 c2) 
+{
+        float3 df = abs(c1 - c2);
+        return df.r + df.g + df.b;
+}
 
 bool4 eq(float4 A, float4 B)
 {
@@ -96,7 +87,6 @@ float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float
 {
 	return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
 }
-
 
 
 struct input
@@ -244,10 +234,17 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float4 wd1 = weighted_distance( e, c, g, i, h5, f4, h, f);
 	float4 wd2 = weighted_distance( h, d, i5, f, i4, b, e, i);
 
-        edri     = (wd1 <= wd2) && interp_restriction_lv0;
+	edri     = (wd1 <= wd2) && interp_restriction_lv0;
 	edr      = (wd1 <  wd2) && interp_restriction_lv1;
+#ifdef CORNER_A
+	edr      = edr && (!edri.yzwx || !edri.wxyz);
+	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr && (!edri.yzwx && eq(e,c));
+	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr && (!edri.wxyz && eq(e,g));
+#endif
+#ifndef CORNER_A
 	edr_left = ((XBR_LV2_COEFFICIENT*df(f,g)) <= df(h,c)) && interp_restriction_lv2_left && edr;
 	edr_up   = (df(f,g) >= (XBR_LV2_COEFFICIENT*df(h,c))) && interp_restriction_lv2_up && edr;
+#endif
 
 	fx45  = edr*fx45;
 	fx30  = edr_left*fx30;
@@ -256,11 +253,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	px = (df(e,f) <= df(e,h));
 
-#ifdef SMOOTH_TIPS
 	float4 maximos = max(max(fx30, fx60), max(fx45, fx45i));
-#else
-	float4 maximos = max(max(fx30, fx60), fx45);
-#endif
 
 	float3 res1 = E;
 	res1 = lerp(res1, lerp(H, F, px.x), maximos.x);
