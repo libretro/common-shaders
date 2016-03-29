@@ -1,0 +1,75 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+
+/*
+
+	Fragment shader based on "Improved texture interpolation" by Iñigo Quílez
+	Original description: http://www.iquilezles.org/www/articles/texture/texture.htm
+
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+{
+	float2 p = tex.xy;
+
+	p = p * IN.texture_size + float2(0.5, 0.5);
+
+	float2 i = floor(p);
+	float2 f = p - i;
+
+	// Smoothstep - amazingly, smoothstep() is slower than calculating directly the expression!
+//	f = smoothstep(0.0, 1.0, f);
+//	f = f * f * ( -2.0 * f + 3.0);
+
+	// Quilez - This is sharper than smoothstep.
+	//f = f * f * f * (f * (f * 6.0 - float2(15.0, 15.0)) + float2(10.0, 10.0));
+
+	// smootheststep - This is even sharper than Quilez!
+	f = f * f * f * f * (f * (f * (-20.0 * f + float2(70.0, 70.0)) - float2(84.0, 84.0)) + float2(35.0, 35.0));
+
+	p = i + f;
+
+	p = (p - float2(0.5, 0.5)) / IN.texture_size;
+
+	// final sum and weight normalization
+	output OUT;
+	OUT.color = tex2D(s_p, p);
+	return OUT;
+}

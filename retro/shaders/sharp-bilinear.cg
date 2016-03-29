@@ -43,7 +43,7 @@ float4 main_fragment(float2 texCoord : TEXCOORD0,
 {
    float2 texel = texCoord * IN.texture_size;
    float2 texel_floored = floor(texel);
-   float2 s = fract(texel);
+   float2 s = frac(texel);
    float region_range = 0.5 - 0.5 / SHARP_BILINEAR_PRE_SCALE;
 
    // Figure out where in the texel to sample to get correct pre-scaled bilinear.

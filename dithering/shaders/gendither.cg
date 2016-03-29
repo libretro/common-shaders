@@ -72,7 +72,7 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	// Dither
 	//
 
-	int ditdex = 	int(mod(ditheu.x, 4.0)) * 4 + int(mod(ditheu.y, 4.0)); // 4x4!
+	int ditdex = 	int(fmod(ditheu.x, 4.0)) * 4 + int(fmod(ditheu.y, 4.0)); // 4x4!
 	int3 color;
 	int3 colord;
 	color.r = OUT.color.r * 224;
