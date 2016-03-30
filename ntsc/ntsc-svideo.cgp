@@ -1,5 +1,5 @@
 shaders = 4
-shader0 = shaders/ntsc-pass1-composite-3phase.cg
+shader0 = shaders/ntsc-pass1-svideo-3phase.cg
 shader1 = shaders/ntsc-pass2-3phase.cg
 shader2 = shaders/ntsc-gauss-pass.cg
 shader3 = shaders/ntsc-stock.cg
