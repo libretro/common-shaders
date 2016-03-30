@@ -6,7 +6,7 @@
    tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
 
 #pragma parameter NTSC_CRT_GAMMA "NTSC CRT Gamma" 2.4 2.0 3.0 0.02
-##ifdef PARAMETER_UNIFORM
+#ifdef PARAMETER_UNIFORM
 uniform float NTSC_CRT_GAMMA;
 #else
 #define NTSC_CRT_GAMMA 2.4

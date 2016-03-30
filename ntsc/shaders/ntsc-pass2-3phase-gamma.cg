@@ -8,7 +8,7 @@
 #pragma parameter NTSC_CRT_GAMMA "NTSC CRT Gamma" 2.5 0.0 10.0 0.1
 #pragma parameter NTSC_MONITOR_GAMMA "NTSC Monitor Gamma" 2.0 0.0 10.0 0.1
 
-##ifdef PARAMETER_UNIFORM
+#ifdef PARAMETER_UNIFORM
 uniform float NTSC_CRT_GAMMA;
 uniform float NTSC_MONITOR_GAMMA;
 #else
