@@ -7,19 +7,38 @@
    ShadX's Natural Vision Shader
 
    Ported and tweaked by Hyllian - 2016
+   parameterized by Sp00kyFox
 
 */
 
-const static float3x3 RGBtoYIQ = float3x3(0.299, 0.596, 0.212, 
-                                          0.587,-0.275,-0.523, 
-                                          0.114,-0.321, 0.311);
 
-const static float3x3 YIQtoRGB = float3x3(1.0, 1.0, 1.0,
-                                          0.95568806036115671171,-0.27158179694405859326,-1.1081773266826619523,
-                                          0.61985809445637075388,-0.64687381613840131330, 1.7050645599191817149);
+#pragma parameter GIN	"NaturalVision Gamma In"	2.2 0.0 10.0 0.05
+#pragma parameter GOUT	"NaturalVision Gamma Out"	2.2 0.0 10.0 0.05
+#pragma parameter Y	"NaturalVision Luminance"	1.1 0.0 10.0 0.01
+#pragma parameter I	"NaturalVision Orange-Cyan"	1.1 0.0 10.0 0.01
+#pragma parameter Q	"NaturalVision Magenta-Green"	1.1 0.0 10.0 0.01
 
-const static float3 val00 = float3( 1.2, 1.2, 1.2);
+#ifdef PARAMETER_UNIFORM
+	uniform float GIN, GOUT, Y, I, Q;
+#else
+	#define GIN	2.2
+	#define GOUT	2.2
+	#define Y	1.1
+	#define I	1.1
+	#define Q	1.1	
+#endif
 
+
+const static float3x3 RGBtoYIQ = float3x3(0.299,     0.587,     0.114,
+					  0.595716, -0.274453, -0.321263,
+					  0.211456, -0.522591,  0.311135);
+
+const static float3x3 YIQtoRGB = float3x3(1,  0.95629572,  0.62102442,
+					  1, -0.27212210, -0.64738060,
+					  1, -1.10698902,  1.70461500);
+
+const static float3 YIQ_lo = float3(0, -0.595716, -0.522591);
+const static float3 YIQ_hi = float3(1,  0.595716,  0.522591);
 
 struct input
 {
@@ -28,7 +47,7 @@ struct input
 	float2 output_size;
         float  frame_count;
         float  frame_direction;
-	float frame_rotation;
+	float  frame_rotation;
 };
 
 
@@ -61,14 +80,16 @@ out_vertex main_vertex
 }
 
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+float3 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
 {
-  float3 c0,c1;
+	float3 c = tex2D(s_p, VAR.texCoord).xyz;
 
-  c0 = tex2D(s_p, VAR.texCoord).xyz;
-  c1 = mul(c0,RGBtoYIQ);
-  c1 = float3(pow(c1.x,val00.x),c1.yz*val00.yz);
+	c = pow(c, GIN);
+	c = mul(RGBtoYIQ, c);
+	c = float3(pow(c.x,Y), c.y*I, c.z*Q);
+	c = clamp(c, YIQ_lo, YIQ_hi);
+	c = mul(YIQtoRGB, c);
+	c = pow(c, 1.0/GOUT);
 
-  return float4(mul(c1,YIQtoRGB), 1.0);
+	return c;
 }
-

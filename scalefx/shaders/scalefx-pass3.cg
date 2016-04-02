@@ -1,0 +1,132 @@
+/*
+	ScaleFX - Pass 3
+	by Sp00kyFox, 2016-03-30
+
+Filter:	Nearest
+Scale:	3x
+
+ScaleFX is an edge interpolation algorithm specialized in pixel art. It was
+originally intended as an improvement upon Scale3x but became a new filter in
+its own right.
+ScaleFX interpolates edges up to level 6 and makes smooth transitions between
+different slopes. The filtered picture will only consist of colours present
+in the original.
+
+Pass 3 outputs subpixels based on previously calculated tags.
+
+
+
+Copyright (c) 2016 Sp00kyFox - ScaleFX@web.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+
+// extract corners
+float4 loadCrn(float4 x){
+	return floor(fmod(x*80 + 0.5, 9));
+}
+
+// extract mids
+float4 loadMid(float4 x){
+	return floor(fmod(x*8.888888 + 0.055555, 9));
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	prev PASSPREV4
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/PASSPREV4.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = PASSPREV4.tex_coord.xxxy + float4( 0, -dx, -2*dx,     0);	// E, D, D0
+	OUT.t2 = PASSPREV4.tex_coord.xyxy + float4(dx,   0,  2*dx,     0);	// F, F0
+	OUT.t3 = PASSPREV4.tex_coord.xyxy + float4( 0, -dy,     0, -2*dy);	// B, B0
+	OUT.t4 = PASSPREV4.tex_coord.xyxy + float4( 0,  dy,     0,  2*dy);	// H, H0
+
+	return OUT;
+}
+
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV4) : COLOR
+{
+
+	/*	grid		corners		mids
+
+		  B		x   y	  	  x
+		D E F				w   y
+		  H		w   z	  	  z
+	*/
+
+
+	// read data
+	float4 E = tex2D(decal, VAR.texCoord);
+
+	// extract data
+	float4 crn = loadCrn(E);
+	float4 mid = loadMid(E);
+
+	// determine subpixel
+	float2 fp = floor(3.0 * frac(VAR.texCoord*IN.texture_size));
+	float  sp = fp.y == 0 ? (fp.x == 0 ? crn.x : fp.x == 1 ? mid.x : crn.y) : (fp.y == 1 ? (fp.x == 0 ? mid.w : fp.x == 1 ? 0 : mid.y) : (fp.x == 0 ? crn.w : fp.x == 1 ? mid.z : crn.z));
+
+	// output coordinate - 0 = E, 1 = D, 2 = D0, 3 = F, 4 = F0, 5 = B, 6 = B0, 7 = H, 8 = H0
+	float2 res = sp == 0 ? VAR.t1.xw : sp == 1 ? VAR.t1.yw : sp == 2 ? VAR.t1.zw : sp == 3 ? VAR.t2.xy : sp == 4 ? VAR.t2.zw : sp == 5 ? VAR.t3.xy : sp == 6 ? VAR.t3.zw : sp == 7 ? VAR.t4.xy : VAR.t4.zw;
+
+	// ouput
+	return tex2D(PASSPREV4.texture, res).rgb;
+
+}
