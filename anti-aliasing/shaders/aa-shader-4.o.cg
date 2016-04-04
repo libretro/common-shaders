@@ -1,8 +1,8 @@
-#pragma parameter X "SHADER SCALE" 5.0 2.0 50.0 1.0
+#pragma parameter X "Sharpness tuning" 1.0 1.0 4.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float X;
 #else
-#define X  5.0
+#define X  1.0
 #endif
 // END PARAMETERS //
 
@@ -79,7 +79,9 @@ out_vertex main_vertex
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	// Calculating texel coordinates
-	float2 size     = X*float2(256.0, 224.0);
+//	float2 size     = X*float2(256.0, 224.0);
+//	float2 size     = X*IN.texture_size;
+	float2 size     = X*(IN.output_size/IN.video_size)*IN.texture_size;
 	float2 inv_size = 1/size;
 
 	float4 yx = float4(inv_size, -inv_size);
