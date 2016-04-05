@@ -7,7 +7,7 @@
 #pragma parameter RED_BOOST "CRT - Red Boost" 1.0 1.0 2.0 0.01
 #pragma parameter GREEN_BOOST "CRT - Green Boost" 1.0 1.0 2.0 0.01
 #pragma parameter BLUE_BOOST "CRT - Blue Boost" 1.0 1.0 2.0 0.01
-#pragma parameter SCANLINES_STRENGTH "CRT - Scanline Strength" 0.72 0.0 1.0 0.02
+#pragma parameter SCANLINES_STRENGTH "CRT - Scanline Strength" 0.50 0.0 1.0 0.02
 #pragma parameter BEAM_MIN_WIDTH "CRT - Min Beam Width" 0.86 0.0 1.0 0.02
 #pragma parameter BEAM_MAX_WIDTH "CRT - Max Beam Width" 1.0 0.0 1.0 0.02
 #pragma parameter CRT_ANTI_RINGING "CRT - Anti-Ringing" 0.8 0.0 1.0 0.1
@@ -35,7 +35,7 @@ uniform float CRT_ANTI_RINGING;
 #define RED_BOOST 1.0
 #define GREEN_BOOST 1.0
 #define BLUE_BOOST 1.0
-#define SCANLINES_STRENGTH 0.72
+#define SCANLINES_STRENGTH 0.50
 #define BEAM_MIN_WIDTH 0.86
 #define BEAM_MAX_WIDTH 1.0
 #define CRT_ANTI_RINGING 0.8 
