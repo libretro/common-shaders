@@ -1,5 +1,6 @@
 #pragma parameter PHOSPHOR "CRT - Phosphor ON/OFF" 1.0 0.0 1.0 1.0
-#pragma parameter InputGamma "CRT - Input gamma" 2.4 0.0 5.0 0.1
+#pragma parameter VSCANLINES "CRT - Scanlines Direction" 0.0 0.0 1.0 1.0
+#pragma parameter InputGamma "CRT - Input gamma" 2.5 0.0 5.0 0.1
 #pragma parameter OutputGamma "CRT - Output Gamma" 2.2 0.0 5.0 0.1
 #pragma parameter SHARPNESS "CRT - Sharpness Hack" 1.0 1.0 5.0 1.0
 #pragma parameter COLOR_BOOST "CRT - Color Boost" 1.5 1.0 2.0 0.05
@@ -12,6 +13,7 @@
 #pragma parameter CRT_ANTI_RINGING "CRT - Anti-Ringing" 0.8 0.0 1.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float PHOSPHOR;
+uniform float VSCANLINES;
 uniform float InputGamma;
 uniform float OutputGamma;
 uniform float SHARPNESS;
@@ -25,7 +27,8 @@ uniform float BEAM_MAX_WIDTH;
 uniform float CRT_ANTI_RINGING;
 #else
 #define PHOSPHOR 1.0
-#define InputGamma 2.4
+#define VSCANLINES 0.0
+#define InputGamma 2.5
 #define OutputGamma 2.2
 #define SHARPNESS 1.0
 #define COLOR_BOOST 1.5
@@ -135,16 +138,18 @@ out_vertex main_vertex
 
 float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
 {
+    float3 color;
+
     float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
 
-    float3 color;
-    float2 dx = float2(1.0/TextureSize.x, 0.0);
-    float2 dy = float2(0.0, 1.0/TextureSize.y);
+    float2 dx = lerp(float2(1.0/TextureSize.x, 0.0), float2(0.0, 1.0/TextureSize.y), VSCANLINES);
+    float2 dy = lerp(float2(0.0, 1.0/TextureSize.y), float2(1.0/TextureSize.x, 0.0), VSCANLINES);
+
     float2 pix_coord = VAR.texCoord*TextureSize+float2(-0.5,0.5);
 
-    float2 tc = (floor(pix_coord)+float2(0.5,0.5))/TextureSize;
+    float2 tc = lerp((floor(pix_coord)+float2(0.5,0.5))/TextureSize, (floor(pix_coord)+float2(1.0,-0.5))/TextureSize, VSCANLINES);
 
-    float2 fp = frac(pix_coord);
+    float2 fp = lerp(frac(pix_coord), frac(pix_coord.yx), VSCANLINES);
 
     float3 c00 = GAMMA_IN(tex2D(s_p, tc     - dx - dy).xyz);
     float3 c01 = GAMMA_IN(tex2D(s_p, tc          - dy).xyz);
@@ -190,7 +195,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     color *= COLOR_BOOST*float3(RED_BOOST, GREEN_BOOST, BLUE_BOOST);
 
-    float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
+    float mod_factor = lerp(VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x, VAR.texCoord.y * IN.output_size.y * IN.texture_size.y / IN.video_size.y, VSCANLINES);
 
     float3 dotMaskWeights = lerp(
                                  float3(1.0, 0.7, 1.0),
