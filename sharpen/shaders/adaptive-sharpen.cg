@@ -1,11 +1,8 @@
-#pragma parameter CURVE_HEIGHT "AS Curve Height" 1.0 0.1 2.0 0.1
-#pragma parameter VIDEO_LEVEL_OUT "AS Video Lvl Out" 0.0 0.0 1.0 1.0
+#pragma parameter CURVE_HEIGHT "AS Sharpness" 0.8 0.1 2.0 0.1
 #ifdef PARAMETER_UNIFORM
 uniform float CURVE_HEIGHT;
-uniform float VIDEO_LEVEL_OUT;
 #else
-#define CURVE_HEIGHT 1.0
-#define VIDEO_LEVEL_OUT 0.0
+#define CURVE_HEIGHT 0.4
 #endif
 // END PARAMETERS //
 
@@ -47,6 +44,8 @@ uniform float VIDEO_LEVEL_OUT;
 
 // Adaptive sharpen - version 2015-05-15 - (requires ps >= 3.0)
 // Tuned for use post resize, EXPECTS FULL RANGE GAMMA LIGHT
+
+#define VIDEO_LEVEL_OUT 0.0
 
 
 #define curve_height    CURVE_HEIGHT         // Main sharpening strength, POSITIVE VALUE ONLY!

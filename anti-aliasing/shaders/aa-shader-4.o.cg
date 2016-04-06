@@ -1,8 +1,8 @@
-#pragma parameter X "Sharpness tuning" 1.0 1.0 4.0 1.0
+#pragma parameter INTERNAL_RES "Internal Resolution" 1.0 1.0 8.0 1.0
 #ifdef PARAMETER_UNIFORM
-uniform float X;
+uniform float INTERNAL_RES;
 #else
-#define X  1.0
+#define INTERNAL_RES  1.0
 #endif
 // END PARAMETERS //
 
@@ -47,7 +47,7 @@ struct input
 struct out_vertex {
 	float4 position : POSITION;
 	float4 color    : COLOR;
-	float2 texCoord1 : TEXCOORD0;
+	float2 texCoord : TEXCOORD0;
 };
 
 /*    VERTEX_SHADER    */
@@ -55,7 +55,7 @@ out_vertex main_vertex
 (
 	float4 position	: POSITION,
 	float4 color	: COLOR,
-	float2 texCoord1 : TEXCOORD0,
+	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
 	uniform input IN
@@ -64,12 +64,8 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
-
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
-	OUT.texCoord1 = texCoord;
+	OUT.color    = color;
+	OUT.texCoord = texCoord;
 
 	return OUT;
 }
@@ -79,14 +75,13 @@ out_vertex main_vertex
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 	// Calculating texel coordinates
-//	float2 size     = X*float2(256.0, 224.0);
-//	float2 size     = X*IN.texture_size;
-	float2 size     = X*(IN.output_size/IN.video_size)*IN.texture_size;
+	float2 size     = 4.0*IN.texture_size/INTERNAL_RES;
+//	float2 size     = X*(IN.output_size/IN.video_size)*IN.texture_size;
 	float2 inv_size = 1/size;
 
 	float4 yx = float4(inv_size, -inv_size);
 	
-	float2 OGL2Pos = VAR.texCoord1*size;
+	float2 OGL2Pos = VAR.texCoord*size;
 
 	float2 fp = frac(OGL2Pos);
 	float2 dx = float2(inv_size.x,0.0);
