@@ -13,8 +13,10 @@
 #pragma parameter ZOOM "Zoom Factor" 1.0 0.0 4.0 0.01
 #pragma parameter XPOS "X Modifier" 0.0 -2.0 2.0 0.005
 #pragma parameter YPOS "Y Modifier" 0.0 -2.0 2.0 0.005
-#pragma parameter V_OSMASK "Overscan Mask Y" 0.0 0.0 1.0 0.001
-#pragma parameter H_OSMASK "Overscan Mask X" 0.0 0.0 1.0 0.001
+#pragma parameter TOPMASK "Overscan Mask Top" 0.0 0.0 1.0 0.0025
+#pragma parameter BOTMASK "Overscan Mask Bottom" 0.0 0.0 1.0 0.0025
+#pragma parameter LMASK "Overscan Mask Left" 0.0 0.0 1.0 0.0025
+#pragma parameter RMASK "Overscan Mask Right" 0.0 0.0 1.0 0.0025
 #ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
 uniform float monitor_gamma;
@@ -31,8 +33,10 @@ uniform float B;
 uniform float ZOOM;
 uniform float XPOS;
 uniform float YPOS;
-uniform float V_OSMASK;
-uniform float H_OSMASK;
+uniform float TOPMASK;
+uniform float BOTMASK;
+uniform float LMASK;
+uniform float RMASK;
 #else
 #define overscan_percent_x 0.0         // crop width of image by X%; default is 0.0
 #define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
@@ -49,8 +53,10 @@ uniform float H_OSMASK;
 #define ZOOM 1.0
 #define XPOS 0.0
 #define YPOS 0.0
-#define V_OSMASK 0.0
-#define H_OSMASK 0.0
+#define TOPMASK 0.0
+#define BOTMASK 0.0
+#define LMASK 0.0
+#define RMASK 0.0
 #endif
 // END PARAMETERS //
 
@@ -116,12 +122,12 @@ float2 fragcoord = texCoord.xy * (IN.texture_size.xy / IN.video_size.xy);
    conColor = saturate(conColor * luminance); // apply luminance
    conColor += float3(bright_boost); // apply brightboost
    conColor *= float3(R, G, B);
-if (fragcoord.y > V_OSMASK && fragcoord.y < (1.0 - V_OSMASK))
+if (fragcoord.y > TOPMASK && fragcoord.y < (1.0 - BOTMASK))
 conColor = conColor;
 else
 conColor = 0.0;
 
-if (fragcoord.x > H_OSMASK && fragcoord.x < (1.0 - H_OSMASK))
+if (fragcoord.x > LMASK && fragcoord.x < (1.0 - RMASK))
 conColor = conColor;
 else
 conColor = 0.0;
