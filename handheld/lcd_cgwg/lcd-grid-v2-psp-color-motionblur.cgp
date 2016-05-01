@@ -1,6 +1,6 @@
 shaders = "3"
 shader0 = "../../motionblur/shaders/motionblur-simple.cg"
-shader1 = "../nds-color.cg"
+shader1 = "../psp-color.cg"
 shader2 = "lcd-grid-v2.cg"
 
 filter_linear0 = "false"
