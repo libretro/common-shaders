@@ -27,7 +27,7 @@ uniform float bg;
 uniform float overscan_percent_x;
 uniform float overscan_percent_y;
 
-#define display_gamma 1.45
+#define display_gamma 1.8
 #define target_gamma 2.2
 #define sat 1.0
 #define lum 0.99
