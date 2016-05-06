@@ -1,0 +1,84 @@
+#pragma parameter PARAM1 "Zoom" 10.0 1.0 50.0 1.0
+#pragma parameter PARAM2 "Location" 10.0 1.0 50.0 1.0
+#pragma parameter PARAM3 "Speed" 1.0 0.5 5.0 0.5
+#pragma parameter PARAM4 "Factor 1" 2.0 0.1 3.0 0.1
+#pragma parameter PARAM5 "Factor 2" 1.0 0.1 2.0 0.1
+#pragma parameter PARAM6 "Factor 3" 0.1 0.01 0.2 0.01
+#pragma parameter R "Red" 0.0 0.0 1.0 0.1
+#pragma parameter G "Green" 0.3 0.0 1.0 0.1
+#pragma parameter B "Blue" 0.5 0.0 1.0 0.1
+#ifdef PARAMETER_UNIFORM
+uniform float PARAM1;
+uniform float PARAM2;
+uniform float PARAM3;
+uniform float PARAM4;
+uniform float PARAM5;
+uniform float PARAM6;
+uniform float R;
+uniform float G;
+uniform float B;
+#else
+#define PARAM1 10.0
+#define PARAM2 10.0
+#define PARAM3 10.0
+#define PARAM4 2.0
+#define PARAM5 1.0
+#define PARAM6 0.1
+#define R 0.0
+#define G 0.3
+#define B 0.5
+#endif
+// END PARAMETERS //
+
+// Animated Border Cg shader
+// Copyright (c) 2014 Mudlord licensed under the WTFPL.
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
+};
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+float4 main_fragment (
+   float2 texCoord : TEXCOORD0,
+   uniform sampler2D s0 : TEXUNIT0,
+   uniform input IN) : COLOR
+{
+        float2 sp = (texCoord.xy*(IN.texture_size.xy/IN.video_size.xy));
+        float2 p = sp*PARAM1 - float2(PARAM2);
+        float2 i = p;
+        float c = 1.0;
+        float inten = PARAM6;//0.01;
+        float t = 0.01 * PARAM3 * IN.frame_count* (1.0 - (3.0 / float(0+1)));
+        i = p + float2(cos(t - i.x) + sin(t + i.y), sin(t - i.y) + cos(t + i.x));
+        c += 1.2/length(float2(p.x / (sin(i.x+t)/inten),p.y / (cos(i.y+t)/inten)));
+        c /= PARAM5;//1.5;
+        c = PARAM4-sqrt(c);
+	float4 color = float4(R,G,B,1.0);//(float4(tex2D(s0, float2(0.3 * IN.video_size / IN.texture_size)).rgb, 1.0));
+
+	//float4(R,G,B,1.0);
+
+	return float4(float3(c*c*c*c), 1.0) + color;
+}

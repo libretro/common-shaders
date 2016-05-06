@@ -1,0 +1,61 @@
+#pragma parameter ZOOM "Border Zoom" 10.0 0.5 20.0 0.5
+#pragma parameter SPEED "Border Speed" 4.0 0.5 10.0 0.5
+#ifdef PARAMETER_UNIFORM
+uniform float ZOOM;
+uniform float SPEED;
+#else
+#define ZOOM 4.0
+#define SPEED 4.0
+#endif
+
+
+// Color Grid Border
+// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
+// Created by inigo quilez - iq/2014
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
+};
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+#define fragcoord (tex.xy * (IN.texture_size.xy/IN.video_size.xy))
+
+float4 main_fragment (
+   float2 tex : TEXCOORD0,
+   uniform sampler2D s0 : TEXUNIT0,
+   uniform input IN) : COLOR
+{
+    float2  px = 1000.0 *(-IN.texture_size.xy + 2.0 * ZOOM * fragcoord.xy) / IN.texture_size.y;
+	
+    float id = 0.5 + 0.5*cos(IN.frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
+    
+    float3  co = 0.5 + 0.5*cos(IN.frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
+    
+    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
+
+	return float4( co*pa.x*pa.y, 1.0 );
+}

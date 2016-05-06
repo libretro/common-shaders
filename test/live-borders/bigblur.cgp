@@ -1,0 +1,11 @@
+shaders = 4
+shader0 = ../stock.cg
+scale_type0 = source
+scale0 = 4.0
+shader1 = bigblur-horiz.cg
+shader2 = bigblur-vert.cg
+shader3 = bigblur-border.cg
+
+parameters = "border_on_top;CGPFACTOR"
+border_on_top = 0.0
+CGPFACTOR = 4.0
