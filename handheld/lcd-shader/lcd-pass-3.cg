@@ -25,9 +25,15 @@
 
 //values related to color blending on the darkened vertical lines of the output image
 
+#pragma parameter LCD_blending "LCD Blending" 0.2 0.0 0.5 0.01
+#pragma parameter original_blending "Original Blending" 0.2 0.0 0.5 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float LCD_blending;
+uniform float original_blending;
+#else
 #define LCD_blending		0.2	//contribution of LCD colors to the blended output, higher values apply more color - [0.0, 0.5]
 #define original_blending	0.2	//contribution of the original input colors to the blended output, higher values apply more color - [0.0, 0.5]
-
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
