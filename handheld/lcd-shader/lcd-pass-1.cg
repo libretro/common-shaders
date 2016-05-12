@@ -32,7 +32,6 @@
 #pragma parameter triad_color_2_r "LCD Blue Triad Color R" 0.0 0.0 1.0 0.1
 #pragma parameter triad_color_2_g "LCD Blue Triad Color G" 1.0 0.0 1.0 0.1
 #pragma parameter triad_color_2_b "LCD Blue Triad Color B" 1.0 0.0 1.0 0.1
-#pragma parameter BGR "BGR" 0.0 0.0 1.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float cell_scale;
 uniform float triad_color_0_r;
@@ -44,7 +43,6 @@ uniform float triad_color_1_b;
 uniform float triad_color_2_r;
 uniform float triad_color_2_g;
 uniform float triad_color_2_b;
-uniform float BGR;
 #else
 #define cell_scale 1.0		//scales LCD cell width by an integer value, recommend leaving at 1.0 at normal viewing distance or color separation will be severe
                            //if increased it should be at 1/3 the output scale which itself should be a multiple of 3 (ex. cell_scale = 2.0 when output is at 6x scale, 3.0 at 9x, etc...)
@@ -57,7 +55,6 @@ uniform float BGR;
 #define triad_color_2_r 0.0
 #define triad_color_2_g 1.0
 #define triad_color_2_b 1.0
-#define BGR 0.0
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
@@ -128,15 +125,10 @@ float4 main_fragment( float2 texCoord        		: TEXCOORD0,
   //use modulo to deterimine the current subcell location and apply proper color
 
     float modX = fmod(texCoord.x, cell_scale * texData.three_dX);
-    fixed3 subpixel_color;
-    if (BGR > 0.5) {
-             subpixel_color = (modX < cell_scale * texData.dX)		? triad_color_0 : 
-			             (modX < cell_scale * texData.two_dX)	? triad_color_2 : triad_color_1;
-    }
-    else {
-             subpixel_color = (modX < cell_scale * texData.dX)		? triad_color_2 : 
-			             (modX < cell_scale * texData.two_dX)	? triad_color_0 : triad_color_1;
-    }
+
+    fixed3 subpixel_color = (modX < cell_scale * texData.dX)		? triad_color_0 : 
+			    (modX < cell_scale * texData.two_dX)	? triad_color_1 : triad_color_2;
+
 
   //use color darkening with input texture to determine the final color of the subpixel
   //color darkening: the minimum value for each color component between the LCD cell and the input image is selected
