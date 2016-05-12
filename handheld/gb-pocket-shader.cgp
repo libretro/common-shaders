@@ -1,0 +1,33 @@
+shaders = 5
+shader0 = shaders/gameboy/shader-files/gb-pass-0.cg
+shader1 = shaders/gameboy/shader-files/gb-pass-1.cg
+shader2 = shaders/gameboy/shader-files/gb-pass-2.cg
+shader3 = shaders/gameboy/shader-files/gb-pass-3.cg
+shader4 = shaders/gameboy/shader-files/gb-pass-4.cg
+
+scale_type0 = viewport
+scale0 = 1
+
+scale_type1 = source
+scale1 = 1
+
+scale_type2 = source
+scale2 = 1
+
+scale_type3 = source
+scale3 = 1
+
+scale_type4 = source
+scale4 = 1
+
+filter_linear0 = false
+filter_linear1 = false
+filter_linear2 = false
+filter_linear3 = false
+filter_linear4 = false
+
+textures = COLOR_PALETTE;BACKGROUND
+COLOR_PALETTE = shaders/gameboy/resources/sample-palettes/gbp-palette.png
+COLOR_PALETTE_linear = false
+BACKGROUND = shaders/gameboy/resources/sample-bgs/paper-bg.png
+BACKGROUND_linear = true

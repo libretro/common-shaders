@@ -1,9 +1,9 @@
 shaders = 5
-shader0 = lcd-pass-0.cg
-shader1 = lcd-pass-1.cg
-shader2 = lcd-pass-2.cg
-shader3 = lcd-pass-3.cg
-shader4 = ../gba-color.cg
+shader0 = shaders/lcd-shader/lcd-pass-0.cg
+shader1 = shaders/lcd-shader/lcd-pass-1.cg
+shader2 = shaders/lcd-shader/lcd-pass-2.cg
+shader3 = shaders/lcd-shader/lcd-pass-3.cg
+shader4 = shaders/color/gba-color.cg
 
 scale_type0 = viewport
 scale0 = 1
@@ -27,7 +27,7 @@ filter_linear3 = false
 filter_linear4 = false
 
 textures = BACKGROUND
-BACKGROUND = ..\lcd-shader\background.png
+BACKGROUND = shaders/lcd-shader/background.png
 BACKGROUND_linear = true
 parameters = "display_gamma"
 display_gamma = "2.200000"

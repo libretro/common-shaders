@@ -4,7 +4,7 @@ shader0 = "../misc/color-mangler.cg"
 filter_linear0 = "false"
 scale_type0 = "source"
 
-shader1 = "lcd_cgwg/lcd-grid.cg"
+shader1 = "shaders/lcd_cgwg/lcd-grid.cg"
 scale_type1 = "viewport"
 filter_linear1 = "false"
 

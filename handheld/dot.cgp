@@ -1,0 +1,4 @@
+shaders = "1"
+
+shader0 = "shaders/dot.cg"
+filter_linear0 = "false"
