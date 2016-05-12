@@ -1,6 +1,6 @@
 shaders = "2"
-shader0 = "../vba-color.cg"
-shader1 = "lcd-grid-v2.cg"
+shader0 = "shaders/color/nds-color.cg"
+shader1 = "shaders/lcd_cgwg/lcd-grid-v2.cg"
 
 filter_linear0 = "false"
 scale_type0 = "source"
