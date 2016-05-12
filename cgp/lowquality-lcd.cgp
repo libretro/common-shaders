@@ -1,6 +1,6 @@
 shaders = "2"
 shader0 = "../misc/image-adjustment.cg"
-shader1 = "../handheld/lcd_cgwg/lcd-grid.cg"
+shader1 = "../handheld/shaders/lcd_cgwg/lcd-grid.cg"
 
 filter_linear0 = "false"
 

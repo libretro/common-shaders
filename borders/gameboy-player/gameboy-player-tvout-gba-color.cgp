@@ -1,5 +1,5 @@
 shaders = "4"
-shader0 = "../../handheld/gba-color.cg"
+shader0 = "../../handheld/shaders/color/gba-color.cg"
 shader1 = "../resources/imgborder-gameboy-player.cg"
 shader2 = "../../crt/shaders/tvout-tweaks.cg"
 shader3 = "../../misc/image-adjustment.cg"
