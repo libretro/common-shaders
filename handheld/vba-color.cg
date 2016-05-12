@@ -6,47 +6,31 @@
 */
 
 // Shader that replicates the LCD dynamics from a GameBoy Advance
-
-uniform float display_gamma;
+#pragma parameter target_gamma "Darken Intensity" 2.9 1.0 2.9 0.05
+#ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
-uniform float sat;
-uniform float lum;
-uniform float contrast;
-uniform float blr;
-uniform float blg;
-uniform float blb;
-uniform float r;
-uniform float g;
-uniform float b;
-uniform float rg;
-uniform float rb;
-uniform float gr;
-uniform float gb;
-uniform float br;
-uniform float bg;
-uniform float overscan_percent_x;
-uniform float overscan_percent_y;
+#else
+#define target_gamma 2.9
+#endif
 
-#define display_gamma 1.8
-#define target_gamma 2.2
+#define display_gamma 1.45
 #define sat 1.0
-#define lum 0.99
+#define lum 1.0
 #define contrast 1.0
 #define blr 0.0
 #define blg 0.0
 #define blb 0.0
-#define r 0.85
-#define g 0.695
-#define b 0.73
-#define rg 0.085
-#define rb 0.17
-#define gr 0.17
-#define gb 0.10
+#define r 0.74
+#define g 0.68
+#define b 0.68
+#define rg 0.08
+#define rb 0.08
+#define gr 0.26
+#define gb 0.24
 #define br 0.0
-#define bg 0.26
+#define bg 0.24
 #define overscan_percent_x 0.0
 #define overscan_percent_y 0.0
-#endif
 
 struct input
 {

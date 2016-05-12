@@ -37,9 +37,9 @@ uniform float overscan_percent_y;
 #define blb 0.0
 #define r 0.77
 #define g 0.65
-#define b 0.75
+#define b 0.74
 #define rg 0.09
-#define rb 0.08
+#define rb 0.09
 #define gr 0.23
 #define gb 0.11
 #define br 0.0

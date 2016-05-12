@@ -22,10 +22,40 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //config                                                                                                                                  //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+#pragma parameter cell_scale "LCD Cell Scale" 1.0 1.0 5.0 1.0
+#pragma parameter triad_color_0_r "LCD Red Triad Color R" 1.0 0.0 1.0 0.1
+#pragma parameter triad_color_0_g "LCD Red Triad Color G" 0.0 0.0 1.0 0.1
+#pragma parameter triad_color_0_b "LCD Red Triad Color B" 1.0 0.0 1.0 0.1
+#pragma parameter triad_color_1_r "LCD Green Triad Color R" 1.0 0.0 1.0 0.1
+#pragma parameter triad_color_1_g "LCD Green Triad Color G" 1.0 0.0 1.0 0.1
+#pragma parameter triad_color_1_b "LCD Green Triad Color B" 0.0 0.0 1.0 0.1
+#pragma parameter triad_color_2_r "LCD Blue Triad Color R" 0.0 0.0 1.0 0.1
+#pragma parameter triad_color_2_g "LCD Blue Triad Color G" 1.0 0.0 1.0 0.1
+#pragma parameter triad_color_2_b "LCD Blue Triad Color B" 1.0 0.0 1.0 0.1
+#ifdef PARAMETER_UNIFORM
+uniform float cell_scale;
+uniform float triad_color_0_r;
+uniform float triad_color_0_g;
+uniform float triad_color_0_b;
+uniform float triad_color_1_r;
+uniform float triad_color_1_g;
+uniform float triad_color_1_b;
+uniform float triad_color_2_r;
+uniform float triad_color_2_g;
+uniform float triad_color_2_b;
+#else
 #define cell_scale 1.0		//scales LCD cell width by an integer value, recommend leaving at 1.0 at normal viewing distance or color separation will be severe
-				//if increased it should be at 1/3 the output scale which itself should be a multiple of 3 (ex. cell_scale = 2.0 when output is at 6x scale, 3.0 at 9x, etc...)
-
+                           //if increased it should be at 1/3 the output scale which itself should be a multiple of 3 (ex. cell_scale = 2.0 when output is at 6x scale, 3.0 at 9x, etc...)
+#define triad_color_0_r 1.0
+#define triad_color_0_g 0.0
+#define triad_color_0_b 1.0
+#define triad_color_1_r 1.0
+#define triad_color_1_g 1.0
+#define triad_color_1_b 0.0
+#define triad_color_2_r 0.0
+#define triad_color_2_g 1.0
+#define triad_color_2_b 1.0
+#endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //structs                                                                                                                                 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,9 +105,10 @@ void main_vertex( float4 position      			: POSITION,
 //fragment definitions                                                                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define triad_color_0 fixed3(1.0, 0.0, 1.0)	//magenta
-#define triad_color_1 fixed3(1.0, 1.0, 0.0)	//yellow
-#define triad_color_2 fixed3(0.0, 1.0, 1.0)	//cyan
+
+#define triad_color_0 fixed3(triad_color_0_r, triad_color_0_g, triad_color_0_b)	//magenta
+#define triad_color_1 fixed3(triad_color_1_r, triad_color_1_g, triad_color_1_b)	//yellow
+#define triad_color_2 fixed3(triad_color_2_r, triad_color_2_g, triad_color_2_b)	//cyan
 
 //#define triad_color_0 fixed3(0.0, 0.0, 1.0)	//blue
 //#define triad_color_1 fixed3(1.0, 0.0, 0.0)	//red
