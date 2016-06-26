@@ -1,0 +1,124 @@
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Sharpsmoother shader
+   
+   Copyright (C) 2005-2016 guest(r) - guest.r@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+*/
+
+
+const static float3 dt = float3(1.0, 1.0, 1.0);
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+    float frame_count;
+    float frame_direction;
+	float frame_rotation;
+};
+
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 tex      : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+   float x = 1.0 * (1.0 / IN.texture_size.x);
+   float y = 1.0 * (1.0 / IN.texture_size.y);
+   float2 dg1 = float2( x, y);
+   float2 dg2 = float2(-x, y);
+   float2 dx = float2(x, 0.0);
+   float2 dy = float2(0.0, y);
+
+	out_vertex OUT = { 
+		mul(modelViewProj, position),
+		tex,
+		float4(tex-dg1,tex-dy),
+		float4(tex-dg2,tex+dx),
+		float4(tex+dg1,tex+dy),
+		float4(tex+dg2,tex-dx)
+	};
+
+
+	return OUT;
+}
+
+ const float mx = 0.325;       // start smoothing wt.
+ const float k = -0.300;       // wt. decrease factor
+ const float max_w = 0.150;    // max filter weigth hor./vert
+ const float max_d = 0.100;    // max filter weigth diag  (4*(max_w + wax_d) should ideally be 1.0
+ const float min_w =-0.065;    // min filter weigth
+ const float lum_add = 0.25;   // effects smoothing
+
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+ {
+
+   float3 c00 = tex2D(decal, VAR.t1.xy).xyz; 
+   float3 c10 = tex2D(decal, VAR.t1.zw).xyz; 
+   float3 c20 = tex2D(decal, VAR.t2.xy).xyz; 
+   float3 c01 = tex2D(decal, VAR.t4.zw).xyz; 
+   float3 c11 = tex2D(decal, VAR.texCoord).xyz; 
+   float3 c21 = tex2D(decal, VAR.t2.zw).xyz; 
+   float3 c02 = tex2D(decal, VAR.t4.xy).xyz; 
+   float3 c12 = tex2D(decal, VAR.t3.zw).xyz; 
+   float3 c22 = tex2D(decal, VAR.t3.xy).xyz; 
+
+   float l10 = 0.12 * dot(c10 + c10 + c11, dt) + lum_add;
+   float l01 = 0.12 * dot(c01 + c01 + c11, dt) + lum_add;
+   float l12 = 0.12 * dot(c12 + c12 + c11, dt) + lum_add;
+   float l21 = 0.12 * dot(c21 + c21 + c11, dt) + lum_add;
+
+   float l00 = 0.12 * dot(c00 + c00 + c11, dt) + lum_add;
+   float l22 = 0.12 * dot(c22 + c22 + c11, dt) + lum_add;
+   float l20 = 0.12 * dot(c20 + c20 + c11, dt) + lum_add;
+   float l02 = 0.12 * dot(c02 + c02 + c11, dt) + lum_add;
+
+   float w10 = clamp(k * dot(abs(c11 - c10), dt)/l10 + mx, min_w, max_w);
+   float w21 = clamp(k * dot(abs(c11 - c21), dt)/l21 + mx, min_w, max_w);
+   float w12 = clamp(k * dot(abs(c11 - c12), dt)/l12 + mx, min_w, max_w);
+   float w01 = clamp(k * dot(abs(c11 - c01), dt)/l01 + mx, min_w, max_w);
+
+   float w00 = clamp(k * dot(abs(c11 - c00), dt)/l00 + mx, min_w, max_d);
+   float w22 = clamp(k * dot(abs(c11 - c22), dt)/l22 + mx, min_w, max_d);
+   float w20 = clamp(k * dot(abs(c11 - c20), dt)/l20 + mx, min_w, max_d);
+   float w02 = clamp(k * dot(abs(c11 - c02), dt)/l02 + mx, min_w, max_d);
+
+   return float4(w10*c10 + w21*c21 + w12*c12 + w01*c01 + w00*c00 + w22*c22 + w20*c20 + w02*c02 + (1.0-w10-w21-w12-w01-w00-w22-w20-w02)*c11, 1.0);
+}
