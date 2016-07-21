@@ -1,0 +1,122 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+#define hardScan -8.0
+#define hardPix -3.0
+#define warpX 0.031
+#define warpY 0.041
+#define maskDark 0.5
+#define maskLight 1.5
+#define scaleInLinearGamma 1
+#define shadowMask 4
+#define brightboost 1
+#define hardBloomScan -2.0
+#define hardBloomPix -1.5
+#define bloomAmount 1.0/16.0
+#define shape 2.0
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+};
+
+struct passprev2
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   sampler2D texture;
+};
+
+input IN_global;
+sampler2D s0_global;
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otex : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otex = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+// Nearest emulated sample given floating point position and texel offset.
+// Also zero's off screen.
+float3 Fetch(float2 pos,float2 off){
+  pos=(floor(pos*IN_global.texture_size.xy+off)+float2(0.5,0.5))/IN_global.texture_size.xy;
+  return brightboost * tex2D(s0_global,pos.xy).rgb;
+}
+
+// Distance in emulated pixels to nearest texel.
+float2 Dist(float2 pos){pos=pos*IN_global.texture_size.xy;return -((pos-floor(pos))-float2(0.5));}
+    
+// 1D Gaussian.
+float Gaus(float pos,float scale){return exp2(scale*pow(abs(pos),shape));}
+
+// 7-tap Gaussian filter along horz line.
+float3 Horz7(float2 pos,float off){
+  float3 a=Fetch(pos,float2(-3.0,off));
+  float3 b=Fetch(pos,float2(-2.0,off));
+  float3 c=Fetch(pos,float2(-1.0,off));
+  float3 d=Fetch(pos,float2( 0.0,off));
+  float3 e=Fetch(pos,float2( 1.0,off));
+  float3 f=Fetch(pos,float2( 2.0,off));
+  float3 g=Fetch(pos,float2( 3.0,off));
+  float dst=Dist(pos).x;
+  // Convert distance to weight.
+  float scale=hardBloomPix;
+  float wa=Gaus(dst-3.0,scale);
+  float wb=Gaus(dst-2.0,scale);
+  float wc=Gaus(dst-1.0,scale);
+  float wd=Gaus(dst+0.0,scale);
+  float we=Gaus(dst+1.0,scale);
+  float wf=Gaus(dst+2.0,scale);
+  float wg=Gaus(dst+3.0,scale);
+  // Return filtered sample.
+  return (a*wa+b*wb+c*wc+d*wd+e*we+f*wf+g*wg)/(wa+wb+wc+wd+we+wf+wg);}
+  
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+
+output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev2 PASSPREV2) 
+{
+  s0_global = PASSPREV2.texture;
+  IN_global = IN;
+  float2 pos= tex.xy*(IN.texture_size.xy/IN.video_size.xy)*(IN.video_size.xy/IN.texture_size.xy);
+
+   output OUT;
+   OUT.color = float4(Horz7(tex, 0.0), 1.0);
+   return OUT;
+}
+

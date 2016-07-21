@@ -1,0 +1,39 @@
+void main_vertex
+(
+	float4 position : POSITION,
+	float4 color    : COLOR,
+	float2 texCoord : TEXCOORD0,
+
+   uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	otexCoord = texCoord;
+}
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float  frame_rotation;
+};
+
+#pragma parameter GAMMA "Input Gamma" 2.4 2.0 2.6 0.02
+#ifdef PARAMETER_UNIFORM
+uniform float GAMMA;
+#else
+#define GAMMA 2.4
+#endif
+
+float4 main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+{
+   float3 color = tex2D(s0, tex).rgb;
+   return float4(pow(color, GAMMA), 1.0);
+}
+
