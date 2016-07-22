@@ -10,16 +10,16 @@ float_framebuffer1 = true
 shader2 = shaders/crt-lottes-multipass/horz3.cg
 float_framebuffer2 = true
 scale_type2 = source
-//scale2 = 1.0
+filter_linear2 = true
 
 shader3 = shaders/crt-lottes-multipass/horz5.cg
 float_framebuffer3 = true
 scale_type3 = source
-//scale3 = 1.0
+filter_linear3 = true
 
 shader4 = shaders/crt-lottes-multipass/horz7.cg
 float_framebuffer4 = true
 scale_type4 = source
-//scale4 = 1.0
+filter_linear4 = true
 
 shader5 = shaders/crt-lottes-multipass/crt-lottes-multipass.cg
