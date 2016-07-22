@@ -16,7 +16,6 @@
 
 // -- config  -- //
 #pragma parameter hardScan "hardScan" -8.0 -40.0 0.0 1.0 // default, minimum, maximum, optional step
-#pragma parameter hardPix "hardPix" -3.0 -40.0 0.0 1.0
 #pragma parameter warpX "warpX" 0.031 0.0 0.125 0.01
 #pragma parameter warpY "warpY" 0.041 0.0 0.125 0.01
 #pragma parameter maskDark "maskDark" 0.5 0.0 2.0 0.1
@@ -30,7 +29,6 @@
 
 #ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
 uniform float hardScan;
-uniform float hardPix;
 uniform float warpX;
 uniform float warpY;
 uniform float maskDark;
@@ -43,7 +41,6 @@ uniform float bloomAmount;
 uniform float shape;
 #else
 #define hardScan -8.0
-#define hardPix -3.0
 #define warpX 0.031
 #define warpY 0.041
 #define maskDark 0.5
@@ -127,11 +124,70 @@ struct passprev3
    sampler2D texture;
 };
 
+struct passprev4
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture;
+};
+
+struct passprev5
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture;
+};
+
+struct passprev6
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture;
+};
+
+struct passprev7
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture;
+};
+
+struct passprev8
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   float frame_rotation;
+   sampler2D texture;
+};
+
 input IN_global;
-sampler2D s0_global;
-sampler2D s3_global;
+sampler2D s3minus1_global;
+sampler2D s3plus1_global;
+sampler2D s5minus2_global;
 sampler2D s5_global;
+sampler2D s5plus2_global;
+sampler2D s7minus1_global;
 sampler2D s7_global;
+sampler2D s7plus1_global;
 
 #define warp float2(warpX,warpY)
 
@@ -148,13 +204,6 @@ float3 ToSrgb(float3 c)
    return float3(ToSrgb1(c.r),ToSrgb1(c.g),ToSrgb1(c.b));
 }
 
-// Nearest emulated sample given floating point position and texel offset.
-// Also zero's off screen.
-float3 Fetch(float2 pos,float2 off){
-  pos=(floor(pos*IN_global.texture_size.xy+off)+float2(0.5,0.5))/IN_global.texture_size.xy;
-  return (brightboost * tex2D(s0_global,pos.xy).rgb);
-}
-
 // Distance in emulated pixels to nearest texel.
 float2 Dist(float2 pos){pos=pos*IN_global.texture_size.xy;return -((pos-floor(pos))-float2(0.5));}
     
@@ -166,30 +215,34 @@ float Scan(float2 pos,float off){
   float dst=Dist(pos).y;
   return Gaus(dst+off,hardScan);}
   
-  // Return scanline weight for bloom.
+// Return scanline weight for bloom.
 float BloomScan(float2 pos,float off){
   float dst=Dist(pos).y;
   return Gaus(dst+off,hardBloomScan);}
 
 // Allow nearest three lines to effect pixel.
 float3 Tri(float2 pos){
-  float3 a=tex2D(s3_global, pos).rgb;
-  float3 b=tex2D(s0_global, pos).rgb;
+  float3 a=tex2D(s3minus1_global, pos).rgb;
+  float3 b=tex2D(s5_global, pos).rgb;
+  float3 c=tex2D(s3plus1_global, pos).rgb;
   float wa=Scan(pos,-1.0);
   float wb=Scan(pos, 0.0);
   float wc=Scan(pos, 1.0);
-  return a*wa+b*wb+a*wc;}
+  return a*wa+b*wb+c*wc;}
   
 // Small bloom.
 float3 Bloom(float2 pos){
-  float3 a=tex2D(s5_global, pos).rgb;
-  float3 b=tex2D(s7_global, pos).rgb;
+  float3 a=tex2D(s5minus2_global, pos).rgb;
+  float3 b=tex2D(s7minus1_global, pos).rgb;
+  float3 c=tex2D(s7_global, pos).rgb;
+  float3 d=tex2D(s7plus1_global, pos).rgb;
+  float3 e=tex2D(s5plus2_global, pos).rgb;
   float wa=BloomScan(pos,-2.0);
   float wb=BloomScan(pos,-1.0);
   float wc=BloomScan(pos, 0.0);
   float wd=BloomScan(pos, 1.0);
   float we=BloomScan(pos, 2.0);
-  return a*wa+b*wb+b*wc+b*wd+a*we;}
+  return a*wa+b*wb+c*wc+d*wd+e*we;}
 
 // Distortion of scanlines, and end of screen alpha.
 float2 Warp(float2 pos){
@@ -247,17 +300,31 @@ float3 Mask(float2 pos){
 
   return mask;}    
 
-float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev PASSPREV, uniform passprev1 PASSPREV1, uniform passprev2 PASSPREV2, uniform passprev3 PASSPREV3) : COLOR
+float4 main_fragment (float2 tex : TEXCOORD,
+uniform sampler2D s0 : TEXUNIT0,
+uniform input IN,
+uniform passprev PASSPREV,
+uniform passprev1 PASSPREV1,
+uniform passprev2 PASSPREV2,
+uniform passprev3 PASSPREV3,
+uniform passprev4 PASSPREV4,
+uniform passprev5 PASSPREV5,
+uniform passprev6 PASSPREV6,
+uniform passprev7 PASSPREV7,
+uniform passprev8 PASSPREV8) : COLOR
 {
   float2 pos=Warp(tex.xy*(IN.texture_size.xy/IN.video_size.xy))*(IN.video_size.xy/IN.texture_size.xy);
-  s0_global = PASSPREV3.texture;
-  s3_global = PASSPREV2.texture;
-  s5_global = PASSPREV1.texture;
-  s7_global = PASSPREV.texture;
-  IN_global = IN;
-  float3 outColor = Tri(pos);
+	s3minus1_global	=	PASSPREV8.texture;
+	s3plus1_global	=	PASSPREV7.texture;
+	s5minus2_global	=	PASSPREV6.texture;
+	s5_global		=	PASSPREV5.texture;
+	s5plus2_global	=	PASSPREV4.texture;
+	s7minus1_global	=	PASSPREV3.texture;
+	s7_global		=	PASSPREV2.texture;
+	s7plus1_global	=	PASSPREV1.texture;
+	IN_global		=	IN;
+	float3 outColor	=	Tri(pos);
 
-  
   #ifdef DO_BLOOM
   
   //Add Bloom

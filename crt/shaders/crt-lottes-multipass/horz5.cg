@@ -2,18 +2,20 @@
    - HLSL compilers
    - Cg   compilers
 */
-#pragma parameter brightboost "brightness5" 1.0 0.0 2.0 0.05
-#pragma parameter shape "filter kernel shape5" 2.0 0.0 10.0 0.05
-#pragma parameter hardPix "hardPix5" -3.0 -40.0 0.0 1.0
-#ifdef PARAMETER_UNIFORM // If the shader implementation understands #pragma parameters, this is defined.
-uniform float brightboost;
-uniform float shape;
-uniform float hardPix;
-#else
-#define hardPix -3.0
+
+#define hardPix -10.0
 #define brightboost 1
 #define shape 2.0
-#endif
+
+struct passprev4
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   sampler2D texture;
+};
 
 struct input
 {
@@ -23,16 +25,6 @@ struct input
    float  frame_count;
    float  frame_direction;
    float frame_rotation;
-};
-
-struct passprev1
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   sampler2D texture;
 };
 
 input IN_global;
@@ -91,21 +83,10 @@ float3 Horz5(float2 pos,float off){
   float we=Gaus(dst+2.0,scale);
   // Return filtered sample.
   return (a*wa+b*wb+c*wc+d*wd+e*we)/(wa+wb+wc+wd+we);}
-  
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
 
-
-output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev1 PASSPREV1) 
+output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev4 PASSPREV4) 
 {
-  s0_global = PASSPREV1.texture;
+  s0_global = PASSPREV4.texture;
   IN_global = IN;
 
    output OUT;

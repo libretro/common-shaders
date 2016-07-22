@@ -3,10 +3,19 @@
    - Cg   compilers
 */
 
+#define hardPix -10.0
 #define brightboost 1
 #define shape 2.0
-#define hardBloomPix -1.5
 
+struct passprev1
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float  frame_count;
+   float  frame_direction;
+   sampler2D texture;
+};
 
 struct input
 {
@@ -16,16 +25,6 @@ struct input
    float  frame_count;
    float  frame_direction;
    float frame_rotation;
-};
-
-struct passprev7
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   sampler2D texture;
 };
 
 input IN_global;
@@ -67,35 +66,27 @@ float2 Dist(float2 pos){pos=pos*IN_global.texture_size.xy;return -((pos-floor(po
 // 1D Gaussian.
 float Gaus(float pos,float scale){return exp2(scale*pow(abs(pos),shape));}
 
-// 7-tap Gaussian filter along horz line.
-float3 Horz7(float2 pos,float off){
-  float3 a=Fetch(pos,float2(-3.0,off));
-  float3 b=Fetch(pos,float2(-2.0,off));
-  float3 c=Fetch(pos,float2(-1.0,off));
-  float3 d=Fetch(pos,float2( 0.0,off));
-  float3 e=Fetch(pos,float2( 1.0,off));
-  float3 f=Fetch(pos,float2( 2.0,off));
-  float3 g=Fetch(pos,float2( 3.0,off));
+// 3-tap Gaussian filter along horz line.
+float3 Horz3(float2 pos,float off){
+  float3 b=Fetch(pos,float2(-1.0,off));
+  float3 c=Fetch(pos,float2( 0.0,off));
+  float3 d=Fetch(pos,float2( 1.0,off));
   float dst=Dist(pos).x;
   // Convert distance to weight.
-  float scale=hardBloomPix;
-  float wa=Gaus(dst-3.0,scale);
-  float wb=Gaus(dst-2.0,scale);
-  float wc=Gaus(dst-1.0,scale);
-  float wd=Gaus(dst+0.0,scale);
-  float we=Gaus(dst+1.0,scale);
-  float wf=Gaus(dst+2.0,scale);
-  float wg=Gaus(dst+3.0,scale);
+  float scale=hardPix;
+  float wb=Gaus(dst-1.0,scale);
+  float wc=Gaus(dst+0.0,scale);
+  float wd=Gaus(dst+1.0,scale);
   // Return filtered sample.
-  return (a*wa+b*wb+c*wc+d*wd+e*we+f*wf+g*wg)/(wa+wb+wc+wd+we+wf+wg);}
- 
-output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev7 PASSPREV7) 
+  return (b*wb+c*wc+d*wd)/(wb+wc+wd);}
+
+output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev1 PASSPREV1) 
 {
-  s0_global = PASSPREV7.texture;
+  s0_global = PASSPREV1.texture;
   IN_global = IN;
 
    output OUT;
-   OUT.color = float4(Horz7(tex, 0.0), 1.0);
+   OUT.color = float4(Horz3(tex, 1.0), 1.0);
    return OUT;
 }
 
