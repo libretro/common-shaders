@@ -1,4 +1,4 @@
-#pragma parameter target_gamma "Target Gamma" 2.4 0.1 5.0 0.1
+#pragma parameter target_gamma "Target Gamma" 2.2 0.1 5.0 0.1
 #pragma parameter monitor_gamma "Monitor Gamma" 2.2 0.1 5.0 0.1
 #pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 -25.0 25.0 1.0
 #pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 -25.0 25.0 1.0
@@ -42,7 +42,7 @@ uniform float RMASK;
 #define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
 #define saturation 1.0                 // color saturation; default 1.0
 #define monitor_gamma 2.2              // gamma setting of your current display; LCD monitors typically have a gamma of 2.2
-#define target_gamma 2.4               // the gamma you want the image to have; CRT TVs typically have a gamma of 2.4
+#define target_gamma 2.2               // the gamma you want the image to have; CRT TVs typically have a gamma of 2.4
 #define contrast 1.0                   // image contrast; default 1.0
 #define luminance 1.0                  // image luminance; default 1.0
 #define black_level 0.0                 // black level; default 0.0
