@@ -7,13 +7,11 @@
 #define brightboost 1
 #define shape 2.0
 
-struct passprev1
+struct prev
 {
    float2 video_size;
    float2 texture_size;
    float2 output_size;
-   float  frame_count;
-   float  frame_direction;
    sampler2D texture;
 };
 
@@ -80,9 +78,9 @@ float3 Horz3(float2 pos,float off){
   // Return filtered sample.
   return (b*wb+c*wc+d*wd)/(wb+wc+wd);}
 
-output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform passprev1 PASSPREV1) 
+output main_fragment(float2 tex : TEXCOORD0, uniform sampler2D s0 : TEXUNIT0, uniform input IN, uniform prev REFERENCE) 
 {
-  s0_global = PASSPREV1.texture;
+  s0_global = REFERENCE.texture;
   IN_global = IN;
 
    output OUT;

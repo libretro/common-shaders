@@ -80,102 +80,11 @@ struct input
    float frame_rotation;
 };
 
-struct passprev
+struct prev
 {
    float2 video_size;
    float2 texture_size;
    float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev1
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev2
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev3
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev4
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev5
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev6
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev7
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-   sampler2D texture;
-};
-
-struct passprev8
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
    sampler2D texture;
 };
 
@@ -303,15 +212,15 @@ float3 Mask(float2 pos){
 float4 main_fragment (float2 tex : TEXCOORD,
 uniform sampler2D s0 : TEXUNIT0,
 uniform input IN,
-uniform passprev PASSPREV,
-uniform passprev1 PASSPREV1,
-uniform passprev2 PASSPREV2,
-uniform passprev3 PASSPREV3,
-uniform passprev4 PASSPREV4,
-uniform passprev5 PASSPREV5,
-uniform passprev6 PASSPREV6,
-uniform passprev7 PASSPREV7,
-uniform passprev8 PASSPREV8) : COLOR
+uniform prev PASSPREV,
+uniform prev PASSPREV1,
+uniform prev PASSPREV2,
+uniform prev PASSPREV3,
+uniform prev PASSPREV4,
+uniform prev PASSPREV5,
+uniform prev PASSPREV6,
+uniform prev PASSPREV7,
+uniform prev PASSPREV8) : COLOR
 {
   float2 pos=Warp(tex.xy*(IN.texture_size.xy/IN.video_size.xy))*(IN.video_size.xy/IN.texture_size.xy);
 	s3minus1_global	=	PASSPREV8.texture;
@@ -334,7 +243,6 @@ uniform passprev8 PASSPREV8) : COLOR
 
   if(shadowMask)
     outColor.rgb*=Mask(floor(tex.xy*(IN.texture_size.xy/IN.video_size.xy)*IN.output_size.xy)+float2(0.5,0.5));
-	if ( shadowMask > 0.0 ) brightboost += 0.5;
 	outColor.rgb *= vec3(brightboost);
 
   return float4(ToSrgb(outColor.rgb),1.0);
