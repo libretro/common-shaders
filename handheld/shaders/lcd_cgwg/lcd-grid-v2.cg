@@ -138,10 +138,10 @@ uniform sampler2D texture : TEXUNIT0
   tcol = intsmear(subpix    ,rsubpix, 0.63, coeffs_y);
   bcol = intsmear(subpix-1.0,rsubpix, 0.63, coeffs_y);
  
-  float3 topLeftColor     = fetch_offset(tli, int2(0,0)) * lcol * float3(tcol);
-  float3 bottomRightColor = fetch_offset(tli, int2(1,1)) * rcol * float3(bcol);
-  float3 bottomLeftColor  = fetch_offset(tli, int2(0,1)) * lcol * float3(bcol);
-  float3 topRightColor    = fetch_offset(tli, int2(1,0)) * rcol * float3(tcol);
+  float3 topLeftColor     = ((pow(float3(gain) * tex2D(texture, texCoord - 0.25 * texelSize * int2(0,0)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * lcol * float3(tcol);
+  float3 bottomRightColor = ((pow(float3(gain) * tex2D(texture, texCoord - 0.25 * texelSize * int2(1,1)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * rcol * float3(bcol);
+  float3 bottomLeftColor  = ((pow(float3(gain) * tex2D(texture, texCoord - 0.25 * texelSize * int2(0,1)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * lcol * float3(bcol);
+  float3 topRightColor    = ((pow(float3(gain) * tex2D(texture, texCoord - 0.25 * texelSize * int2(1,0)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * rcol * float3(tcol);
  
   float3 averageColor = topLeftColor + bottomRightColor + bottomLeftColor + topRightColor;
  
