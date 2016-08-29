@@ -1,0 +1,71 @@
+#pragma parameter height "CocktailTable Image Height" 1.99 -3.0 3.0 0.01
+#pragma parameter width "CocktailTable Image Width" 0.8 -5.0 5.0 0.05
+#pragma parameter location "CocktailTable Image Location" -0.235 -2.0 2.0 0.005
+#pragma parameter zoom "CocktailTable Zoom" 0.51 -2.0 5.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float height;
+uniform float width;
+uniform float location;
+uniform float zoom;
+#else
+#define height 1.99
+#define width 0.8
+#define location -0.235
+#define zoom 0.51
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+	float2 texCoord1: TEXCOORD1,
+
+    uniform float4x4 modelViewProj,
+	uniform input IN,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD0,
+	out float2 otexCoord1 : TEXCOORD1
+)
+{
+   float4x4 RotationMatrix = float4x4( height, 0.0, 0.0, 0.0,
+         0.0, width, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0 );
+
+   oPosition = mul(mul(modelViewProj, position), RotationMatrix);
+	oColor = color;
+	float2 shift = 0.5 * IN.video_size / IN.texture_size;
+	otexCoord = ((texCoord-shift) / zoom) + shift;
+	otexCoord1= (mul((texCoord-shift) , float2x2(-1.0, 0.0, 0.0, -1.0)) / zoom) + shift;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+output main_fragment(float2 texCoord : TEXCOORD0, float2 texCoord1 : TEXCOORD1, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+   output OUT;
+   OUT.color = tex2D(decal, texCoord + float2(0.0, location)) + tex2D(decal, texCoord1 + float2(0.0, location));
+   return OUT;
+}
+
