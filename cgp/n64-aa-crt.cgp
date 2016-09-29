@@ -1,0 +1,15 @@
+//increase the internal resolution in the core options before applying this preset
+
+shaders = "3"
+
+shader0 = "../denoisers/shaders/fast-bilateral.cg"
+shader1 = "../stock.cg"
+shader2 = "../crt/shaders/crt-aperture.cg"
+
+filter_linear1 = "true"
+scale_type_x1 = "absolute"
+scale_x1 = 320
+scale_type_y1 = "absolute"
+scale_y1 = 240
+
+filter_linear2 = "false"
