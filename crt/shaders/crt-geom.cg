@@ -12,6 +12,7 @@
 #pragma parameter DOTMASK "CRTGeom Dot Mask Toggle" 0.3 0.0 0.3 0.3
 #pragma parameter SHARPER "CRTGeom Sharpness" 1.0 1.0 3.0 1.0
 #pragma parameter scanline_weight "CRTGeom Scanline Weight" 0.3 0.1 0.5 0.01
+#pragma parameter lum "CRTGeom Luminance Boost" 0.0 0.0 1.0 0.01
 
 #ifdef PARAMETER_UNIFORM
 uniform float CRTgamma;
@@ -28,6 +29,7 @@ uniform float overscan_y;
 uniform float DOTMASK;
 uniform float SHARPER;
 uniform float scanline_weight;
+uniform float lum;
 
 #else
 #define CRTgamma 2.4
@@ -44,6 +46,7 @@ uniform float scanline_weight;
 #define DOTMASK 0.3
 #define SHARPER 1.0
 #define scanline_weight 0.3
+#define lum 0.0
 
 #endif
 // END PARAMETERS //
@@ -172,11 +175,11 @@ uniform float scanline_weight;
         #ifdef USEGAUSSIAN
                 float4 wid = 0.3 + 0.1 * pow(color, float4(3.0));
                 float4 weights = float4(distance / (wid * scanline_weight/0.3));
-                return 0.4 * exp(-weights * weights) / wid;
+                return (lum + 0.4) * exp(-weights * weights) / wid;
         #else
                 float4 wid = 2.0 + 2.0 * pow(color, float4(4.0));
                 float4 weights = float4(distance / scanline_weight);
-                return 1.4 * exp(-pow(weights * rsqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
+                return (lum + 1.4) * exp(-pow(weights * rsqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
         #endif
         }
 
