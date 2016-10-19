@@ -1,0 +1,67 @@
+#pragma parameter screen_toggle "Screen Toggle" 0.0 0.0 0.5 0.5
+#pragma parameter aspect_correction "Aspect Correction" 1.0 0.5 5.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float screen_toggle;
+uniform float aspect_correction;
+#else
+#define screen_toggle 0.0
+#define aspect_correction 1.0
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+//	DS Hybrid View
+//	by hunterk
+//	license: public domain
+//
+//	This shader requires 16:9 aspect ratio
+//	and integer scaling OFF
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+	uniform input IN,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	float video_scale = floor(IN.output_size.y / IN.video_size.y);
+	float2 integer_scale = IN.video_size.xy * video_scale;
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord * (IN.output_size.xy / float2(integer_scale)) * float2(aspect_correction, 1.0);
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+	float2 bigCoord = texCoord * float2(0.3570) + float2(0.0, 0.0 + screen_toggle);
+	float2 smallCoord = texCoord * float2(1.05,1.00) + float2(-1.47, -0.175 / aspect_correction);
+	float4 final = tex2D(decal, bigCoord) + tex2D(decal, smallCoord);
+   output OUT;
+   OUT.color = final;
+   return OUT;
+}
