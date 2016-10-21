@@ -1,4 +1,4 @@
-#pragma parameter screen_toggle "Screen Toggle" 0.0 0.0 0.5 0.5
+#pragma parameter screen_toggle "Screen Toggle" 0.0 0.0 1.0 1.0
 #pragma parameter aspect_correction "Aspect Correction" 1.0 0.5 5.0 0.05
 #ifdef PARAMETER_UNIFORM
 uniform float screen_toggle;
@@ -58,8 +58,8 @@ struct output
 
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
-	float2 bigCoord = texCoord * float2(0.3570) + float2(0.0, 0.0 + screen_toggle);
-	float2 smallCoord = texCoord * float2(1.05,1.00) + float2(-1.47, -0.175 / aspect_correction);
+	float2 bigCoord = texCoord * float2(0.35570) + float2(0.0, 0.0 + (0.375 * screen_toggle));
+	float2 smallCoord = texCoord * float2(1.065,1.00) + float2(-1.497, -0.175 / aspect_correction);
 	float4 final = tex2D(decal, bigCoord) + tex2D(decal, smallCoord);
    output OUT;
    OUT.color = final;
