@@ -5,6 +5,7 @@
 #pragma parameter out_res_x "Horiz. Output Res" 2560.0 640.0 3840.0 40.0
 #pragma parameter out_res_y "Vert. Output Res" 1600.0 480.0 2160.0 40.0
 #pragma parameter border_on_top "Border On Top" 1.0 0.0 1.0 1.0
+#pragma parameter opacity "Border Opacity" 100.0 0.0 100.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float box_scale;
 uniform float location;
@@ -13,6 +14,7 @@ uniform float out_res_y;
 uniform float in_res_x;
 uniform float in_res_y;
 uniform float border_on_top;
+uniform float opacity;
 #else
 #define box_scale 6.0
 #define location 0.5
@@ -21,6 +23,7 @@ uniform float border_on_top;
 #define in_res_x 320
 #define in_res_y 240
 #define border_on_top 1.0
+#define opacity 100.0
 #endif
 // END PARAMETERS //
 #include "imgborder.inc"
