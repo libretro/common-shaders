@@ -3,10 +3,10 @@
 #pragma parameter overscan_percent_x "Horizontal Overscan %" 0.0 -25.0 25.0 1.0
 #pragma parameter overscan_percent_y "Vertical Overscan %" 0.0 -25.0 25.0 1.0
 #pragma parameter saturation "Saturation" 1.0 0.0 2.0 0.01
-#pragma parameter contrast "Contrast" 0.0 -1.0 1.0 0.01
+#pragma parameter contrast "Contrast" 1.0 0.0 10.0 0.05
 #pragma parameter luminance "Luminance" 1.0 0.0 2.0 0.03
 #pragma parameter black_level "Black Level" 0.00 -0.30 0.30 0.01
-#pragma parameter bright_boost "Brightness Boost" 0.0 -1.0 1.0 0.01
+#pragma parameter bright_boost "Brightness Boost" 0.0 -1.0 1.0 0.05
 #pragma parameter R "Red Channel" 1.0 0.0 2.0 0.05
 #pragma parameter G "Green Channel" 1.0 0.0 2.0 0.05
 #pragma parameter B "Blue Channel" 1.0 0.0 2.0 0.05
@@ -130,23 +130,16 @@ float4 main_fragment(float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uni
    float2 fragcoord = texCoord.xy * (IN.texture_size.xy / IN.video_size.xy);
    float3 res = tex2D(s0, texCoord).rgb; // sample the texture
    float3 gamma = float3(monitor_gamma / target_gamma); // setup ratio of display's gamma vs desired gamma
-   float3 AvgLumin = float3(0.5);
 
 //saturation and luminance
    float3 satColor = clamp(hsv2rgb(rgb2hsv(res) * float3(1.0, saturation, luminance)), 0.0, 1.0);
 
-//contrast; TODO: reduce branching
-   float3 conColor = float3(0.0);
-   if (contrast > 0.0){
-      conColor = (grayscale(res) > AvgLumin) ? satColor + float3(contrast) : satColor - float3(contrast);
-      conColor = clamp(conColor, 0.0, 1.0);
-   }
-   else conColor = lerp(AvgLumin, satColor, 1.0 + contrast);
+//contrast and brightness
+   float3 conColor = clamp((satColor - 0.5) * contrast + 0.5 + bright_boost, 0.0, 1.0);
 
    conColor -= float3(black_level); // apply black level
    conColor *= (1.0 / float3(1.0-black_level));
    conColor = pow(conColor, 1.0 / float3(gamma)); // Apply gamma correction
-   conColor += float3(bright_boost); // apply brightboost
    conColor *= float3(R, G, B);
    if (fragcoord.y > TOPMASK && fragcoord.y < (1.0 - BOTMASK))
       conColor = conColor;
