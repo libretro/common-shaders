@@ -4,7 +4,6 @@
 */
 
 /*
-
    Copyright (C) 2007 guest(r) - guest.r@gmail.com
 
    This program is free software; you can redistribute it and/or
@@ -20,18 +19,8 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
 */
 
-/*
-
-   The 2xSaL shader processes a gfx. surface and redraws it 2x finer.
-   
-   A linear post-resize can fit the image to any resolution.
-
-   Note: set scaler to normal2x.
-
-*/
 
 /* Default Vertex shader */
 void main_vertex
@@ -46,7 +35,7 @@ void main_vertex
  )
 {
    oPosition = mul(modelViewProj, position);
-   otexCoord = texCoord;
+   otexCoord = texCoord + float2(0.0000001, 0.0000001); 
 }
 
 struct output

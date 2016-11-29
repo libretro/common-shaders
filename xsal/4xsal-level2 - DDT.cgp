@@ -1,0 +1,13 @@
+shaders = 2
+
+shader0 = shaders/2xsal-level2.cg
+filter_linear0 = false
+scale_type0 = source
+scale_x0 = 2.0
+scale_y0 = 2.0
+
+shader1 = ../ddt/shaders/ddt-extended.cg
+filter_linear1 = false
+scale_type1 = viewport
+scale1 = 1.0 
+
