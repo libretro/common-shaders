@@ -1,0 +1,123 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+/*
+   Copyright (C) 2016 guest(r) - guest.r@gmail.com
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version 2
+   of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+*/
+
+/* Default Vertex shader */
+void main_vertex
+(
+ float4 position	: POSITION,
+ float2 texCoord : TEXCOORD0,
+
+ uniform float4x4 modelViewProj,
+
+ out float4 oPosition : POSITION,
+ out float2 otexCoord : TEXCOORD
+ )
+{
+   oPosition = mul(modelViewProj, position);
+   otexCoord = texCoord + float2(0.0000001, 0.0000001);
+}
+
+struct output
+{
+   float4 color : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float frame_count;
+  float frame_direction;
+  float frame_rotation;
+};
+
+output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+{
+   float2 texsize = IN.texture_size;
+   float dx = 0.25/texsize.x;
+   float dy = 0.25/texsize.y;
+   float3 dt = float3(1.0, 1.0, 1.0);
+   
+   float4 yx = float4( dx, dy, -dx, -dy);
+   float4 xh = float4(3*dx,dy,-3*dx,-dy);
+   float4 yv = float4(dx,3*dy,-dx,-3*dy);
+   float4 ox = 2*yx; 
+   
+   float3 c11 = tex2D(s_p, tex        ).xyz;
+   float3 s00 = tex2D(s_p, tex + yx.zw).xyz;
+   float3 s20 = tex2D(s_p, tex + yx.xw).xyz;
+   float3 s22 = tex2D(s_p, tex + yx.xy).xyz;
+   float3 s02 = tex2D(s_p, tex + yx.zy).xyz;
+   float3 h00 = tex2D(s_p, tex + xh.zw).xyz;
+   float3 h20 = tex2D(s_p, tex + xh.xw).xyz;
+   float3 h22 = tex2D(s_p, tex + xh.xy).xyz;
+   float3 h02 = tex2D(s_p, tex + xh.zy).xyz;
+   float3 v00 = tex2D(s_p, tex + yv.zw).xyz;
+   float3 v20 = tex2D(s_p, tex + yv.xw).xyz;
+   float3 v22 = tex2D(s_p, tex + yv.xy).xyz;
+   float3 v02 = tex2D(s_p, tex + yv.zy).xyz;
+   float3 o00 = tex2D(s_p, tex + ox.zw).xyz;
+   float3 o20 = tex2D(s_p, tex + ox.xw).xyz;
+   float3 o22 = tex2D(s_p, tex + ox.xy).xyz;
+   float3 o02 = tex2D(s_p, tex + ox.zy).xyz;
+   
+   float m1=1.0/(dot(abs(s00-s22),dt)+0.00001);
+   float m2=1.0/(dot(abs(s02-s20),dt)+0.00001);   
+   float h1=1.0/(dot(abs(s00-h22),dt)+0.00001);
+   float h2=1.0/(dot(abs(s02-h20),dt)+0.00001);
+   float h3=1.0/(dot(abs(h00-s22),dt)+0.00001);
+   float h4=1.0/(dot(abs(h02-s20),dt)+0.00001);
+   float v1=1.0/(dot(abs(s00-v22),dt)+0.00001);
+   float v2=1.0/(dot(abs(s02-v20),dt)+0.00001);
+   float v3=1.0/(dot(abs(v00-s22),dt)+0.00001);
+   float v4=1.0/(dot(abs(v02-s20),dt)+0.00001);
+
+   float3 t1 = 0.5*(m1*(s00+s22)+m2*(s02+s20))/(m1+m2);
+   float3 t2 = 0.5*(h1*(s00+h22)+h2*(s02+h20)+h3*(h00+s22)+h4*(h02+s20))/(h1+h2+h3+h4);
+   float3 t3 = 0.5*(v1*(s00+v22)+v2*(s02+v20)+v3*(v00+s22)+v4*(v02+s20))/(v1+v2+v3+v4);
+   
+   float k00=dot(abs(o00-c11),dt)+0.00001;
+   float k20=dot(abs(o20-c11),dt)+0.00001;
+   float k22=dot(abs(o22-c11),dt)+0.00001;
+   float k02=dot(abs(o02-c11),dt)+0.00001;
+   
+   float kr1=min(dot(abs(s00-s22),dt),dot(abs(o00-o22),dt));
+   float kr2=min(dot(abs(s02-s20),dt),dot(abs(o20-o02),dt));
+
+   float w1 = kr2; if(k22<k00) w1 = 0.0;
+   float w2 = kr1; if(k02<k20) w2 = 0.0;
+   float w3 = kr2; if(k00<k22) w3 = 0.0;
+   float w4 = kr1; if(k20<k02) w4 = 0.0; 
+
+   c11 = (w1*o00+w2*o20+w3*o22+w4*o02+0.001*c11)/(w1+w2+w3+w4+0.001);   
+
+   float k1 = 1.0/(dot(abs(t1-c11),dt)+0.00001);
+   float k2 = 1.0/(dot(abs(t2-c11),dt)+0.00001);
+   float k3 = 1.0/(dot(abs(t3-c11),dt)+0.00001);   
+
+   output OUT;
+   OUT.color = float4((k1*t1 + k2*t2 + k3*t3)/(k1+k2+k3),1.0);
+   return OUT;
+}
+
