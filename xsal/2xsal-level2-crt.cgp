@@ -10,6 +10,6 @@ filter_linear1 = true
 scale_type1 = viewport
 scale1 = 1.0
 
-parameters = "maskDark; maskLight"
+parameters = "maskDark;maskLight"
 maskDark  = 0.6
 maskLight = 1.4
