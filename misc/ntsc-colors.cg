@@ -49,7 +49,7 @@ struct input
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
 float3 color = tex2D(decal, texCoord).rgb;
-color = lerp(color.rgb, NTSCtoSRGB(color.rgb, intensity);
+color = lerp(color.rgb, NTSCtoSRGB(color.rgb), intensity);
    output OUT;
    OUT.color = float4(color, 1.0);
    return OUT;
