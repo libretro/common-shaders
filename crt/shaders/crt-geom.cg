@@ -13,6 +13,7 @@
 #pragma parameter SHARPER "CRTGeom Sharpness" 1.0 1.0 3.0 1.0
 #pragma parameter scanline_weight "CRTGeom Scanline Weight" 0.3 0.1 0.5 0.01
 #pragma parameter lum "CRTGeom Luminance Boost" 0.0 0.0 1.0 0.01
+#pragma parameter interlace_toggle "CRTGeom Interlacing" 1.0 1.0 5.0 4.0
 
 #ifdef PARAMETER_UNIFORM
 uniform float CRTgamma;
@@ -30,6 +31,7 @@ uniform float DOTMASK;
 uniform float SHARPER;
 uniform float scanline_weight;
 uniform float lum;
+uniform float interlace_toggle;
 
 #else
 #define CRTgamma 2.4
@@ -47,6 +49,7 @@ uniform float lum;
 #define SHARPER 1.0
 #define scanline_weight 0.3
 #define lum 0.0
+#define interlace_toggle 1.0
 
 #endif
 // END PARAMETERS //
@@ -228,11 +231,7 @@ out_vertex main_vertex
    OUT.texCoord = texCoord;
     OUT.TextureSize = float2(SHARPER * IN.texture_size.x, IN.texture_size.y);
 
-#ifdef INTERLACED
-    OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/200.0),1.0,2.0));
-#else
-    OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/1000.0),1.0,2.0));
-#endif
+    OUT.ilfac = float2(1.0,clamp(floor(IN.video_size.y/(200.0 * interlace_toggle)),1.0,2.0));
 
     // The size of one texel, in texture-coordinates.
     OUT.one = OUT.ilfac / OUT.TextureSize;
