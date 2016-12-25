@@ -1,3 +1,10 @@
+#pragma parameter intensity "NTSC Intensity" 1.0 0.0 1.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float intensity;
+#else
+#define intensity 1.0
+#endif
+
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
@@ -42,7 +49,7 @@ struct input
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
 float3 color = tex2D(decal, texCoord).rgb;
-color = NTSCtoSRGB(color.rgb);
+color = lerp(color.rgb, NTSCtoSRGB(color.rgb, intensity);
    output OUT;
    OUT.color = float4(color, 1.0);
    return OUT;
