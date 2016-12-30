@@ -6,11 +6,11 @@
 */
 
 // Shader that replicates the LCD dynamics from a GameBoy Advance
-#pragma parameter target_gamma "Darken Intensity" 2.9 1.0 2.9 0.05
+#pragma parameter dark_gamma "Darken Intensity" 2.9 1.0 2.9 0.05
 #ifdef PARAMETER_UNIFORM
-uniform float target_gamma;
+uniform float dark_gamma;
 #else
-#define target_gamma 2.9
+#define dark_gamma 2.9
 #endif
 
 #define display_gamma 1.45
@@ -61,7 +61,7 @@ void main_vertex
 
 float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-float4 screen = pow(tex2D(s0, tex), target_gamma).rgba; //sample image in linear colorspace
+float4 screen = pow(tex2D(s0, tex), dark_gamma).rgba; //sample image in linear colorspace
 float4 avglum = float4(0.5);
 screen = lerp(screen, avglum, (1.0 - contrast));
 
