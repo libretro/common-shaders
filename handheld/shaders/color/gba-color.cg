@@ -6,27 +6,28 @@
 */
 
 // Shader that replicates the LCD dynamics from a GameBoy Advance
-#pragma parameter display_gamma "Light Intensity" 1.8 1.0 2.5 0.05
+#pragma parameter darken_screen "Darken Screen" 0.5 0.0 1.0 0.05
 #ifdef PARAMETER_UNIFORM
-uniform float display_gamma;
+uniform float darken_screen;
 #else
-#define display_gamma 1.8
+#define darken_screen 0.5
 #endif
 
 #define target_gamma 2.2
+#define display_gamma 2.5
 #define sat 1.0
-#define lum 1.0
+#define lum 0.99
 #define contrast 1.0
 #define blr 0.0
 #define blg 0.0
 #define blb 0.0
 #define r 0.84
 #define g 0.67
-#define b 0.74
-#define rg 0.08
-#define rb 0.17
-#define gr 0.16
-#define gb 0.09
+#define b 0.73
+#define rg 0.09
+#define rb 0.15
+#define gr 0.18
+#define gb 0.10
 #define br 0.0
 #define bg 0.26
 #define overscan_percent_x 0.0
@@ -61,7 +62,7 @@ void main_vertex
 
 float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
 {
-float4 screen = pow(tex2D(s0, tex), target_gamma).rgba; //sample image in linear colorspace
+float4 screen = pow(tex2D(s0, tex), target_gamma + darken_screen).rgba; //sample image in linear colorspace
 float4 avglum = float4(0.5);
 screen = lerp(screen, avglum, (1.0 - contrast));
 
@@ -79,5 +80,5 @@ mat4x4 adjust = {(1.0 - sat) * 0.3086 + sat, (1.0 - sat) * 0.6094,          (1.0
 color = mul(color, adjust);
 screen = saturate(screen * lum);
 screen = mul(color, screen);
-return pow(screen, 1.0 / display_gamma);
+return pow(screen, 1.0 / display_gamma + (darken_screen / 8));
 }

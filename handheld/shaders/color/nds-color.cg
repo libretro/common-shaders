@@ -6,47 +6,31 @@
 */
 
 // Shader that replicates the LCD dynamics from an Original Nintendo DS
-
-uniform float display_gamma;
+#pragma parameter target_gamma "Gamma Mode" 2.0 2.0 2.4 0.2
+#ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
-uniform float sat;
-uniform float lum;
-uniform float contrast;
-uniform float blr;
-uniform float blg;
-uniform float blb;
-uniform float r;
-uniform float g;
-uniform float b;
-uniform float rg;
-uniform float rb;
-uniform float gr;
-uniform float gb;
-uniform float br;
-uniform float bg;
-uniform float overscan_percent_x;
-uniform float overscan_percent_y;
+#else
+#define target_gamma 2.0
+#endif
 
-#define display_gamma 2.25
-#define target_gamma 2.2
-#define sat 1.0
+#define display_gamma 2.2
+#define sat 1.01
 #define lum 1.0
 #define contrast 1.0
 #define blr 0.0
 #define blg 0.0
 #define blb 0.0
-#define r 0.77
-#define g 0.65
+#define r 0.74
+#define g 0.63
 #define b 0.74
-#define rg 0.09
+#define rg 0.10
 #define rb 0.09
-#define gr 0.23
+#define gr 0.26
 #define gb 0.11
 #define br 0.0
-#define bg 0.26
+#define bg 0.27
 #define overscan_percent_x 0.0
 #define overscan_percent_y 0.0
-#endif
 
 struct input
 {
