@@ -15,7 +15,7 @@ Second (window) function:  `Sinc`
 jinc2.cg
 --------------
 
-Jinc is the ideal resampler for 2D sinals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. This shader provides a blurry image, without ringing, and no aliasing at all is perceived in diagonal lines. It's recommended for any games.
+Jinc is the ideal resampler for 2D signals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. This shader provides a blurry image, without ringing, and no aliasing at all is perceived in diagonal lines. It's recommended for any games.
 
 This shader has this kernel:
 
@@ -25,7 +25,7 @@ Second (window) function:  `Jinc`
 jinc2-sharp.cg
 --------------
 
-Jinc is the ideal resampler for 2D sinals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. In this shader, some parameters were tweaked to provide a much less blurry image than the original jinc2 shader. Besides that, it completely blurs dithering. So, it provides a sharp image, without ringing or dithering, and no aliasing at all is perceived in diagonal lines. It's recommended for any games, mainly Genesis games or others plagued by ditherings.
+Jinc is the ideal resampler for 2D signals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. In this shader, some parameters were tweaked to provide a much less blurry image than the original jinc2 shader. Besides that, it completely blurs dithering. So, it provides a sharp image, without ringing or dithering, and no aliasing at all is perceived in diagonal lines. It's recommended for any games, mainly Genesis games or others plagued by ditherings.
 
 This shader has this kernel:
 
@@ -35,7 +35,7 @@ Second (window) function:  `Jinc`
 jinc2-sharper.cg
 --------------
 
-Jinc is the ideal resampler for 2D sinals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. In this shader, some parameters were tweaked to provide a much sharper image than the original jinc2 shader. This shader provides a very sharp image, without ringing, and no aliasing at all is perceived in diagonal lines. It's recommended for cartoony games.
+Jinc is the ideal resampler for 2D signals. This shader implementation uses an approximation of the jinc function, based on sinc functions. For a better image quality, it was inserted an anti-ringing code. In this shader, some parameters were tweaked to provide a much sharper image than the original jinc2 shader. This shader provides a very sharp image, without ringing, and no aliasing at all is perceived in diagonal lines. It's recommended for cartoony games.
 
 This shader has this kernel:
 
