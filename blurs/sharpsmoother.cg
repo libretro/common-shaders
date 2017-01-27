@@ -1,13 +1,31 @@
-
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
 */
 
+#pragma parameter max_w   "Max filter weight"  0.10  0.00 0.20 0.01
+#pragma parameter min_w   "Min filter weight" -0.07 -0.15 0.05 0.01
+#pragma parameter smoot   "Smoothing strength" 0.55  0.00 1.50 0.01
+#pragma parameter lumad   "Effects smoothing"  0.30  0.10 5.00 0.10
+#pragma parameter mtric   "The metric we use"  0.70  0.10 2.00 0.10
+#ifdef PARAMETER_UNIFORM
+uniform float max_w;
+uniform float min_w;
+uniform float smoot;
+uniform float lumad;
+uniform float mtric;
+#else 
+#define max_w    0.10
+#define min_w   -0.07
+#define smoot    0.55
+#define lumad    0.30
+#define mtric    0.70
+#endif
+
 /*
    Sharpsmoother shader
    
-   Copyright (C) 2005-2016 guest(r) - guest.r@gmail.com
+   Copyright (C) 2005-2017 guest(r) - guest.r@gmail.com
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License
@@ -27,6 +45,13 @@
 
 
 const static float3 dt = float3(1.0, 1.0, 1.0);
+
+
+float wt(float3 A, float3 B)
+{	
+	return clamp(smoot - ((6.0+lumad)/pow(3.0,mtric))*pow(dot(pow(abs(A-B),float3(1.0/mtric)),dt),mtric)/(dot(A+B,dt)+lumad), min_w, max_w);
+}
+
 
 struct input
 {
@@ -74,18 +99,8 @@ out_vertex main_vertex
 		float4(tex+dg2,tex-dx)
 	};
 
-
 	return OUT;
 }
-
- const float mx = 0.325;       // start smoothing wt.
- const float k = -0.300;       // wt. decrease factor
- const float max_w = 0.150;    // max filter weigth hor./vert
- const float max_d = 0.100;    // max filter weigth diag  (4*(max_w + wax_d) should ideally be 1.0
- const float min_w =-0.065;    // min filter weigth
- const float lum_add = 0.25;   // effects smoothing
-
-
 
 float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
  {
@@ -98,27 +113,12 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
    float3 c21 = tex2D(decal, VAR.t2.zw).xyz; 
    float3 c02 = tex2D(decal, VAR.t4.xy).xyz; 
    float3 c12 = tex2D(decal, VAR.t3.zw).xyz; 
-   float3 c22 = tex2D(decal, VAR.t3.xy).xyz; 
+   float3 c22 = tex2D(decal, VAR.t3.xy).xyz;
+       
+   float w10 = wt(c11,c10); float w21 = wt(c11,c21);
+   float w12 = wt(c11,c12); float w01 = wt(c11,c01);
+   float w00 = wt(c11,c00)*0.75; float w22 = wt(c11,c22)*0.75;
+   float w20 = wt(c11,c20)*0.75; float w02 = wt(c11,c02)*0.75;
 
-   float l10 = 0.12 * dot(c10 + c10 + c11, dt) + lum_add;
-   float l01 = 0.12 * dot(c01 + c01 + c11, dt) + lum_add;
-   float l12 = 0.12 * dot(c12 + c12 + c11, dt) + lum_add;
-   float l21 = 0.12 * dot(c21 + c21 + c11, dt) + lum_add;
-
-   float l00 = 0.12 * dot(c00 + c00 + c11, dt) + lum_add;
-   float l22 = 0.12 * dot(c22 + c22 + c11, dt) + lum_add;
-   float l20 = 0.12 * dot(c20 + c20 + c11, dt) + lum_add;
-   float l02 = 0.12 * dot(c02 + c02 + c11, dt) + lum_add;
-
-   float w10 = clamp(k * dot(abs(c11 - c10), dt)/l10 + mx, min_w, max_w);
-   float w21 = clamp(k * dot(abs(c11 - c21), dt)/l21 + mx, min_w, max_w);
-   float w12 = clamp(k * dot(abs(c11 - c12), dt)/l12 + mx, min_w, max_w);
-   float w01 = clamp(k * dot(abs(c11 - c01), dt)/l01 + mx, min_w, max_w);
-
-   float w00 = clamp(k * dot(abs(c11 - c00), dt)/l00 + mx, min_w, max_d);
-   float w22 = clamp(k * dot(abs(c11 - c22), dt)/l22 + mx, min_w, max_d);
-   float w20 = clamp(k * dot(abs(c11 - c20), dt)/l20 + mx, min_w, max_d);
-   float w02 = clamp(k * dot(abs(c11 - c02), dt)/l02 + mx, min_w, max_d);
-
-   return float4(w10*c10 + w21*c21 + w12*c12 + w01*c01 + w00*c00 + w22*c22 + w20*c20 + w02*c02 + (1.0-w10-w21-w12-w01-w00-w22-w20-w02)*c11, 1.0);
+   return float4(w10*c10+w21*c21+w12*c12+w01*c01+w00*c00+w22*c22+w20*c20+w02*c02+(1.0-w10-w21-w12-w01-w00-w22-w20-w02)*c11, 1.0);
 }
