@@ -21,7 +21,7 @@ struct input
     float frame_rotation;
 };
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 co : TEXCOORD0, uniform input IN, float2 pos : WPOS) : COLOR
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 co : TEXCOORD0, uniform input IN) : COLOR
 {
     float3 texel = tex2D(tex, co).rgb;
     float3 pixelHigh = (1.2 - (0.2 * texel)) * texel;
