@@ -17,6 +17,7 @@
 #pragma parameter BOTMASK "Overscan Mask Bottom" 0.0 0.0 1.0 0.0025
 #pragma parameter LMASK "Overscan Mask Left" 0.0 0.0 1.0 0.0025
 #pragma parameter RMASK "Overscan Mask Right" 0.0 0.0 1.0 0.0025
+#pragma parameter GRAIN_STR "Film Grain" 0.0 0.0 72.0 6.0
 #ifdef PARAMETER_UNIFORM
 uniform float target_gamma;
 uniform float monitor_gamma;
@@ -37,6 +38,7 @@ uniform float TOPMASK;
 uniform float BOTMASK;
 uniform float LMASK;
 uniform float RMASK;
+uniform float GRAIN_STR;
 #else
 #define overscan_percent_x 0.0         // crop width of image by X%; default is 0.0
 #define overscan_percent_y 0.0         // crop height of image by X%; default is 0.0
@@ -57,6 +59,7 @@ uniform float RMASK;
 #define BOTMASK 0.0
 #define LMASK 0.0
 #define RMASK 0.0
+#define GRAIN_STR 0.0
 #endif
 // END PARAMETERS //
 
@@ -101,6 +104,12 @@ struct output
    float4 color    : COLOR;
 };
 
+//https://www.shadertoy.com/view/4sXSWs strength= 16.0
+float3 filmGrain(float2 uv, float strength, float frameCount ){       
+    float x = (uv.x + 4.0 ) * (uv.y + 4.0 ) * ((fmod(frameCount, 800.0) + 10.0) * 10.0);
+	return  float3(fmod((mod(x, 13.0) + 1.0) * (fmod(x, 123.0) + 1.0), 0.01)-0.005) * strength;
+}
+
 float3 grayscale(float3 col)
 {
    // ATSC grayscale standard
@@ -127,8 +136,10 @@ float3 hsv2rgb(float3 c)
 
 float4 main_fragment(float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
 {
+   float3 film_grain = filmGrain(texCoord.xy, GRAIN_STR, IN.frame_count);
    float2 fragcoord = texCoord.xy * (IN.texture_size.xy / IN.video_size.xy);
    float3 res = tex2D(s0, texCoord).rgb; // sample the texture
+   res += film_grain;
    float3 gamma = float3(monitor_gamma / target_gamma); // setup ratio of display's gamma vs desired gamma
 
 //saturation and luminance
