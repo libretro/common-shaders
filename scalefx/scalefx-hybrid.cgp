@@ -22,7 +22,10 @@ filter_linear3 = false
 scale_type3 = source
 scale3 = 1.0
 
-shader4 = shaders\scalefx-pass4.cg
+shader4 = shaders\scalefx-pass4-hybrid.cg
 filter_linear4 = false
 scale_type4 = source
 scale4 = 3.0
+
+parameters = "SFX_SAA"
+SFX_SAA = "0.0"

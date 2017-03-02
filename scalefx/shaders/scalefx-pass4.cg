@@ -1,9 +1,9 @@
 /*
-	ScaleFX - Pass 1
+	ScaleFX - Pass 3
 	by Sp00kyFox, 2017-03-01
 
 Filter:	Nearest
-Scale:	1x
+Scale:	3x
 
 ScaleFX is an edge interpolation algorithm specialized in pixel art. It was
 originally intended as an improvement upon Scale3x but became a new filter in
@@ -12,7 +12,7 @@ ScaleFX interpolates edges up to level 6 and makes smooth transitions between
 different slopes. The filtered picture will only consist of colours present
 in the original.
 
-Pass 1 resolves ambiguous configurations of corner candidates at pixel junctions.
+Pass 3 outputs subpixels based on previously calculated tags.
 
 
 
@@ -39,23 +39,14 @@ THE SOFTWARE.
 */
 
 
-#pragma parameter SFX_CLR "ScaleFX Threshold" 0.50 0.01 1.00 0.01
-#pragma parameter SFX_SAA "ScaleFX Filter AA" 1.00 0.00 1.00 1.00
+// extract corners
+float4 loadCrn(float4 x){
+	return floor(fmod(x*80 + 0.5, 9));
+}
 
-#ifdef PARAMETER_UNIFORM
-	uniform float SFX_CLR, SFX_SAA;
-#else
-	#define SFX_CLR   0.50
-	#define SFX_SAA   1.00
-#endif
-
-
-// corner strength
-float str(float d, float2 a, float2 b){
-	float diff = a.x - a.y;
-	float wght1 = max(SFX_CLR - d, 0) / SFX_CLR;
-	float wght2 = clamp((1-d) + (min(a.x, b.x) + a.x > min(a.y, b.y) + a.y ? diff : -diff), 0, 1);
-	return (SFX_SAA || 2*d < a.x + a.y) ? (wght1 * wght2) * (a.x * a.y) : 0;
+// extract mids
+float4 loadMid(float4 x){
+	return floor(fmod(x*8.888888 + 0.055555, 9));
 }
 
 
@@ -66,12 +57,20 @@ struct input
 	float2 output_size;
 };
 
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
 struct out_vertex {
 	float4 position : POSITION;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
 	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
 };
 
 /*    VERTEX_SHADER    */
@@ -81,47 +80,53 @@ out_vertex main_vertex
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
-	uniform input IN
+	uniform input IN,
+	prev PASSPREV5
 )
 {
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
 
-	float2 ps = 1.0/IN.texture_size;
+	float2 ps = 1.0/PASSPREV5.texture_size;
 	float dx = ps.x, dy = ps.y;
 
 	OUT.texCoord = texCoord;
-	OUT.t1 = texCoord.xxxy + float4(  -dx,   0, dx,  -dy);	// A, B, C
-	OUT.t2 = texCoord.xxxy + float4(  -dx,   0, dx,    0);	// D, E, F
-	OUT.t3 = texCoord.xxxy + float4(  -dx,   0, dx,   dy);	// G, H, I
+	OUT.t1 = PASSPREV5.tex_coord.xxxy + float4( 0, -dx, -2*dx,     0);	// E, D, D0
+	OUT.t2 = PASSPREV5.tex_coord.xyxy + float4(dx,   0,  2*dx,     0);	// F, F0
+	OUT.t3 = PASSPREV5.tex_coord.xyxy + float4( 0, -dy,     0, -2*dy);	// B, B0
+	OUT.t4 = PASSPREV5.tex_coord.xyxy + float4( 0,  dy,     0,  2*dy);	// H, H0
 
 	return OUT;
 }
 
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV5) : COLOR
 {
 
-	/*	grid		metric		pattern
+	/*	grid		corners		mids
 
-		A B		x y z		x y
-		D E F		  o w		w z
-		G H I
+		  B		x   y	  	  x
+		D E F				w   y
+		  H		w   z	  	  z
 	*/
 
 
-	// metric data
-	float4 A = tex2D(decal, VAR.t1.xw), B = tex2D(decal, VAR.t1.yw);
-	float4 D = tex2D(decal, VAR.t2.xw), E = tex2D(decal, VAR.t2.yw), F = tex2D(decal, VAR.t2.zw);
-	float4 G = tex2D(decal, VAR.t3.xw), H = tex2D(decal, VAR.t3.yw), I = tex2D(decal, VAR.t3.zw);
+	// read data
+	float4 E = tex2D(decal, VAR.texCoord);
 
-	// corner strength
-	float4 res;
-	res.x = str(D.z, float2(D.w, E.y), float2(A.w, D.y));
-	res.y = str(F.x, float2(E.w, E.y), float2(B.w, F.y));
-	res.z = str(H.z, float2(E.w, H.y), float2(H.w, I.y));
-	res.w = str(H.x, float2(D.w, H.y), float2(G.w, G.y));	
+	// extract data
+	float4 crn = loadCrn(E);
+	float4 mid = loadMid(E);
 
-	return res;
+	// determine subpixel
+	float2 fp = floor(3.0 * frac(VAR.texCoord*IN.texture_size));
+	float  sp = fp.y == 0 ? (fp.x == 0 ? crn.x : fp.x == 1 ? mid.x : crn.y) : (fp.y == 1 ? (fp.x == 0 ? mid.w : fp.x == 1 ? 0 : mid.y) : (fp.x == 0 ? crn.w : fp.x == 1 ? mid.z : crn.z));
+
+	// output coordinate - 0 = E, 1 = D, 2 = D0, 3 = F, 4 = F0, 5 = B, 6 = B0, 7 = H, 8 = H0
+	float2 res = sp == 0 ? VAR.t1.xw : sp == 1 ? VAR.t1.yw : sp == 2 ? VAR.t1.zw : sp == 3 ? VAR.t2.xy : sp == 4 ? VAR.t2.zw : sp == 5 ? VAR.t3.xy : sp == 6 ? VAR.t3.zw : sp == 7 ? VAR.t4.xy : VAR.t4.zw;
+
+	// ouput
+	return tex2D(PASSPREV5.texture, res).rgb;
+
 }

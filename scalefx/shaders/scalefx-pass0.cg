@@ -1,6 +1,6 @@
 /*
 	ScaleFX - Pass 0
-	by Sp00kyFox, 2016-03-30
+	by Sp00kyFox, 2017-03-01
 
 Filter:	Nearest
 Scale:	1x
@@ -40,13 +40,13 @@ THE SOFTWARE.
 
 
 // Reference: http://www.compuphase.com/cmetric.htm
-float eq(float3 A, float3 B)
+float dist(float3 A, float3 B)
 {
 	float  r = 0.5 * (A.r + B.r);
 	float3 d = A - B;
 	float3 c = float3(2 + r, 4, 3 - r);
 
-	return 1 - sqrt(dot(c*d, d)) / 3;
+	return sqrt(dot(c*d, d)) / 3;
 }
 
 
@@ -107,6 +107,6 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float3 F = tex2D(decal, VAR.t2.zw).rgb;
 
 	// output
-	return float4(eq(E,A), eq(E,B), eq(E,C), eq(E,F));
+	return float4(dist(E,A), dist(E,B), dist(E,C), dist(E,F));
 
 }

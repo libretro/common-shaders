@@ -1,0 +1,21 @@
+shaders = 4
+
+shader0 = scalefx-pass0.cg
+filter_linear0 = false
+scale_type0 = source
+scale0 = 1.0
+
+shader1 = scalefx-pass1.cg
+filter_linear1 = false
+scale_type1 = source
+scale1 = 1.0
+
+shader2 = scalefx-pass2.cg
+filter_linear2 = false
+scale_type2 = source
+scale2 = 1.0
+
+shader3 = scalefx-pass3.cg
+filter_linear3 = false
+scale_type3 = source
+scale3 = 3.0

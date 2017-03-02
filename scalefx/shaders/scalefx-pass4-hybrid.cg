@@ -1,0 +1,179 @@
+/*
+	ScaleFX - Pass 3
+	by Sp00kyFox, 2017-03-01
+
+Filter:	Nearest
+Scale:	3x
+
+ScaleFX is an edge interpolation algorithm specialized in pixel art. It was
+originally intended as an improvement upon Scale3x but became a new filter in
+its own right.
+ScaleFX interpolates edges up to level 6 and makes smooth transitions between
+different slopes. The filtered picture will only consist of colours present
+in the original.
+
+Pass 3 outputs subpixels based on previously calculated tags.
+
+
+
+Copyright (c) 2016 Sp00kyFox - ScaleFX@web.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+
+#pragma parameter SFX_RAA "ScaleFX rAA Sharpness" 2.0 0.0 10.0 0.05
+
+#ifdef PARAMETER_UNIFORM
+	uniform float SFX_RAA;
+#else
+	#define SFX_RAA 2.0
+#endif
+
+
+// extract corners
+float4 loadCrn(float4 x){
+	return floor(fmod(x*80 + 0.5, 9));
+}
+
+// extract mids
+float4 loadMid(float4 x){
+	return floor(fmod(x*8.888888 + 0.055555, 9));
+}
+
+float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
+{
+	float3 t, m;
+	float4x3 pre = float4x3(pre2, pre1,   px, pos1);
+	float4x3 pos = float4x3(pre1,   px, pos1, pos2);
+	float4x3  df = pos - pre;
+	
+	m = mix(px, 1-px, step(px, float3(0.5)));	
+	m = SFX_RAA * min(m, min(abs(df[1]), abs(df[2])));
+	t = (7 * (df[1] + df[2]) - 3 * (df[0] + df[3])) / 16;
+	t = clamp(t, -m, m);
+   
+	return t;
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct prev
+{
+	float2 texture_size;
+	float2 tex_coord;
+	sampler2D texture;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN,
+	prev PASSPREV5
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/PASSPREV5.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = PASSPREV5.tex_coord.xxxy + float4( 0, -dx, -2*dx,     0);	// E0, D0, D1
+	OUT.t2 = PASSPREV5.tex_coord.xyxy + float4(dx,   0,  2*dx,     0);	// F0, F1
+	OUT.t3 = PASSPREV5.tex_coord.xyxy + float4( 0, -dy,     0, -2*dy);	// B0, B1
+	OUT.t4 = PASSPREV5.tex_coord.xyxy + float4( 0,  dy,     0,  2*dy);	// H0, H1
+
+	return OUT;
+}
+
+
+float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, prev PASSPREV5) : COLOR
+{
+
+	/*	grid		corners		mids
+
+		  B		x   y	  	  x
+		D E F				w   y
+		  H		w   z	  	  z
+	*/
+
+
+	// read data
+	float4 E = tex2D(decal, VAR.texCoord);
+
+	// determine subpixel
+	float2 fc = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = floor(3.0 * fc);
+
+	// check adjacent pixels to prevent artifacts
+	vec4 hn = tex2D(decal, VAR.texCoord + float2(fp.x - 1, 0) / IN.texture_size);
+	vec4 vn = tex2D(decal, VAR.texCoord + float2(0, fp.y - 1) / IN.texture_size);
+
+	// extract data
+	float4 crn = loadCrn(E), hc = loadCrn(hn), vc = loadCrn(vn);
+	float4 mid = loadMid(E), hm = loadMid(hn), vm = loadMid(vn);
+
+	float3 res = fp.y == 0 ? (fp.x == 0 ? float3(crn.x, hc.y, vc.w) : fp.x == 1 ? float3(mid.x, 0, vm.z) : float3(crn.y, hc.x, vc.z)) : (fp.y == 1 ? (fp.x == 0 ? float3(mid.w, hm.y, 0) : fp.x == 1 ? float3(0) : float3(mid.y, hm.w, 0)) : (fp.x == 0 ? float3(crn.w, hc.z, vc.x) : fp.x == 1 ? float3(mid.z, 0, vm.x) : float3(crn.z, hc.w, vc.y)));	
+
+	// reverseAA
+	float3 E0 = tex2D(PASSPREV5.texture, VAR.t1.xw);
+	float3 B0 = tex2D(PASSPREV5.texture, VAR.t3.xy), B1 = tex2D(PASSPREV5.texture, VAR.t3.zw), H0 = tex2D(PASSPREV5.texture, VAR.t4.xy), H1 = tex2D(PASSPREV5.texture, VAR.t4.zw);
+	float3 D0 = tex2D(PASSPREV5.texture, VAR.t1.yw), D1 = tex2D(PASSPREV5.texture, VAR.t1.zw), F0 = tex2D(PASSPREV5.texture, VAR.t2.xy), F1 = tex2D(PASSPREV5.texture, VAR.t2.zw);
+
+	// output coordinate - 0 = E0, 1 = D0, 2 = D1, 3 = F0, 4 = F1, 5 = B0, 6 = B1, 7 = H0, 8 = H1
+	float3 sfx = res.x == 1 ? D0 : res.x == 2 ? D1 : res.x == 3 ? F0 : res.x == 4 ? F1 : res.x == 5 ? B0 : res.x == 6 ? B1 : res.x == 7 ? H0 : H1;
+
+	// rAA weight
+	float2 w = 2 * fc - 1;
+	w.x = res.y == 0 ? w.x : 0;
+	w.y = res.z == 0 ? w.y : 0;
+
+	// rAA filter
+	float3 t1 = res2x(D1, D0, E0, F0, F1);
+	float3 t2 = res2x(B1, B0, E0, H0, H1);
+
+	float3 a = min(min(min(min(B0,D0),E0),F0),H0);
+	float3 b = max(max(max(max(B0,D0),E0),F0),H0);
+	float3 raa = clamp(E0 + w.x*t1 + w.y*t2, a, b);
+
+	// hybrid output
+	return (res.x != 0) ? sfx : raa;	
+}

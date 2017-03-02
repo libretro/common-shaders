@@ -1,0 +1,193 @@
+/*
+	ScaleFX - Pass 1
+	by Sp00kyFox, 2016-03-30
+
+Filter:	Nearest
+Scale:	1x
+
+ScaleFX is an edge interpolation algorithm specialized in pixel art. It was
+originally intended as an improvement upon Scale3x but became a new filter in
+its own right.
+ScaleFX interpolates edges up to level 6 and makes smooth transitions between
+different slopes. The filtered picture will only consist of colours present
+in the original.
+
+Pass 1 resolves ambiguous configurations of corner candidates at pixel junctions.
+
+
+
+Copyright (c) 2016 Sp00kyFox - ScaleFX@web.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+
+#pragma parameter SFX_CLR   "ScaleFX Color Thresh"  0.35 0.0 1.00 0.01
+
+#ifdef PARAMETER_UNIFORM
+	uniform float SFX_CLR;
+#else
+	#define SFX_CLR   0.35
+#endif
+
+
+static float THR = 1.0 - SFX_CLR;
+
+// corner strength
+float4 str(float4 crn, float4 ort){
+	return (crn > THR) ? max(2*crn - (ort + ort.wxyz), 0) : 0;
+}
+
+// corner dominance at junctions
+float4 dom(float3 strx, float3 stry, float3 strz, float3 strw){
+	float4 res;
+	res.x = max(2*strx.y - (strx.x + strx.z), 0);
+	res.y = max(2*stry.y - (stry.x + stry.z), 0);
+	res.z = max(2*strz.y - (strz.x + strz.z), 0);
+	res.w = max(2*strw.y - (strw.x + strw.z), 0);
+	return res;
+}
+
+// necessary but not sufficient junction condition for orthogonal edges
+bool clear(float2 crn, float4 ort){
+	return all(crn.xyxy <= THR || crn.xyxy <= ort || crn.xyxy <= ort.wxyz);
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float4 t5 : TEXCOORD5;
+	float4 t6 : TEXCOORD6;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/IN.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = texCoord.xxxy + float4(  -dx,   0, dx,  -dy);	// A, B, C
+	OUT.t2 = texCoord.xxxy + float4(  -dx,   0, dx,    0);	// D, E, F
+	OUT.t3 = texCoord.xxxy + float4(  -dx,   0, dx,   dy);	// G, H, I
+	OUT.t4 = texCoord.xxxy + float4(  -dx,   0, dx, 2*dy);	// J, K, L
+	OUT.t5 = texCoord.xyyy + float4(-2*dx, -dy,  0,   dy);	// M, N, O
+	OUT.t6 = texCoord.xyyy + float4( 2*dx, -dy,  0,   dy);	// P, Q, R
+
+	return OUT;
+}
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+
+	/*	grid		metric		pattern
+
+		M A B C P	x y z		x y
+		N D E F Q	  o w		w z
+		O G H I R
+		  J K L
+	*/
+
+
+	// metric data
+	float4 A = tex2D(decal, VAR.t1.xw), B = tex2D(decal, VAR.t1.yw), C = tex2D(decal, VAR.t1.zw);
+	float4 D = tex2D(decal, VAR.t2.xw), E = tex2D(decal, VAR.t2.yw), F = tex2D(decal, VAR.t2.zw);
+	float4 G = tex2D(decal, VAR.t3.xw), H = tex2D(decal, VAR.t3.yw), I = tex2D(decal, VAR.t3.zw);
+	float4 J = tex2D(decal, VAR.t4.xw), K = tex2D(decal, VAR.t4.yw), L = tex2D(decal, VAR.t4.zw);
+	float4 M = tex2D(decal, VAR.t5.xy), N = tex2D(decal, VAR.t5.xz), O = tex2D(decal, VAR.t5.xw);
+	float4 P = tex2D(decal, VAR.t6.xy), Q = tex2D(decal, VAR.t6.xz), R = tex2D(decal, VAR.t6.xw);
+
+
+	// corner strength
+	float4 As = str(float4(M.z, B.x, D.zx), float4(A.yw, D.y, M.w));
+	float4 Bs = str(float4(A.z, C.x, E.zx), float4(B.yw, E.y, A.w));
+	float4 Cs = str(float4(B.z, P.x, F.zx), float4(C.yw, F.y, B.w));
+	float4 Ds = str(float4(N.z, E.x, G.zx), float4(D.yw, G.y, N.w));
+	float4 Es = str(float4(D.z, F.x, H.zx), float4(E.yw, H.y, D.w));
+	float4 Fs = str(float4(E.z, Q.x, I.zx), float4(F.yw, I.y, E.w));
+	float4 Gs = str(float4(O.z, H.x, J.zx), float4(G.yw, J.y, O.w));
+	float4 Hs = str(float4(G.z, I.x, K.zx), float4(H.yw, K.y, G.w));
+	float4 Is = str(float4(H.z, R.x, L.zx), float4(I.yw, L.y, H.w));
+
+	// strength & dominance junctions
+	float4 jSx = float4(As.z, Bs.w, Es.x, Ds.y), jDx = dom(As.yzw, Bs.zwx, Es.wxy, Ds.xyz);
+	float4 jSy = float4(Bs.z, Cs.w, Fs.x, Es.y), jDy = dom(Bs.yzw, Cs.zwx, Fs.wxy, Es.xyz);
+	float4 jSz = float4(Es.z, Fs.w, Is.x, Hs.y), jDz = dom(Es.yzw, Fs.zwx, Is.wxy, Hs.xyz);
+	float4 jSw = float4(Ds.z, Es.w, Hs.x, Gs.y), jDw = dom(Ds.yzw, Es.zwx, Hs.wxy, Gs.xyz);
+
+
+	// majority vote for ambiguous dominance junctions
+	bool4 jx = jDx != 0 && jDx + jDx.zwxy > jDx.yzwx + jDx.wxyz;
+	bool4 jy = jDy != 0 && jDy + jDy.zwxy > jDy.yzwx + jDy.wxyz;
+	bool4 jz = jDz != 0 && jDz + jDz.zwxy > jDz.yzwx + jDz.wxyz;
+	bool4 jw = jDw != 0 && jDw + jDw.zwxy > jDw.yzwx + jDw.wxyz;
+
+	// inject strength without creating new contradictions
+	bool4 res;
+	res.x = jx.z || !(jx.y || jx.w) && (jSx.z != 0 && (jx.x || jSx.x + jSx.z > jSx.y + jSx.w));
+	res.y = jy.w || !(jy.z || jy.x) && (jSy.w != 0 && (jy.y || jSy.y + jSy.w > jSy.x + jSy.z));
+	res.z = jz.x || !(jz.w || jz.y) && (jSz.x != 0 && (jz.z || jSz.x + jSz.z > jSz.y + jSz.w));
+	res.w = jw.y || !(jw.x || jw.z) && (jSw.y != 0 && (jw.w || jSw.y + jSw.w > jSw.x + jSw.z));
+
+	// single pixel & end of line detection
+	res = res && (bool4(jx.z, jy.w, jz.x, jw.y) || !(res.wxyz && res.yzwx));	
+
+
+	// output
+
+	bool4 clr;
+	clr.x = clear(float2(D.z, E.x), float4(A.w, E.y, D.wy));
+	clr.y = clear(float2(E.z, F.x), float4(B.w, F.y, E.wy));
+	clr.z = clear(float2(H.z, I.x), float4(E.w, I.y, H.wy));
+	clr.w = clear(float2(G.z, H.x), float4(D.w, H.y, G.wy));
+
+	float4 low = max(float4(E.yw, H.y, D.w), THR);
+	
+	bool4 hori = bool4(low.x < max(D.w, A.w), low.x < max(E.w, B.w), low.z < max(E.w, H.w), low.z < max(D.w, G.w)) && clr;	// horizontal edges
+	bool4 vert = bool4(low.w < max(E.y, D.y), low.y < max(E.y, F.y), low.y < max(H.y, I.y), low.w < max(H.y, G.y)) && clr;	// vertical edges
+	bool4 or   = bool4(A.w < D.y, B.w <= F.y, H.w < I.y, G.w <= G.y);							// orientation
+
+	return (float4(res) + 2 * float4(hori) + 4 * float4(vert) + 8 * float4(or)) / 15;
+
+}

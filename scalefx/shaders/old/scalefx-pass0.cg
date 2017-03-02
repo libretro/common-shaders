@@ -1,0 +1,112 @@
+/*
+	ScaleFX - Pass 0
+	by Sp00kyFox, 2016-03-30
+
+Filter:	Nearest
+Scale:	1x
+
+ScaleFX is an edge interpolation algorithm specialized in pixel art. It was
+originally intended as an improvement upon Scale3x but became a new filter in
+its own right.
+ScaleFX interpolates edges up to level 6 and makes smooth transitions between
+different slopes. The filtered picture will only consist of colours present
+in the original.
+
+Pass 0 prepares metric data for the next pass.
+
+
+
+Copyright (c) 2016 Sp00kyFox - ScaleFX@web.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+
+// Reference: http://www.compuphase.com/cmetric.htm
+float eq(float3 A, float3 B)
+{
+	float  r = 0.5 * (A.r + B.r);
+	float3 d = A - B;
+	float3 c = float3(2 + r, 4, 3 - r);
+
+	return 1 - sqrt(dot(c*d, d)) / 3;
+}
+
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+	float4 position	: POSITION,
+	float2 texCoord : TEXCOORD0,
+
+   	uniform float4x4 modelViewProj,
+	uniform input IN
+)
+{
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 ps = 1.0/IN.texture_size;
+	float dx = ps.x, dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = texCoord.xxxy + float4(-dx, 0, dx, -dy);	// A, B, C
+	OUT.t2 = texCoord.xxxy + float4(-dx, 0, dx,   0);	// D, E, F
+
+	return OUT;
+}
+
+
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+
+	/*	grid		metric
+
+		A B C		x y z
+		  E F		  o w
+	*/
+
+
+	// read texels
+	float3 A = tex2D(decal, VAR.t1.xw).rgb;
+	float3 B = tex2D(decal, VAR.t1.yw).rgb;
+	float3 C = tex2D(decal, VAR.t1.zw).rgb;
+	float3 E = tex2D(decal, VAR.t2.yw).rgb;
+	float3 F = tex2D(decal, VAR.t2.zw).rgb;
+
+	// output
+	return float4(eq(E,A), eq(E,B), eq(E,C), eq(E,F));
+
+}
