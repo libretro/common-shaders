@@ -17,24 +17,30 @@ struct input
 };
 
 // Parameter lines go here:
-#pragma parameter saturation "Saturation" 1.0 0.0 5.0 0.05
-#pragma parameter hue_tweak "Hue" 0.0 -10.0 10.0 0.05
-#pragma parameter contrast "Contrast" 1.0 0.0 2.0 0.05
-#pragma parameter brightness "Brightness" 1.0 0.0 2.0 0.05
-#pragma parameter gamma "Gamma" 1.8 1.0 2.5 0.05
+#pragma parameter nes_saturation "Saturation" 1.0 0.0 5.0 0.05
+#pragma parameter nes_hue_tweak "Hue" 0.0 -10.0 10.0 0.05
+#pragma parameter nes_contrast "Contrast" 1.0 0.0 2.0 0.05
+#pragma parameter nes_brightness "Brightness" 1.0 0.0 2.0 0.05
+#pragma parameter nes_gamma "Gamma" 1.8 1.0 2.5 0.05
 #ifdef PARAMETER_UNIFORM
-uniform float saturation;
-uniform float hue_tweak;
-uniform float contrast;
-uniform float brightness;
-uniform float gamma;
+uniform float nes_saturation;
+uniform float nes_hue_tweak;
+uniform float nes_contrast;
+uniform float nes_brightness;
+uniform float nes_gamma;
 #else
-#define saturation 1.0
-#define hue_tweak 0.0
-#define contrast 1.0
-#define brightness 1.0
-#define gamma 1.8
+#define nes_saturation 1.0
+#define nes_hue_tweak 0.0
+#define nes_contrast 1.0
+#define nes_brightness 1.0
+#define nes_gamma 1.8
 #endif
+
+#define saturation nes_saturation
+#define hue_tweak nes_hue_tweak
+#define contrast nes_contrast
+#define brightness nes_brightness
+#define gamma nes_gamma
 
 bool wave (int p, int color)
 {
