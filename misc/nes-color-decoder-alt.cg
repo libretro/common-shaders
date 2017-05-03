@@ -62,6 +62,9 @@ float3 MakeRGBColor(int emphasis, int level, int color)
    float g = 0.0;
    float b = 0.0;
 
+   // Color 0xE and 0xF are black
+   level = (color < 14) ? level : 1;
+
    // Voltage levels, relative to synch voltage
    float black = 0.518;
    float white = 1.962;
