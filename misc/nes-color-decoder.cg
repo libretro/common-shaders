@@ -22,18 +22,21 @@ struct input
 #pragma parameter nes_contrast "Contrast" 1.0 0.0 2.0 0.05
 #pragma parameter nes_brightness "Brightness" 1.0 0.0 2.0 0.05
 #pragma parameter nes_gamma "Gamma" 1.8 1.0 2.5 0.05
+#pragma parameter nes_sony_matrix "Sony CXA2025AS US colors" 0.0 0.0 1.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float nes_saturation;
 uniform float nes_hue;
 uniform float nes_contrast;
 uniform float nes_brightness;
 uniform float nes_gamma;
+uniform float nes_sony_matrix;
 #else
 #define nes_saturation 1.0
 #define nes_hue 0.0
 #define nes_contrast 1.0
 #define nes_brightness 1.0
 #define nes_gamma 1.8
+#define nes_sony_matrix 0.0
 #endif
 
 #define saturation nes_saturation
@@ -41,6 +44,9 @@ uniform float nes_gamma;
 #define contrast nes_contrast
 #define brightness nes_brightness
 #define gamma nes_gamma
+
+//comment the define out to use the "common" conversion matrix instead of the FCC sanctioned one
+#define USE_FCC_MATRIX
 
 bool wave (int p, int color)
 {
@@ -61,6 +67,8 @@ float3 MakeRGBColor(int emphasis, int level, int color)
    float r = 0.0;
    float g = 0.0;
    float b = 0.0;
+
+   float yiq2rgb[6];
 
    // Color 0xE and 0xF are black
    level = (color < 14) ? level : 1;
@@ -108,10 +116,41 @@ float3 MakeRGBColor(int emphasis, int level, int color)
    i *= saturation;
    q *= saturation;
 
-   // Convert YIQ into RGB according to FCC-sanctioned conversion matrix.
-   r = clamp((1.0 * gammafix(y +  0.946882 * i +  0.623557 * q)), 0, 1.0);
-   g = clamp((1.0 * gammafix(y + -0.274788 * i + -0.635691 * q)), 0, 1.0);
-   b = clamp((1.0 * gammafix(y + -1.108545 * i +  1.709007 * q)), 0, 1.0);
+   if (nes_sony_matrix > 0.5)
+   {
+      // Sony CXA2025AS US conversion matrix
+      yiq2rgb[0] = 1.630;
+      yiq2rgb[1] = 0.317;
+      yiq2rgb[2] = -0.378;
+      yiq2rgb[3] = -0.466;
+      yiq2rgb[4] = -1.089;
+      yiq2rgb[5] = 1.677;
+   }
+   else
+   {
+#ifdef USE_FCC_MATRIX
+      // FCC sanctioned conversion matrix
+      yiq2rgb[0] = 0.946882;
+      yiq2rgb[1] = 0.623557;
+      yiq2rgb[2] = -0.274788;
+      yiq2rgb[3] = -0.635691;
+      yiq2rgb[4] = -1.108545;
+      yiq2rgb[5] = 1.709007;
+#else
+      // commonly used conversion matrix
+      yiq2rgb[0] = 0.956;
+      yiq2rgb[1] = 0.621;
+      yiq2rgb[2] = -0.272;
+      yiq2rgb[3] = -0.647;
+      yiq2rgb[4] = -1.105;
+      yiq2rgb[5] = 1.702;
+#endif
+   }
+
+   // Convert YIQ into RGB according to selected conversion matrix
+   r = clamp((1.0 * gammafix(y + yiq2rgb[0] * i + yiq2rgb[1] * q)), 0, 1.0);
+   g = clamp((1.0 * gammafix(y + yiq2rgb[2] * i + yiq2rgb[3] * q)), 0, 1.0);
+   b = clamp((1.0 * gammafix(y + yiq2rgb[4] * i + yiq2rgb[5] * q)), 0, 1.0);
 
    return float3(r,g,b);
 }
