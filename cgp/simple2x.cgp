@@ -1,0 +1,6 @@
+shaders = 1
+shader0 = ../stock.cg
+filter_linear0 = false
+scale_type0 = source
+scale_x0 = 2.0
+scale_y0 = 2.0
