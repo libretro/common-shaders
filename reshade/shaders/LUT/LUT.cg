@@ -1,0 +1,57 @@
+#pragma parameter LUT_Size "LUT Size" 16.0 16.0 64.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float LUT_Size;
+#else
+#define LUT_Size 16.0
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform sampler2D SamplerLUT : TEXUNIT1, uniform input IN) 
+{
+	float4 imgColor = tex2D(decal, texCoord.xy);
+    float red = ( imgColor.r * (LUT_Size - 1.0) + 0.5 ) / (LUT_Size * LUT_Size);
+    float green = ( imgColor.g * (LUT_Size - 1.0) + 0.5 ) / LUT_Size;
+    float blue = floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
+    float4 color = tex2D( SamplerLUT, vec2( blue + red, green ));
+   output OUT;
+   OUT.color = color;
+   return OUT;
+}
+

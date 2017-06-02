@@ -1,0 +1,8 @@
+shaders = 1
+
+shader0 = shaders/LUT/LUT.cg
+
+textures = SamplerLUT
+
+SamplerLUT = shaders/LUT/schindlers-list-17.png
+SamplerLUT_linear = true
