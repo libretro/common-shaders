@@ -45,13 +45,16 @@ struct input
 
 output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform sampler2D SamplerLUT : TEXUNIT1, uniform input IN) 
 {
-	float4 imgColor = pow(tex2D(decal, texCoord.xy), float4(2.2));
+	float4 imgColor = tex2D(decal, texCoord.xy);
     float red = ( imgColor.r * (LUT_Size - 1.0) + 0.5 ) / (LUT_Size * LUT_Size);
     float green = ( imgColor.g * (LUT_Size - 1.0) + 0.5 ) / LUT_Size;
-    float blue = floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
-    float4 color = tex2D( SamplerLUT, vec2( blue + red, green ));
+    float blue1 = floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
+	float blue2 = ceil( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
+	float mixer = (imgColor.b - (blue1 + red)) / ((blue2 + red) - (blue1 + red));
+    float4 color1 = tex2D( SamplerLUT, float2( blue1 + red, green ));
+	float4 color2 = tex2D( SamplerLUT, float2( blue2 + red, green ));
    output OUT;
-   OUT.color = pow(color, float4(1.0 / 2.2));
+   OUT.color = mix(color1, color2, mixer);
    return OUT;
 }
 
