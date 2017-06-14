@@ -1,0 +1,90 @@
+/*
+Adapted for RetroArch from Flyguy's "Apple II-Like Artifact Colors" from shadertoy:
+https://www.shadertoy.com/view/llyGzR
+
+"Colors created through NTSC artifacting on 4-bit patterns, similar to the Apple II's lo-res mode."
+*/
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+//#pragma parameter F_COL "F Col" 0.25 0.25 0.5 0.25
+#ifdef PARAMETER_UNIFORM
+uniform float F_COL;
+#else
+#define F_COL 0.25
+#endif
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+//Modulator
+
+//#define F_COL (1.0 / 4.0) // moved to parameter
+
+float3x3 rgb2yiq = float3x3(0.299, 0.596, 0.211,
+                    0.587,-0.274,-0.523,
+                    0.114,-0.322, 0.312);
+
+//Complex oscillator, Fo = Oscillator freq., Fs = Sample freq., n = Sample index
+float2 Oscillator(float Fo, float Fs, float n)
+{
+	float tau = atan(1.0)*8.0;
+    float phase = (tau*Fo*floor(n))/Fs;
+    return float2(cos(phase),sin(phase));
+}
+
+#define gl_FragCoord float2((texCoord.xy * float2(IN.output_size.xy))*(IN.texture_size.xy/IN.video_size.xy))
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+{
+    float Fs = IN.texture_size.x;
+    float Fcol = Fs * F_COL;
+    float n = floor(gl_FragCoord.x);
+    
+    float3 cRGB = tex2D(decal, texCoord.xy).rgb;
+    float3 cYIQ = mul(cRGB, rgb2yiq);
+    
+    float2 cOsc = Oscillator(Fcol, Fs, n);
+    
+    float sig = cYIQ.x + dot(cOsc, cYIQ.yz);
+
+   float4 final = float4(sig,0.,0.,0.);
+   
+   output OUT;
+   OUT.color = final;
+   return OUT;
+}
+

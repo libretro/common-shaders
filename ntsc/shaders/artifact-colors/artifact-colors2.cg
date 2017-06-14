@@ -1,0 +1,235 @@
+/*
+Adapted for RetroArch from Flyguy's "Apple II-Like Artifact Colors" from shadertoy:
+https://www.shadertoy.com/view/llyGzR
+
+"Colors created through NTSC artifacting on 4-bit patterns, similar to the Apple II's lo-res mode."
+*/ 
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+*/
+
+// Parameter lines go here:
+#pragma parameter F_COL "F Col" 0.25 0.25 0.5 0.25
+#pragma parameter SATURATION "Saturation" 30.0 0.0 100.0 1.0
+#pragma parameter BRIGHTNESS "Brightness" 1.0 0.0 2.0 0.01
+#pragma parameter F_LUMA_LP "F Luma LP" 0.16667 0.0001 0.333333 0.02
+#pragma parameter HUE "Hue" 0.0 0.0 1.0 0.01
+#ifdef PARAMETER_UNIFORM
+uniform float F_COL;
+uniform float SATURATION;
+uniform float BRIGHTNESS;
+uniform float F_LUMA_LP;
+uniform float HUE;
+#else
+#define F_COL 0.25
+#define SATURATION 30.0
+#define BRIGHTNESS 1.0
+#define F_LUMA_LP 0.16667
+#define HUE 0.0
+#endif
+
+void main_vertex
+(
+	float4 position	: POSITION,
+	float4 color	: COLOR,
+	float2 texCoord : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+
+	out float4 oPosition : POSITION,
+	out float4 oColor    : COLOR,
+	out float2 otexCoord : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oColor = color;
+	otexCoord = texCoord;
+}
+
+struct output 
+{
+  float4 color    : COLOR;
+};
+
+struct input
+{
+  float2 video_size;
+  float2 texture_size;
+  float2 output_size;
+  float  frame_count;
+  float  frame_direction;
+  float frame_rotation;
+};
+
+struct orig
+{
+  sampler2D texture;
+};
+
+//Composite color artifact simulator
+//Change Buf A to change the input image.
+
+//#define HUE 0.0 // moved to parameter
+//#define SATURATION 30.0 // moved to parameter
+//#define BRIGHTNESS 1.0 // moved to parameter
+
+#define COMPOSITE 0 //Composite demodulated image
+#define RGB 1 //Raw RGB input image
+#define LUMA 2 //Luma component
+#define CHROMA 3 //Chroma component
+#define SIGNAL 4 //Modulated image
+#define SPLIT 5 //Left = Input RGB, Right = Output composite
+
+#define VIEW_MODE COMPOSITE
+
+//#define F_COL (1.0 / 4.0) // moved to parameter
+//#define F_LUMA_LP (1.0 / 6.0) // moved to parameter
+
+#define FIR_SIZE 29
+
+float pi = 3.141592654;//atan(1.0)*4.0;
+float tau = 6.283185308;//atan(1.0)*8.0;
+
+float3x3 yiq2rgb = float3x3(1.000, 1.000, 1.000,
+                    0.956,-0.272,-1.106,
+                    0.621,-0.647, 1.703);
+
+//Angle -> 2D rotation matrix 
+float2x2 rotate(float a)
+{
+    return float2x2( cos(a), sin(a),
+                -sin(a), cos(a));
+}
+
+//Non-normalized texture sampling.
+vec4 sample2D(sampler2D tex,vec2 resolution, vec2 uv)
+{
+    return tex2D(tex, uv / resolution);
+}
+
+float sinc(float x)
+{
+	return (x == 0.0) ? 1.0 : sin(x*pi)/(x*pi);   
+}
+
+//https://en.wikipedia.org/wiki/Window_function
+float WindowBlackman(float a, int N, int i)
+{
+    float a0 = (1.0 - a) / 2.0;
+    float a1 = 0.5;
+    float a2 = a / 2.0;
+    
+    float wnd = a0;
+    wnd -= a1 * cos(2.0 * pi * (float(i) / float(N - 1)));
+    wnd += a2 * cos(4.0 * pi * (float(i) / float(N - 1)));
+    
+    return wnd;
+}
+
+//FIR lowpass filter 
+//Fc = Cutoff freq., Fs = Sample freq., N = # of taps, i = Tap index
+float Lowpass(float Fc, float Fs, int N, int i)
+{    
+    float wc = (Fc/Fs);
+    
+    float wnd = WindowBlackman(0.16, N, i);
+    
+    return 2.0*wc * wnd * sinc(2.0*wc * float(i - N/2));
+}
+
+#define gl_FragCoord float2((texCoord.xy * float2(IN.output_size.xy))*(IN.texture_size.xy/IN.video_size.xy))
+
+#define macroloop(i) tpidx = int(FIR_SIZE) - i - 1; \
+        lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx); \
+        chroma += sample2D(decal, IN.texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
+
+output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform orig ORIG) 
+{
+    float4 final;
+	float Fs = IN.texture_size.x;
+    float Fcol = Fs * F_COL;
+    float Flumlp = Fs * F_LUMA_LP;
+    float n = floor(gl_FragCoord.x);
+    
+	float2 uv = gl_FragCoord.xy / (IN.output_size.xy / IN.video_size.xy);
+    
+    float luma = sample2D(decal, IN.texture_size.xy, uv).r;
+    float2 chroma = float2(0.);
+    
+    //Filtering out unwanted high freqency content from the chroma(IQ) signal.
+	int tpidx;
+	float lp;
+/*    for(int i = 0;i < int(FIR_SIZE);i++)
+    {
+        int tpidx = int(FIR_SIZE) - i - 1;
+        float lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx);
+        chroma += sample2D(decal, IN.texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
+    }
+*/
+
+    macroloop(0)
+    macroloop(1)
+    macroloop(2)
+    macroloop(3)
+    macroloop(4)
+    macroloop(5)
+    macroloop(6)
+    macroloop(7)
+    macroloop(8)
+    macroloop(9)
+    macroloop(10)
+    macroloop(11)
+    macroloop(12)
+    macroloop(13)
+    macroloop(14)
+    macroloop(15)
+    macroloop(16)
+    macroloop(17)
+    macroloop(18)
+    macroloop(19)
+    macroloop(20)
+    macroloop(21)
+    macroloop(22)
+    macroloop(23)
+    macroloop(24)
+    macroloop(25)
+    macroloop(26)
+    macroloop(27)
+    macroloop(28)
+    
+    chroma = mul(rotate(tau * HUE), chroma);
+    
+    float3 color = mul(float3(BRIGHTNESS * luma, chroma * SATURATION), yiq2rgb);
+    
+    #if(VIEW_MODE == COMPOSITE)
+    	final = float4(color, 0.);
+    
+    #elif(VIEW_MODE == RGB)
+   		final = tex2D(ORIG.texture, texCoord.xy);
+    
+    #elif(VIEW_MODE == LUMA) 
+    	final = float4(luma);
+    
+    #elif(VIEW_MODE == CHROMA)
+    	final = float4(40.0*chroma+0.5,0.,0.);
+    
+    #elif(VIEW_MODE == SIGNAL)
+    	final = 0.5 * tex2D(decal, uv / IN.texture_size.xy).rrrr+0.25;
+    
+    #elif(VIEW_MODE == SPLIT)
+    	if(texCoord.x < 0.25)
+        {
+            final = tex2D(ORIG.texture, texCoord.xy);
+        }
+        else
+        {
+    		final = float4(color, 0.);
+        }
+    #endif
+   output OUT;
+   OUT.color = final;
+   return OUT;
+}
+

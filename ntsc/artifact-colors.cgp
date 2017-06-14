@@ -1,0 +1,12 @@
+shaders = 4
+
+shader0 = ../stock.cg
+scale_type_x0 = absolute
+scale_x0 = "640.0"
+
+shader1 = shaders/artifact-colors/artifact-colors0.cg
+
+shader2 = shaders/artifact-colors/artifact-colors1.cg
+float_framebuffer2 = true
+
+shader3 = shaders/artifact-colors/artifact-colors2.cg
