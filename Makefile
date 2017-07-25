@@ -1,4 +1,5 @@
-INSTALLDIR := /usr/share/libretro/shaders/shaders_cg
+PREFIX := /usr
+INSTALLDIR := $(PREFIX)/share/libretro/shaders/shaders_cg
 
 all:
 	@echo "Nothing to make for common-shaders."
