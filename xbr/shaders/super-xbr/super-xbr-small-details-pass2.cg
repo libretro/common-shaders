@@ -1,7 +1,3 @@
-#pragma parameter XBR_EDGE_STR "Xbr - Edge Strength p0" 1.0 0.0 5.0 0.2
-#pragma parameter XBR_WEIGHT "Xbr - Filter Weight" 1.0 0.00 1.50 0.01
-#pragma parameter XBR_ANTI_RINGING "Xbr - Anti-Ringing Level" 1.0 0.0 1.0 1.0
-
 #include "super-xbr-params.inc"
 
 /* COMPATIBILITY
@@ -11,7 +7,7 @@
 
 /*
    
-  *******  Super XBR Shader - pass0  *******
+  *******  Super XBR Shader - pass2  *******  This pass is optional.
    
   Copyright (c) 2015 Hyllian - sergiogdb@gmail.com
 
@@ -38,7 +34,7 @@
 #define wp1  1.0
 #define wp2  0.0
 #define wp3  0.0
-#define wp4  2.0
+#define wp4  1.0
 #define wp5 -1.0
 #define wp6  0.0
 
@@ -46,7 +42,6 @@
 #define weight2 (XBR_WEIGHT*1.75068/10.0/2.0)
 
 const static float3 Y = float3(.2126, .7152, .0722);
-
 
 float RGBtoYUV(float3 color)
 {
@@ -131,10 +126,10 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
             mul(modelViewProj, position),
             color,
             texCoord,
-            texCoord.xyxy + float4(-dx, -dy, 2.0*dx, 2.0*dy),
-            texCoord.xyxy + float4(  0, -dy,     dx, 2.0*dy),
-            texCoord.xyxy + float4(-dx,   0, 2.0*dx,     dy),
-            texCoord.xyxy + float4(  0,   0,     dx,     dy)
+            texCoord.xyxy + float4(-2.0*dx, -2.0*dy, dx, dy),
+            texCoord.xyxy + float4(    -dx, -2.0*dy,  0, dy),
+            texCoord.xyxy + float4(-2.0*dx,     -dy, dx,  0),
+            texCoord.xyxy + float4(    -dx,     -dy,  0,  0)
         };
      
         return OUT;
@@ -176,6 +171,16 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 	float i5 = RGBtoYUV( I5 ); float p1 = RGBtoYUV( P1 );
 	float h5 = RGBtoYUV( H5 ); float p2 = RGBtoYUV( P2 );
 	float f4 = RGBtoYUV( F4 ); float p3 = RGBtoYUV( P3 );
+
+/*
+                              P1
+     |P0|B |C |P1|         C     F4          |a0|b1|c2|d3|
+     |D |E |F |F4|      B     F     I4       |b0|c1|d2|e3|   |e1|i1|i2|e2|
+     |G |H |I |I4|   P0    E  A  I     P3    |c0|d1|e2|f3|   |e3|i3|i4|e4|
+     |P2|H5|I5|P3|      D     H     I5       |d0|e1|f2|g3|
+                           G     H5
+                              P2
+*/
 
 
 	/* Calc edgeness in diagonal directions. */
