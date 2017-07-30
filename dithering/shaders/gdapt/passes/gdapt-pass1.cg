@@ -30,7 +30,7 @@ struct input
 struct out_vertex {
         float4 position : POSITION;
         float2 texCoord : TEXCOORD0;
-        float2 t1;
+        float2 t1 : TEXCOORD1;
 };
 
 
@@ -55,7 +55,7 @@ out_vertex main_vertex
 }
 
 /*    FRAGMENT SHADER    */
-float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
 {
 
 	float4 C = TEX( 0, 0);
@@ -92,11 +92,11 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 
 	if(DEBUG)
-		return float3(str);
+		return float4(str, str, str, str);
 
 	float sum  = L.w + R.w;
 	float wght = max(L.w, R.w);
 	      wght = (wght == 0.0) ? 1.0 : sum/wght;
 
-	return lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + sum), str);	
+	return float4(lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + sum), str), 1.0);	
 }
