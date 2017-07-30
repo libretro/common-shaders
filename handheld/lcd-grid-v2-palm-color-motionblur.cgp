@@ -1,7 +1,7 @@
 shaders = "3"
 shader0 = "../motionblur/shaders/motionblur-simple.cg"
 shader1 = "shaders/lcd_cgwg/lcd-grid-v2.cg"
-shader2 = "shaders/color/gba-color.cg"
+shader2 = "shaders/color/palm-color.cg"
 
 filter_linear0 = "false"
 scale_type0 = "source"
