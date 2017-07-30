@@ -1,4 +1,4 @@
-#pragma parameter XBR_EDGE_STR "Xbr - Edge Strength p0" 1.0 0.0 5.0 0.5
+#pragma parameter XBR_EDGE_STR "Xbr - Edge Strength p0" 2.0 0.0 5.0 0.5
 #pragma parameter XBR_WEIGHT "Xbr - Filter Weight" 1.0 0.00 1.50 0.05
 #pragma parameter XBR_ANTI_RINGING "Xbr - Anti-Ringing Level" 1.0 0.0 1.0 1.0
 
@@ -37,12 +37,12 @@
 
 #define XBR_RES 2.0
 
-#define wp1  1.0
-#define wp2  0.0
-#define wp3  0.0
-#define wp4  2.0
+#define wp1  2.0
+#define wp2  1.0
+#define wp3 -1.0
+#define wp4  4.0
 #define wp5 -1.0
-#define wp6  0.0
+#define wp6  1.0
 
 #define weight1 (XBR_WEIGHT*1.29633/10.0)
 #define weight2 (XBR_WEIGHT*1.75068/10.0/2.0)
@@ -91,7 +91,7 @@ float d_wd(float b0, float b1, float c0, float c1, float c2, float d0, float d1,
 
 float hv_wd(float i1, float i2, float i3, float i4, float e1, float e2, float e3, float e4)
 {
-	return ( wp4*(df(i1,i2)+df(i3,i4)) + wp1*(df(i1,e1)+df(i2,e2)+df(i3,e3)+df(i4,e4)) + wp3*(df(i1,e2)+df(i3,e4)+df(e1,i2)+df(e3,i4)));
+	return ( wp4*(df(i1,i2)+df(i3,i4)) + wp1*(df(i1,e1)+df(i2,e2)+df(i3,e3)+df(i4,e4)) );
 }
 
 float3 min4(float3 a, float3 b, float3 c, float3 d)
