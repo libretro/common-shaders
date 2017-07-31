@@ -6,6 +6,7 @@
 
 */
 
+#include "../../../../compat_macros.inc"
 
 #pragma parameter STEPS "GDAPT Error Prevention LVL"	1.0 0.0 5.0 1.0
 #pragma parameter DEBUG "GDAPT Adjust View"		0.0 0.0 1.0 1.0
@@ -18,7 +19,7 @@
 #endif
 
 
-#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+#define TEX(dx,dy) COMPAT_Sample(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
 
 struct input
 {
@@ -55,7 +56,7 @@ out_vertex main_vertex
 }
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
 
 	float4 C = TEX( 0, 0);
