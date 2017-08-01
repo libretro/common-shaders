@@ -14,8 +14,6 @@ SamplerState PointSampler { Filter = MIN_MAG_MIP_POINT; AddressU = Clamp; Addres
 #define COMPAT_Texture2DMS2(tex) Texture2DMS<float4, 2> tex
 #define COMPAT_Load(tex, pos, sample) tex.Load(pos, sample)
 #define COMPAT_Output SV_Target
-#elif defined(HLSL_4_1)
-#define COMPAT_Gather(tex, coord) tex.Gather(LinearSampler, coord, 0)
 #else
 #define COMPAT_Texture2D(tex) sampler2D tex
 #define COMPAT_TexturePass2D(tex) tex
@@ -28,4 +26,7 @@ SamplerState PointSampler { Filter = MIN_MAG_MIP_POINT; AddressU = Clamp; Addres
 #define COMPAT_FLATTEN [flatten]
 #define COMPAT_BRANCH [branch]
 #define COMPAT_Output COLOR
+#endif
+#if defined(HLSL_4_1)
+#define COMPAT_Gather(tex, coord) tex.Gather(LinearSampler, coord, 0)
 #endif
