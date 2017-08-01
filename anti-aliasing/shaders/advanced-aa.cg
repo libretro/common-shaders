@@ -21,6 +21,8 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#include "../../compat_macros.inc"
+
 float3  dt = float3(1,1,1);
 
 /*
@@ -104,7 +106,6 @@ VERTEX_OUTPUT main_vertex
 	return OUT;
 }
 
-
 /* 
 	FRAGMENT SHADER
 */
@@ -113,7 +114,6 @@ struct output
 {
   float4 color    : COLOR;
 };
-
 
 struct VERTEX_INPUT
 {
@@ -125,19 +125,18 @@ struct VERTEX_INPUT
 	float4 t4 : TEXCOORD4;
 };
 
-
-output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 advanced_aa(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 CT, float4 t1, 
+	float4 t2, float4 t3, float4 t4)
 {
-   output OUT;
-   float3 c00 = tex2D(decal, VAR.t1.zw).xyz; 
-   float3 c10 = tex2D(decal, VAR.t3.xy).xyz;
-   float3 c20 = tex2D(decal, VAR.t3.zw).xyz;
-   float3 c01 = tex2D(decal, VAR.t1.xy).xyz;
-   float3 c11 = tex2D(decal, VAR.CT).xyz;
-   float3 c21 = tex2D(decal, VAR.t2.xy).xyz;
-   float3 c02 = tex2D(decal, VAR.t2.zw).xyz;
-   float3 c12 = tex2D(decal, VAR.t4.xy).xyz;
-   float3 c22 = tex2D(decal, VAR.t4.zw).xyz;
+   float3 c00 = COMPAT_SamplePoint(decal, t1.zw).xyz; 
+   float3 c10 = COMPAT_SamplePoint(decal, t3.xy).xyz;
+   float3 c20 = COMPAT_SamplePoint(decal, t3.zw).xyz;
+   float3 c01 = COMPAT_SamplePoint(decal, t1.xy).xyz;
+   float3 c11 = COMPAT_SamplePoint(decal, CT).xyz;
+   float3 c21 = COMPAT_SamplePoint(decal, t2.xy).xyz;
+   float3 c02 = COMPAT_SamplePoint(decal, t2.zw).xyz;
+   float3 c12 = COMPAT_SamplePoint(decal, t4.xy).xyz;
+   float3 c22 = COMPAT_SamplePoint(decal, t4.zw).xyz;
 
    float d1=dot(abs(c00-c22),dt)+0.0001;
    float d2=dot(abs(c20-c02),dt)+0.0001;
@@ -147,12 +146,18 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
    float k1=0.5*(hl+vl);
    float k2=0.5*(d1+d2);
 
-   float3 t1=(hl*(c10+c12)+vl*(c01+c21)+k1*c11)/(2.5*(hl+vl));
-   float3 t2=(d1*(c20+c02)+d2*(c00+c22)+k2*c11)/(2.5*(d1+d2));
+   float3 _t1=(hl*(c10+c12)+vl*(c01+c21)+k1*c11)/(2.5*(hl+vl));
+   float3 _t2=(d1*(c20+c02)+d2*(c00+c22)+k2*c11)/(2.5*(d1+d2));
 
-   k1=dot(abs(t1-c11),dt)+0.0001;
-   k2=dot(abs(t2-c11),dt)+0.0001;
+   k1=dot(abs(_t1-c11),dt)+0.0001;
+   k2=dot(abs(_t2-c11),dt)+0.0001;
 
-   OUT.color = float4((k1*t2+k2*t1)/(k1+k2),1);
-   return OUT;
+   float4 final = float4((k1*_t2+k2*_t1)/(k1+k2),1);
+   return final;
+}
+
+float4 main_fragment(in VERTEX_INPUT VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	float4 final = advanced_aa(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.CT, VAR.t1, VAR.t2, VAR.t3, VAR.t4);
+	return final;
 }

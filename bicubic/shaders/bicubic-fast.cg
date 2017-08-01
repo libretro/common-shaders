@@ -28,6 +28,8 @@
 
 */
 
+#include "../../compat_macros.inc"
+
 const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
                                            0.5, -1.0,     -0.5, 1.0,
                                           -0.5,  0.5,      1.0, 0.0,
@@ -84,7 +86,7 @@ out_vertex main_vertex
 	// This line fix a bug in ATI cards.
 	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
 
-	out_vertex OUT = { 
+	out_vertex VAR = { 
 		tex,
 		float4(tex,tex) + float4(   -dx,    -dy,    0.0,    -dy), 
 		float4(tex,tex) + float4(    dx,    -dy, 2.0*dx,    -dy),
@@ -96,32 +98,31 @@ out_vertex main_vertex
 		tex             + float2(2.0*dx, 2.0*dy)
 	};
 
-
-	return OUT;
+	return VAR;
 }
 
-
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+float4 bicubic_fast(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 texCoord,
+	float4 t1, float4 t2, float4 t3, float4 t4, float4 t5, float4 t6, float4 t7, float2 t8)
 {
 
-  float2 fp = frac(VAR.texCoord*IN.texture_size);
+  float2 fp = frac(texCoord*texture_size);
 
-  float3 c00 = tex2D(s_p, VAR.t1.xy).xyz;
-  float3 c01 = tex2D(s_p, VAR.t1.zw).xyz;
-  float3 c02 = tex2D(s_p, VAR.t2.xy).xyz;
-  float3 c03 = tex2D(s_p, VAR.t2.zw).xyz;
-  float3 c10 = tex2D(s_p, VAR.t3.xy).xyz;
-  float3 c11 = tex2D(s_p, VAR.texCoord).xyz;
-  float3 c12 = tex2D(s_p, VAR.t3.zw).xyz;
-  float3 c13 = tex2D(s_p, VAR.t4.xy).xyz;
-  float3 c20 = tex2D(s_p, VAR.t4.zw).xyz;
-  float3 c21 = tex2D(s_p, VAR.t5.xy).xyz;
-  float3 c22 = tex2D(s_p, VAR.t5.zw).xyz;
-  float3 c23 = tex2D(s_p, VAR.t6.xy).xyz;
-  float3 c30 = tex2D(s_p, VAR.t6.zw).xyz;
-  float3 c31 = tex2D(s_p, VAR.t7.xy).xyz;
-  float3 c32 = tex2D(s_p, VAR.t7.zw).xyz;
-  float3 c33 = tex2D(s_p, VAR.t8.xy).xyz;
+  float3 c00 = COMPAT_SamplePoint(decal, t1.xy).xyz;
+  float3 c01 = COMPAT_SamplePoint(decal, t1.zw).xyz;
+  float3 c02 = COMPAT_SamplePoint(decal, t2.xy).xyz;
+  float3 c03 = COMPAT_SamplePoint(decal, t2.zw).xyz;
+  float3 c10 = COMPAT_SamplePoint(decal, t3.xy).xyz;
+  float3 c11 = COMPAT_SamplePoint(decal, texCoord).xyz;
+  float3 c12 = COMPAT_SamplePoint(decal, t3.zw).xyz;
+  float3 c13 = COMPAT_SamplePoint(decal, t4.xy).xyz;
+  float3 c20 = COMPAT_SamplePoint(decal, t4.zw).xyz;
+  float3 c21 = COMPAT_SamplePoint(decal, t5.xy).xyz;
+  float3 c22 = COMPAT_SamplePoint(decal, t5.zw).xyz;
+  float3 c23 = COMPAT_SamplePoint(decal, t6.xy).xyz;
+  float3 c30 = COMPAT_SamplePoint(decal, t6.zw).xyz;
+  float3 c31 = COMPAT_SamplePoint(decal, t7.xy).xyz;
+  float3 c32 = COMPAT_SamplePoint(decal, t7.zw).xyz;
+  float3 c33 = COMPAT_SamplePoint(decal, t8.xy).xyz;
 
 
   float4x4   red_matrix = float4x4(c00.x, c01.x, c02.x, c03.x,
@@ -144,10 +145,16 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
   float1x4 Py_invY = mul(float1x4(fp.y*fp.y*fp.y, fp.y*fp.y, fp.y, 1.0), invY);
 
 
-  float red   = mul(Py_invY, mul(  red_matrix, invX_Px));
-  float green = mul(Py_invY, mul(green_matrix, invX_Px));
-  float blue  = mul(Py_invY, mul( blue_matrix, invX_Px));
+  float red   = float(mul(Py_invY, mul(  red_matrix, invX_Px)));
+  float green = float(mul(Py_invY, mul(green_matrix, invX_Px)));
+  float blue  = float(mul(Py_invY, mul( blue_matrix, invX_Px)));
 
   return float4(red, green, blue, 1.0);
 }
 
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	float4 final = bicubic_fast(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord,
+		VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7, VAR.t8);
+	return final;
+}

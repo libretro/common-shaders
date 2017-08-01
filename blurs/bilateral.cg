@@ -8,6 +8,7 @@ Increasing the radius leads to more pixel lookups and therefore to a lower shade
 
 */
 
+#include "../compat_macros.inc"
 
 #pragma parameter RAD   "BILATERAL Radius"        2.00 0.00 12.0 0.25
 #pragma parameter CLR   "BILATERAL Color Thresh"  0.15 0.01  1.0 0.01
@@ -22,9 +23,9 @@ Increasing the radius leads to more pixel lookups and therefore to a lower shade
 #endif
 
 
-#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+#define TEX(dx,dy) COMPAT_SamplePoint(decal, texCoord+float2((dx),(dy))*t1)
 
-static float4 unit4  = float4(1.0);
+static float4 unit4  = float4(1.0, 1.0, 1.0, 1.0);
 
 static int   steps = ceil(RAD);
 static float clr   = -CLR * CLR;
@@ -84,7 +85,7 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 bilateral(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 texCoord, float2 t1)
 {
 	float4x3 A, B;
 	float4 wghtA, wghtB;
@@ -114,5 +115,11 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 		}
 	}
 
-	return result/norm;
+	return float4(result/norm, 1.0);
+}
+
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	float4 final = bilateral(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord, VAR.t1);
+	return final;
 }

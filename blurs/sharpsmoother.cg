@@ -43,13 +43,13 @@ uniform float mtric;
 
 */
 
+#include "../compat_macros.inc"
 
 const static float3 dt = float3(1.0, 1.0, 1.0);
 
-
 float wt(float3 A, float3 B)
 {	
-	return clamp(smoot - ((6.0+lumad)/pow(3.0,mtric))*pow(dot(pow(abs(A-B),float3(1.0/mtric)),dt),mtric)/(dot(A+B,dt)+lumad), min_w, max_w);
+	return clamp(smoot - ((6.0+lumad)/pow(3.0,mtric))*pow(dot(pow(abs(A-B),float3(1.0/mtric, 1.0/mtric, 1.0/mtric)),dt),mtric)/(dot(A+B,dt)+lumad), min_w, max_w);
 }
 
 
@@ -102,18 +102,19 @@ out_vertex main_vertex
 	return OUT;
 }
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 sharpsmoother(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 texCoord,
+	float4 t1, float4 t2, float4 t3, float4 t4)
  {
 
-   float3 c00 = tex2D(decal, VAR.t1.xy).xyz; 
-   float3 c10 = tex2D(decal, VAR.t1.zw).xyz; 
-   float3 c20 = tex2D(decal, VAR.t2.xy).xyz; 
-   float3 c01 = tex2D(decal, VAR.t4.zw).xyz; 
-   float3 c11 = tex2D(decal, VAR.texCoord).xyz; 
-   float3 c21 = tex2D(decal, VAR.t2.zw).xyz; 
-   float3 c02 = tex2D(decal, VAR.t4.xy).xyz; 
-   float3 c12 = tex2D(decal, VAR.t3.zw).xyz; 
-   float3 c22 = tex2D(decal, VAR.t3.xy).xyz;
+   float3 c00 = COMPAT_SamplePoint(decal, t1.xy).xyz; 
+   float3 c10 = COMPAT_SamplePoint(decal, t1.zw).xyz; 
+   float3 c20 = COMPAT_SamplePoint(decal, t2.xy).xyz; 
+   float3 c01 = COMPAT_SamplePoint(decal, t4.zw).xyz; 
+   float3 c11 = COMPAT_SamplePoint(decal, texCoord).xyz; 
+   float3 c21 = COMPAT_SamplePoint(decal, t2.zw).xyz; 
+   float3 c02 = COMPAT_SamplePoint(decal, t4.xy).xyz; 
+   float3 c12 = COMPAT_SamplePoint(decal, t3.zw).xyz; 
+   float3 c22 = COMPAT_SamplePoint(decal, t3.xy).xyz;
        
    float w10 = wt(c11,c10); float w21 = wt(c11,c21);
    float w12 = wt(c11,c12); float w01 = wt(c11,c01);
@@ -121,4 +122,11 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
    float w20 = wt(c11,c20)*0.75; float w02 = wt(c11,c02)*0.75;
 
    return float4(w10*c10+w21*c21+w12*c12+w01*c01+w00*c00+w22*c22+w20*c20+w02*c02+(1.0-w10-w21-w12-w01-w00-w22-w20-w02)*c11, 1.0);
+}
+
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	float4 final = sharpsmoother(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord,
+		VAR.t1, VAR.t2, VAR.t3, VAR.t4);
+	return final;
 }

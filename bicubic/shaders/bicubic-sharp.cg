@@ -29,6 +29,7 @@ http://www.gnu.org/copyleft/gpl.html
 
 */
 
+#include "../../compat_macros.inc"
 
 /* Default Vertex shader */
 void main_vertex
@@ -104,12 +105,12 @@ struct input
 			weight(x + 1.0));
 	}
 
-	float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
+	float3 pixel(float xpos, float ypos, COMPAT_Texture2D(s_p))
 	{
-	  return tex2D(s_p, float2(xpos, ypos)).rgb;
+	  return COMPAT_SamplePoint(s_p, float2(xpos, ypos)).rgb;
 	}
 
-	float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+	float3 line_run(float ypos, float4 xpos, float4 linetaps, COMPAT_Texture2D(s_p))
 	{
 	  return
 		pixel(xpos.r, ypos, s_p) * linetaps.r +
@@ -118,11 +119,10 @@ struct input
 		pixel(xpos.a, ypos, s_p) * linetaps.a;
 	}
 
-
-output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+float4 bicubic_sharp(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 texCoord)
 {	
-        float2 stepxy = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-        float2 pos = tex.xy + stepxy * 0.5;
+        float2 stepxy = float2(1.0/texture_size.x, 1.0/texture_size.y);
+        float2 pos = texCoord.xy + stepxy * 0.5;
         float2 f = frac(pos / stepxy);
 		
 	float4 linetaps   = weight4(1.0 - f.x);
@@ -137,12 +137,15 @@ output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2
 
 
 // final sum and weight normalization
-   output OUT;
-   OUT.color = float4(line_run(xystart.y                 , xpos, linetaps, s_p) * columntaps.r +
-                      line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p) * columntaps.g +
-                      line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p) * columntaps.b +
-                      line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p) * columntaps.a,1);
-   return OUT;
+   float4 final = float4(line_run(xystart.y                 , xpos, linetaps, decal) * columntaps.r +
+                      line_run(xystart.y + stepxy.y      , xpos, linetaps, decal) * columntaps.g +
+                      line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, decal) * columntaps.b +
+                      line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, decal) * columntaps.a,1);
+   return final;
 }
 
-
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, float2 texCoord: TEXCOORD0) : COMPAT_Output
+{
+	float4 final = bicubic_sharp(IN.texture_size, IN.video_size, IN.output_size, decal, texCoord);
+	return final;
+}

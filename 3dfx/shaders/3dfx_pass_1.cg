@@ -1,12 +1,9 @@
-
-
-
-
-
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
 */
+
+#include "../../compat_macros.inc"
 
 void main_vertex
 (
@@ -55,17 +52,16 @@ struct input
 
 #define		LEIFX_PIXELWIDTH	0.50f
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 _3dfx_pass_1(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 coord)
 {
-   output OUT;
-   OUT.color = tex2D(decal, texCoord);
+	float4 final = COMPAT_Sample(decal, coord);
 	float2 pixel;
 
-	pixel.x = 1 / IN.texture_size.x;
-	pixel.y = 1 / IN.texture_size.y;
+	pixel.x = 1 / texture_size.x;
+	pixel.y = 1 / texture_size.y;
 
-	float3 pixel1 = tex2D(decal, texCoord + float2((pixel.x), 0)).rgb;
-	float3 pixel2 = tex2D(decal, texCoord + float2(-pixel.x, 0)).rgb;
+	float3 pixel1 = COMPAT_Sample(decal, coord + float2((pixel.x), 0)).rgb;
+	float3 pixel2 = COMPAT_Sample(decal, coord + float2(-pixel.x, 0)).rgb;
 	float3 pixelblend;
 
 	// New filter
@@ -75,9 +71,9 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 		float3 pixeldiffleft;
 
 		pixelmake.rgb = 0;
-		pixeldiff.rgb = pixel2.rgb- OUT.color.rgb;
+		pixeldiff.rgb = pixel2.rgb - final.rgb;
 
-		pixeldiffleft.rgb = pixel1.rgb - OUT.color.rgb;
+		pixeldiffleft.rgb = pixel1.rgb - final.rgb;
 
 		if (pixeldiff.r > FILTCAP) 		pixeldiff.r = FILTCAP;
 		if (pixeldiff.g > FILTCAPG) 		pixeldiff.g = FILTCAPG;
@@ -96,9 +92,14 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 		if (pixeldiffleft.b < -FILTCAP) 	pixeldiffleft.b = -FILTCAP;
 
 		pixelmake.rgb = (pixeldiff.rgb / 4) + (pixeldiffleft.rgb / 16);
-		OUT.color.rgb = (OUT.color.rgb + pixelmake.rgb);
+		final.rgb = (final.rgb + pixelmake.rgb);
 	}	
 
+	return final;
+}
 
-	return OUT;
+float4 main_fragment(float2 texCoord : TEXCOORD0, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	float4 final = _3dfx_pass_1(IN.texture_size, IN.video_size, IN.output_size, decal, texCoord);
+	return final;
 }
