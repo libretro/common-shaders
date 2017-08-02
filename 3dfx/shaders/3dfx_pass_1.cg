@@ -7,13 +7,13 @@
 
 void main_vertex
 (
-	float4 position	: POSITION,
+	float4 position	: COMPAT_POS,
 	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
     uniform float4x4 modelViewProj,
 
-	out float4 oPosition : POSITION,
+	out float4 oPosition : COMPAT_POS,
 	out float4 oColor    : COLOR,
 	out float2 otexCoord : TEXCOORD
 )
@@ -23,20 +23,7 @@ void main_vertex
 	otexCoord = texCoord;
 }
 
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
+#include "../../compat_input_struct.inc"
 
 // "LeiFX" shader - Pixel filtering process
 // 

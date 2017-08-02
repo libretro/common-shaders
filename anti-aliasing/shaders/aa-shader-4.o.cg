@@ -22,8 +22,8 @@ uniform float INTERNAL_RES;
 
 static const float3 dt = float3(1.0,1.0,1.0);
 
-float3 texture2d (COMPAT_Texture2D(s2D), float2 texcoord, float4 yx) {
-
+float3 texture2d (COMPAT_Texture2D(s2D), float2 texcoord, float4 yx)
+{
 	float3 s00 = COMPAT_SamplePoint(s2D, texcoord + yx.zw).xyz; 
 	float3 s20 = COMPAT_SamplePoint(s2D, texcoord + yx.xw).xyz; 
 	float3 s22 = COMPAT_SamplePoint(s2D, texcoord + yx.xy).xyz; 
@@ -35,17 +35,11 @@ float3 texture2d (COMPAT_Texture2D(s2D), float2 texcoord, float4 yx) {
 	return .5*(m2*(s00+s22)+m1*(s02+s20))/(m1+m2);
 }
 
+#include "../../compat_input_struct.inc"
 
-struct input
+struct out_vertex
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-};
-
-
-struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 };
@@ -53,7 +47,7 @@ struct out_vertex {
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	float4 position	: POSITION,
+	float4 position	: COMPAT_POS,
 	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
@@ -128,6 +122,5 @@ float4 aa_shader_4_o(float2 texture_size, float2 video_size, float2 output_size,
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = aa_shader_4_o(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord);
-	return final;
+	return aa_shader_4_o(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord);
 }

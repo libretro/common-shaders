@@ -42,6 +42,7 @@
  */
 
 #include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 #pragma parameter REVERSEAA_SHARPNESS "ReverseAA Sharpness" 2.0 0.0 10.0 0.05
 
@@ -51,19 +52,9 @@ uniform float REVERSEAA_SHARPNESS;
 #define REVERSEAA_SHARPNESS 2.0
 #endif
 
-struct input
+struct out_vertex
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
-};
-
-
-struct out_vertex {
-    float4 position : POSITION;
+    float4 position : COMPAT_POS;
     float4 color    : COLOR;
     float2 texCoord : TEXCOORD0;
     float4 t1       : TEXCOORD1;
@@ -74,7 +65,6 @@ struct out_vertex {
     float4 t6       : TEXCOORD6;
     float4 t7       : TEXCOORD7;
 };
-
 
 float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
 {
@@ -91,11 +81,10 @@ float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
     return t;
 }
 
-
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-    float4 position : POSITION,
+    float4 position : COMPAT_POS,
     float4 color    : COLOR,
     float2 texCoord1 : TEXCOORD0,
 

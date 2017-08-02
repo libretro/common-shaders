@@ -24,6 +24,9 @@
     )
 */
 
+#include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
+
 struct tex_coords
 {
    float2 c01; 
@@ -38,23 +41,13 @@ struct tex_coords
    float2 ratio_scale;
 };
 
-struct input
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-};
-
 void main_vertex
 (
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
+   float4 position : COMPAT_POS,
+   out float4 oPosition : COMPAT_POS,
    uniform float4x4 modelViewProj,
 
-   float2 tex : TEXCOORD,
+   float2 tex : TEXCOORD0,
 
    uniform input IN,
    out tex_coords coords
@@ -78,7 +71,7 @@ void main_vertex
    coords.ratio_scale = tex * IN.texture_size;
 }
 
-#define TEX2D(c) tex2D(s0 ,(c))
+#define TEX2D(c) COMPAT_SamplePoint(s0 ,(c))
 #define PI 3.141592653589
 
 #pragma parameter CRTCGWG_GAMMA "CRTcgwg Gamma" 2.7 0.0 10.0 0.01
@@ -89,13 +82,14 @@ uniform float CRTCGWG_GAMMA;
 #define CRTCGWG_GAMMA 2.7
 #endif
 
-float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 crt_cgwg_fast( COMPAT_Texture2D(s0), float2 c01, float2 c11, float2 c21, float2 c31, float2 c02, float2 c12, 
+   float2 c22, float2 c32, float mod_factor, float2 ratio_scale)
 {
-   float2 uv_ratio = frac(co.ratio_scale);
+   float2 uv_ratio = frac(ratio_scale);
    float3 col, col2;
 
-   float4x3 texes0 = float4x3(TEX2D(co.c01).xyz, TEX2D(co.c11).xyz, TEX2D(co.c21).xyz, TEX2D(co.c31).xyz);
-   float4x3 texes1 = float4x3(TEX2D(co.c02).xyz, TEX2D(co.c12).xyz, TEX2D(co.c22).xyz, TEX2D(co.c32).xyz);
+   float4x3 texes0 = float4x3(TEX2D(c01).xyz, TEX2D(c11).xyz, TEX2D(c21).xyz, TEX2D(c31).xyz);
+   float4x3 texes1 = float4x3(TEX2D(c02).xyz, TEX2D(c12).xyz, TEX2D(c22).xyz, TEX2D(c32).xyz);
 
    float4 coeffs = float4(1.0 + uv_ratio.x, uv_ratio.x, 1.0 - uv_ratio.x, 2.0 - uv_ratio.x) + 0.005;
    coeffs = sin(PI * coeffs) * sin(0.5 * PI * coeffs) / (coeffs * coeffs);
@@ -129,7 +123,13 @@ float4 main_fragment(in tex_coords co, uniform input IN, uniform sampler2D s0 : 
    weights2 = exp(pow2) / div2;
 
    float3 multi = col * weights + col2 * weights2;
-   float3 mcol = lerp(float3(1.0, 0.7, 1.0), float3(0.7, 1.0, 0.7), floor(fmod(co.mod_factor, 2.0)));
+   float3 mcol = lerp(float3(1.0, 0.7, 1.0), float3(0.7, 1.0, 0.7), floor(fmod(mod_factor, 2.0)));
 
    return float4(pow(mcol * multi, float3(0.454545, 0.454545, 0.454545)), 1.0);
+}
+
+float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, COMPAT_Texture2D(decal) : TEXUNIT0) : COMPAT_Output
+{
+	return crt_cgwg_fast(decal, co.c01, co.c11, co.c21, co.c31, co.c02, co.c12, 
+   co.c22, co.c32, co.mod_factor, co.ratio_scale);
 }

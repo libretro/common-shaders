@@ -18,7 +18,14 @@
 		#define COMPAT_Load(tex, pos, sample) tex.Load(pos, sample)
 		#define COMPAT_Output SV_Target
 		#define half float
+		#define half2 float2
+		#define half3 float3
+		#define half4 float4
 		#define half3x3 float3x3
+		#define half2x2 float2x2
+		#define half4x4 float4x4
+		#define half4x3 float4x3
+		#define COMPAT_POS SV_POSITION
 	#else
 		#define COMPAT_Texture2D(tex) sampler2D tex
 		#define COMPAT_TexturePass2D(tex) tex
@@ -31,6 +38,7 @@
 		#define COMPAT_FLATTEN [flatten]
 		#define COMPAT_BRANCH [branch]
 		#define COMPAT_Output COLOR
+		#define COMPAT_POS POSITION
 	#endif
 
 #endif // COMPAT_MACROS

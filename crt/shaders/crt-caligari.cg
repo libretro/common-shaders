@@ -48,6 +48,9 @@ uniform float OutputGamma;
 
 */
 
+#include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
+
 struct tex_coords
 {
    float2 texCoord : TEXCOORD0;
@@ -55,27 +58,17 @@ struct tex_coords
    float2 oney;
 };
 
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
-
 /* Default Vertex shader */
 void main_vertex
 (
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
+   float4 position : COMPAT_POS,
+   out float4 oPosition : COMPAT_POS,
    uniform float4x4 modelViewProj,
 
    float4 color : COLOR,
    out float4 oColor : COLOR,
 
-   float2 tex : TEXCOORD,
+   float2 texCoord : TEXCOORD,
 
    uniform input IN,
    out tex_coords coords : TEXCOORD1
@@ -84,7 +77,7 @@ void main_vertex
    oPosition = mul(modelViewProj, position);
    oColor = color;
 
-   coords.texCoord = tex + float2(0.0, 0.0);
+   coords.texCoord = texCoord + float2(0.0, 0.0);
    coords.onex = float2(1.0 / IN.texture_size.x, 0.0);
    coords.oney = float2(0.0, 1.0 / IN.texture_size.y);
 }
@@ -92,20 +85,19 @@ void main_vertex
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float4(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
-#define TEX2D(coords)	GAMMA_IN( tex2D(s_p, coords) )
+#define TEX2D(coords)	GAMMA_IN( COMPAT_SamplePoint(s_p, coords) )
 
 // Macro for weights computing
 #define WEIGHT(w) \
-   if(w>1.0) w=1.0; \
-w = 1.0 - w * w; \
-w = w * w;
+	if(w>1.0) w=1.0; \
+	w = 1.0 - w * w; \
+	w = w * w;
 
-
-float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sampler2D s_p : TEXUNIT0) : COLOR
+float4 crt_caligari(COMPAT_Texture2D(s_p), float2 texCoord, float2 texture_size, float2 onex, float2 oney)
 {
-   float2 coords = ( co.texCoord * IN.texture_size );
+   float2 coords = ( texCoord * texture_size );
    float2 pixel_center = floor( coords ) + float2(0.5, 0.5);
-   float2 texture_coords = pixel_center / IN.texture_size;
+   float2 texture_coords = pixel_center / texture_size;
 
    float4 color = TEX2D( texture_coords );
 
@@ -119,10 +111,10 @@ float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sam
    // get closest horizontal neighbour to blend
    float2 coords01;
    if (dx>0.0) {
-      coords01 = co.onex;
+      coords01 = onex;
       dx = 1.0 - dx;
    } else {
-      coords01 = -co.onex;
+      coords01 = -onex;
       dx = 1.0 + dx;
    }
    float4 colorNB = TEX2D( texture_coords + coords01 );
@@ -142,10 +134,10 @@ float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sam
    // get closest vertical neighbour to blend
    float2 coords10;
    if (dy>0.0) {
-      coords10 = co.oney;
+      coords10 = oney;
       dy = 1.0 - dy;
    } else {
-      coords10 = -co.oney;
+      coords10 = -oney;
       dy = 1.0 + dy;
    }
    colorNB = TEX2D( texture_coords + coords10 );
@@ -165,5 +157,8 @@ float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, uniform sam
    return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
 
-
+float4 main_fragment(float2 texCoord : TEXCOORD0, in tex_coords co : TEXCOORD1, uniform input IN, COMPAT_Texture2D(decal) : TEXUNIT0) : COMPAT_Output
+{
+	return crt_caligari(decal, texCoord, IN.texture_size, co.onex, co.oney);
+}
 

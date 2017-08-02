@@ -19,7 +19,6 @@
 
 */
 
-
 /*
  *  ReverseAA part of the code
  *
@@ -50,6 +49,8 @@
  *
  */
 
+#include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 const static float coef           = 2.0;
 const static float4 eq_threshold  = float4(15.0, 15.0, 15.0, 15.0);
@@ -61,40 +62,38 @@ const static half3x3 yuv_weighted = half3x3(y_weight*yuv[0], u_weight*yuv[1], v_
 const static float4 delta       = float4(0.4, 0.4, 0.4, 0.4);
 const static float sharpness    = 0.65;
 
+// Constants used with gamma correction.
+#define InputGamma 2.4
+#define OutputGamma 2.2
 
-        // Constants used with gamma correction.
-        #define InputGamma 2.4
-        #define OutputGamma 2.2
+#define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
+#define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
 
-        #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
-        #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
+#define TEX2D(coords)	GAMMA_IN( COMPAT_SamplePoint(decal, coords).xyz )
 
-	#define TEX2D(coords)	GAMMA_IN( tex2D(decal, coords).xyz )
+// 0.5 = the spot stays inside the original pixel
+// 1.0 = the spot bleeds up to the center of next pixel
+#define SPOT_HEIGHT 0.58
 
-        // 0.5 = the spot stays inside the original pixel
-        // 1.0 = the spot bleeds up to the center of next pixel
-	#define SPOT_HEIGHT 0.58
+// Used to counteract the desaturation effect of weighting.
+#define COLOR_BOOST 1.45
 
-        // Used to counteract the desaturation effect of weighting.
-        #define COLOR_BOOST 1.45
-
-        // Macro for weights computing
-        #define WEIGHT(w) \
-       		if(w>1.0) w=1.0; \
-       		w = 1.0 - w * w; \
-       		w = w * w;\
-
-
+// Macro for weights computing
+#define WEIGHT(w) \
+	if(w>1.0) w=1.0; \
+	w = 1.0 - w * w; \
+	w = w * w;\
 
 float4 df(float4 A, float4 B)
 {
 	return float4(abs(A-B));
 }
 
-half c_df(half3 c1, half3 c2) {
-                        half3 df = abs(c1 - c2);
-                        return df.r + df.g + df.b;
-                }
+half c_df(half3 c1, half3 c2)
+{
+	half3 df = abs(c1 - c2);
+	return df.r + df.g + df.b;
+}
 
 bool4 eq(float4 A, float4 B)
 {
@@ -106,25 +105,15 @@ bool4 eq2(float4 A, float4 B)
 	return (df(A, B) < float4(2.0, 2.0, 2.0, 2.0));
 }
 
-
 float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4 g, float4 h)
 {
 	return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + 4.0*df(g,h));
 }
 
-
-
-struct input
+struct out_vertex
 {
-	half2 video_size;
-	float2 texture_size;
-	half2 output_size;
-};
-
-
-struct out_vertex {
-	half4 position : POSITION;
-	half4 color    : COLOR;
+	half4 position  : POSITION;
+	half4 color     : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -178,7 +167,8 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 xBR_hybrid_CRT(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal), float4 t1, float4 t2, float4 t3, float4 t4,
+	float4 t5, float4 t6, float4 t7)
 {
 	bool4 edr, edr_left, edr_up, px; // px = pixel, edr = edge detection rule
 	bool4 interp_restriction_lv1, interp_restriction_lv2_left, interp_restriction_lv2_up;
@@ -187,35 +177,35 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	half3 res1, res2, pix1, pix2;
 	float blend1, blend2;
 
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = frac(texCoord*texture_size);
 
-	half3 A1 = tex2D(decal, VAR.t1.xw).rgb;
-	half3 B1 = tex2D(decal, VAR.t1.yw).rgb;
-	half3 C1 = tex2D(decal, VAR.t1.zw).rgb;
+	half3 A1 = COMPAT_SamplePoint(decal, t1.xw).rgb;
+	half3 B1 = COMPAT_SamplePoint(decal, t1.yw).rgb;
+	half3 C1 = COMPAT_SamplePoint(decal, t1.zw).rgb;
 
-	half3 A  = tex2D(decal, VAR.t2.xw).rgb;
-	half3 B  = tex2D(decal, VAR.t2.yw).rgb;
-	half3 C  = tex2D(decal, VAR.t2.zw).rgb;
+	half3 A  = COMPAT_SamplePoint(decal, t2.xw).rgb;
+	half3 B  = COMPAT_SamplePoint(decal, t2.yw).rgb;
+	half3 C  = COMPAT_SamplePoint(decal, t2.zw).rgb;
 
-	half3 D  = tex2D(decal, VAR.t3.xw).rgb;
-	half3 E  = tex2D(decal, VAR.t3.yw).rgb;
-	half3 F  = tex2D(decal, VAR.t3.zw).rgb;
+	half3 D  = COMPAT_SamplePoint(decal, t3.xw).rgb;
+	half3 E  = COMPAT_SamplePoint(decal, t3.yw).rgb;
+	half3 F  = COMPAT_SamplePoint(decal, t3.zw).rgb;
 
-	half3 G  = tex2D(decal, VAR.t4.xw).rgb;
-	half3 H  = tex2D(decal, VAR.t4.yw).rgb;
-	half3 I  = tex2D(decal, VAR.t4.zw).rgb;
+	half3 G  = COMPAT_SamplePoint(decal, t4.xw).rgb;
+	half3 H  = COMPAT_SamplePoint(decal, t4.yw).rgb;
+	half3 I  = COMPAT_SamplePoint(decal, t4.zw).rgb;
 
-	half3 G5 = tex2D(decal, VAR.t5.xw).rgb;
-	half3 H5 = tex2D(decal, VAR.t5.yw).rgb;
-	half3 I5 = tex2D(decal, VAR.t5.zw).rgb;
+	half3 G5 = COMPAT_SamplePoint(decal, t5.xw).rgb;
+	half3 H5 = COMPAT_SamplePoint(decal, t5.yw).rgb;
+	half3 I5 = COMPAT_SamplePoint(decal, t5.zw).rgb;
 
-	half3 A0 = tex2D(decal, VAR.t6.xy).rgb;
-	half3 D0 = tex2D(decal, VAR.t6.xz).rgb;
-	half3 G0 = tex2D(decal, VAR.t6.xw).rgb;
+	half3 A0 = COMPAT_SamplePoint(decal, t6.xy).rgb;
+	half3 D0 = COMPAT_SamplePoint(decal, t6.xz).rgb;
+	half3 G0 = COMPAT_SamplePoint(decal, t6.xw).rgb;
 
-	half3 C4 = tex2D(decal, VAR.t7.xy).rgb;
-	half3 F4 = tex2D(decal, VAR.t7.xz).rgb;
-	half3 I4 = tex2D(decal, VAR.t7.xw).rgb;
+	half3 C4 = COMPAT_SamplePoint(decal, t7.xy).rgb;
+	half3 F4 = COMPAT_SamplePoint(decal, t7.xz).rgb;
+	half3 I4 = COMPAT_SamplePoint(decal, t7.xw).rgb;
 
 	float4 b = mul( half4x3(B, D, H, F), yuv_weighted[0] );
 	float4 c = mul( half4x3(C, A, G, I), yuv_weighted[0] );
@@ -362,3 +352,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 }
 
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+{
+	return xBR_hybrid_CRT(IN.texture_size, VAR.texCoord, decal, VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7);
+}

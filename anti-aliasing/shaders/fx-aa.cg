@@ -1,33 +1,21 @@
 #include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 #define FXAA_REDUCE_MIN (1.0/256.0)
 #define FXAA_REDUCE_MUL (1.0/8.0)
 #define FXAA_SPAN_MAX 8.0
 #define FXAA_SUBPIX_SHIFT (1.0/8.0)
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
 
-struct VERTEX_OUTPUT {
-  float4 position : POSITION;
+struct VERTEX_OUTPUT
+{
+  float4 position : COMPAT_POS;
   float4 vpos : TEXCOORD1;
   float2 texCoord : TEXCOORD0;
 };
 
-struct output 
-{
-  float4 color : COLOR;
-};
-
 VERTEX_OUTPUT main_vertex
 (
-	float4 position	: POSITION,
+	float4 position	: COMPAT_POS,
 	float2 texCoord : TEXCOORD0,
 	float4 vpos : TEXCOORD1,
     uniform input IN,

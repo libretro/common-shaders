@@ -22,6 +22,7 @@
 */
 
 #include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 float3  dt = float3(1,1,1);
 
@@ -36,20 +37,9 @@ float3  dt = float3(1,1,1);
 	VERTEX_SHADER
 */
 
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
-
-
 struct VERTEX_OUTPUT
 {
-  float4 position : POSITION;
+  float4 position : COMPAT_POS;
   float4 color    : COLOR;
   float2 texCoord : TEXCOORD0;
   float4 t1 : TEXCOORD1;
@@ -73,7 +63,7 @@ uniform float AA_RESOLUTION_Y;
 
 VERTEX_OUTPUT main_vertex
 (
-	float4 position	: POSITION,
+	float4 position	: COMPAT_POS,
 	float4 color	: COLOR,
 	float2 texCoord1 : TEXCOORD0,
 

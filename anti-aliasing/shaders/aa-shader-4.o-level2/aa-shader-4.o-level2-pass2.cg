@@ -29,37 +29,23 @@ uniform float AAOFFSET2;
 */
 
 #include "../../../compat_macros.inc"
+#include "../../../compat_input_struct.inc"
 
 /* Default Vertex shader */
 void main_vertex
 (
- float4 position	: POSITION,
+ float4 position : COMPAT_POS,
  float2 texCoord : TEXCOORD0,
 
  uniform float4x4 modelViewProj,
 
- out float4 oPosition : POSITION,
+ out float4 oPosition : COMPAT_POS,
  out float2 otexCoord : TEXCOORD
  )
 {
    oPosition = mul(modelViewProj, position);
    otexCoord = texCoord + float2(0.0000001, 0.0000001); 
 }
-
-struct output
-{
-   float4 color : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
 
 float4 aa_shader_4_o_level2_pass2(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 coord)
 {

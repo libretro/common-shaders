@@ -50,14 +50,17 @@ define GAMMA_OUTPUT 2.4
 define BRIGHTNESS 1.5
 #endif
 
+#include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
+
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-#define TEX2D(c) pow(tex2D(tex, c).rgb, GAMMA_INPUT)
+#define TEX2D(c) pow(COMPAT_SamplePoint(tex, c).rgb, GAMMA_INPUT)
 
 void main_vertex
 (
-    float4 position : POSITION,
-    out float4 oPosition : POSITION,
+    float4 position : COMPAT_POS,
+    out float4 oPosition : COMPAT_POS,
     uniform float4x4 modelViewProj,
     float2 tex : TEXCOORD,
     out float2 oTex : TEXCOORD
@@ -67,17 +70,7 @@ void main_vertex
     oTex = tex;
 }
 
-struct input
-{
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
-};
-
-float3x3 get_color_matrix(sampler2D tex, float2 co, float2 dx)
+float3x3 get_color_matrix(COMPAT_Texture2D(tex), float2 co, float2 dx)
 {
     return float3x3(TEX2D(co - dx), TEX2D(co), TEX2D(co + dx));
 }
@@ -90,7 +83,7 @@ float3 blur(float3x3 m, float dist, float rad)
     return (m[0] * w.x + m[1] * w.y + m[2] * w.z) / (w.x + w.y + w.z);
 }
 
-float3 filter_gaussian(sampler2D tex, float2 co, float2 tex_size)
+float3 filter_gaussian(COMPAT_Texture2D(tex), float2 co, float2 tex_size)
 {
     float2 dx = float2(1.0 / tex_size.x, 0.0);
     float2 dy = float2(0.0, 1.0 / tex_size.y);
@@ -108,7 +101,7 @@ float3 filter_gaussian(sampler2D tex, float2 co, float2 tex_size)
     return blur(column, dist.y, GLOW_HEIGHT);
 }
 
-float3 filter_lanczos(sampler2D tex, float2 co, float2 tex_size, float sharp)
+float3 filter_lanczos(COMPAT_Texture2D(tex), float2 co, float2 tex_size, float sharp)
 {
     tex_size.x *= sharp;
 
@@ -146,7 +139,7 @@ float3 get_mask_weight(float x, input IN)
     else return float3(0.0, 0.0, 1.0);
 }
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 co : TEXCOORD0, uniform input IN) : COLOR
+float4 crt_aperture(COMPAT_Texture2D(tex), float2 co, input IN)
 {
     float3 col_glow = filter_gaussian(tex, co, IN.texture_size);
     float3 col_soft = filter_lanczos(tex, co, IN.texture_size, SHARPNESS_IMAGE);
@@ -161,4 +154,9 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 co : TEXCOORD0, un
     col = pow(col * BRIGHTNESS, 1.0 / GAMMA_OUTPUT);
 
     return float4(col, 1.0);
+}
+
+float4 main_fragment(COMPAT_Texture2D(decal) : TEXUNIT0, float2 co : TEXCOORD0, uniform input IN) : COMPAT_Output
+{
+	return crt_aperture(decal, co, IN);
 }
