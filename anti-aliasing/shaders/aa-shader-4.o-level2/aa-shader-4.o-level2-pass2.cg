@@ -31,20 +31,26 @@ uniform float AAOFFSET2;
 #include "../../../compat_macros.inc"
 #include "../../../compat_input_struct.inc"
 
-/* Default Vertex shader */
-void main_vertex
+/* Vertex shader */
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
  float4 position : COMPAT_POS,
  float2 texCoord : TEXCOORD0,
-
- uniform float4x4 modelViewProj,
-
- out float4 oPosition : COMPAT_POS,
- out float2 otexCoord : TEXCOORD
+ uniform float4x4 modelViewProj
  )
 {
-   oPosition = mul(modelViewProj, position);
-   otexCoord = texCoord + float2(0.0000001, 0.0000001); 
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord + float2(0.0000001, 0.0000001);
+	
+	return OUT;
 }
 
 float4 aa_shader_4_o_level2_pass2(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 coord)
@@ -71,8 +77,7 @@ float4 aa_shader_4_o_level2_pass2(float2 texture_size, float2 video_size, float2
    return final;
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, float2 texCoord : TEXCOORD0) : COMPAT_Output
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, in out_vertex VAR) : COMPAT_Output
 {
-	float4 final = aa_shader_4_o_level2_pass2(IN.texture_size, IN.video_size, IN.output_size, decal, texCoord);
-	return final;
+	return aa_shader_4_o_level2_pass2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord);
 }

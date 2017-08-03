@@ -55,7 +55,6 @@ uniform float REVERSEAA_SHARPNESS;
 struct out_vertex
 {
     float4 position : COMPAT_POS;
-    float4 color    : COLOR;
     float2 texCoord : TEXCOORD0;
     float4 t1       : TEXCOORD1;
     float4 t2       : TEXCOORD2;
@@ -85,7 +84,6 @@ float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
 out_vertex main_vertex
 (
     float4 position : COMPAT_POS,
-    float4 color    : COLOR,
     float2 texCoord1 : TEXCOORD0,
 
     uniform float4x4 modelViewProj,
@@ -95,9 +93,8 @@ out_vertex main_vertex
     out_vertex OUT;
 
     OUT.position = mul(modelViewProj, position);
-    OUT.color = color;
 
-    float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+    float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
     float dx = ps.x;
     float dy = ps.y;
 
@@ -121,7 +118,6 @@ out_vertex main_vertex
 
     return OUT;
 }
-
 
 /*    FRAGMENT SHADER    */
 float4 reverse_aa(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 coord, float4 t1, 
@@ -149,6 +145,6 @@ float4 reverse_aa(float2 texture_size, float2 video_size, float2 output_size, CO
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = reverse_aa(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord, VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7);
-	return final;
+	return reverse_aa(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord, VAR.t1, VAR.t2, VAR.t3,
+		VAR.t4, VAR.t5, VAR.t6, VAR.t7);
 }

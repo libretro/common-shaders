@@ -1,20 +1,24 @@
 #include "../../../compat_macros.inc"
 #include "../../../compat_input_struct.inc"
 
-void main_vertex
+struct out_vertex
+{
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
 	float4 position : COMPAT_POS,
-	float4 color    : COLOR,
 	float2 texCoord : TEXCOORD0,
-
-   uniform float4x4 modelViewProj,
-
-	out float4 oPosition : COMPAT_POS,
-	out float2 otexCoord : TEXCOORD
+	uniform float4x4 modelViewProj
 )
 {
-	oPosition = mul(modelViewProj, position);
-	otexCoord = texCoord;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 #include "blur_params.inc"
@@ -36,7 +40,7 @@ float4 blur_horiz(float2 tex, COMPAT_Texture2D(s0), float2 texture_size)
    return float4(col / k_total, 1.0);
 }
 
-float4 main_fragment(float2 texCoord : TEXCOORD0, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	return blur_horiz(texCoord, decal, COMPAT_texture_size);
+	return blur_horiz(VAR.texCoord, decal, COMPAT_texture_size);
 }

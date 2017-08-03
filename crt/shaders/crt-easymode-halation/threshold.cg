@@ -4,18 +4,24 @@
 
 INITIALIZE_PASSPREV(3, 0)
 
-void main_vertex
+struct out_vertex
+{
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
     float4 position : COMPAT_POS,
-    out float4 oPosition : COMPAT_POS,
-    uniform float4x4 modelViewProj,
-
     float2 texCoord : TEXCOORD,
-    out float2 oTexCoord : TEXCOORD
+    uniform float4x4 modelViewProj
 )
 {
-    oPosition = mul(modelViewProj, position);
-    oTexCoord = texCoord;
+	out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 float4 threshold(COMPAT_Texture2D(s0), float2 texCoord, COMPAT_Texture2D(PASSPREV3))
@@ -25,7 +31,7 @@ float4 threshold(COMPAT_Texture2D(s0), float2 texCoord, COMPAT_Texture2D(PASSPRE
     return float4(diff, 1.0);
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, float2 texCoord : TEXCOORD0, uniform input IN, uniform prev PASSPREV3) : COMPAT_Output
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR, uniform input IN, uniform prev PASSPREV3) : COMPAT_Output
 {
-	return threshold(decal, texCoord, PASSPREV_texture(3));
+	return threshold(decal, VAR.texCoord, PASSPREV_texture(3));
 }

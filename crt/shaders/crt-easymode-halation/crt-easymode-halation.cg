@@ -75,18 +75,24 @@ INITIALIZE_PASSPREV(4, 1)
 #define PI 3.141592653589
 #define TEX2D(c) PASSPREV_Sample(4, c)
 
-void main_vertex
+struct out_vertex
+{
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
     float4 position : COMPAT_POS,
-    out float4 oPosition : COMPAT_POS,
-    uniform float4x4 modelViewProj,
-    
-    float2 texCoord : TEXCOORD,
-    out float2 oTexCoord : TEXCOORD
+    float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
 )
 {
-    oPosition = mul(modelViewProj, position);
-    oTexCoord = texCoord;
+	out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 float curve_distance(float x, float sharp)
@@ -214,7 +220,7 @@ float4 crt_easymode_halation(COMPAT_Texture2D(tex), float2 coords, float2 textur
     float mask_dot_height;
     float mask_stagger;
     float mask_dither;
-    float4 mask_config;
+    float4 mask_config = float4(0.0, 0.0, 0.0, 0.0);
 
     if      (MASK_TYPE == 1) mask_config = float4(2.0, 1.0, 1.0, 0.0);
     else if (MASK_TYPE == 2) mask_config = float4(3.0, 1.0, 1.0, 0.0);
@@ -270,7 +276,7 @@ float4 crt_easymode_halation(COMPAT_Texture2D(tex), float2 coords, float2 textur
     return float4(col, 1.0);
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, float2 texCoord : TEXCOORD0, uniform input IN, uniform prev PASSPREV4) : COMPAT_Output
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR, uniform input IN, uniform prev PASSPREV4) : COMPAT_Output
 {
-	return crt_easymode_halation(decal, texCoord, COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, PASSPREV_texture(4));
+	return crt_easymode_halation(decal, VAR.texCoord, COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, PASSPREV_texture(4));
 }

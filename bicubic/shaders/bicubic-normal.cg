@@ -30,40 +30,29 @@ http://www.gnu.org/copyleft/gpl.html
 */
 
 #include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
-/* Default Vertex shader */
-void main_vertex
+/* Vertex shader */
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
- float4 position	: POSITION,
- float4 color	: COLOR,
- float2 texCoord : TEXCOORD0,
-
- uniform float4x4 modelViewProj,
-
- out float4 oPosition : POSITION,
- out float4 oColor    : COLOR,
- out float2 otexCoord : TEXCOORD
- )
+	float4 position : COMPAT_POS,
+	float2 texCoord : TEXCOORD0,
+	uniform float4x4 modelViewProj
+)
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-   otexCoord = texCoord;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output
-{
-   float4 color : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
 
 float weight(float x)
 {
@@ -149,8 +138,7 @@ float4 bicubic(float2 texture_size, float2 video_size, float2 output_size, COMPA
    return final;
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, float2 texCoord: TEXCOORD0) : COMPAT_Output
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, in out_vertex VAR) : COMPAT_Output
 {
-	float4 final = bicubic(IN.texture_size, IN.video_size, IN.output_size, decal, texCoord);
-	return final;
+	return bicubic(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord);
 }

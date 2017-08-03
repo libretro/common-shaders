@@ -27,48 +27,24 @@
 #include "../../compat_macros.inc"
 #include "../../compat_input_struct.inc"
 
-struct tex_coords
+struct out_vertex
 {
-   float2 c01; 
-   float2 c11; 
-   float2 c21;
-   float2 c31;
-   float2 c02;
-   float2 c12; 
-   float2 c22;
-   float2 c32; 
-   float mod_factor;
-   float2 ratio_scale;
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
 };
 
-void main_vertex
+out_vertex main_vertex
 (
-   float4 position : COMPAT_POS,
-   out float4 oPosition : COMPAT_POS,
-   uniform float4x4 modelViewProj,
-
-   float2 tex : TEXCOORD0,
-
-   uniform input IN,
-   out tex_coords coords
+	float4 position : COMPAT_POS,
+	float2 texCoord : TEXCOORD0,
+	uniform float4x4 modelViewProj
 )
 {
-   oPosition = mul(modelViewProj, position);
-
-   float2 delta = 1.0 / IN.texture_size;
-   float dx = delta.x;
-   float dy = delta.y;
-
-   coords.c01 = tex + float2(-dx, 0.0);
-   coords.c11 = tex + float2(0.0, 0.0);
-   coords.c21 = tex + float2(dx, 0.0);
-   coords.c31 = tex + float2(2.0 * dx, 0.0);
-   coords.c02 = tex + float2(-dx, dy);
-   coords.c12 = tex + float2(0.0, dy);
-   coords.c22 = tex + float2(dx, dy);
-   coords.c32 = tex + float2(2.0 * dx, dy);
-   coords.mod_factor = tex.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
-   coords.ratio_scale = tex * IN.texture_size;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 #define TEX2D(c) COMPAT_SamplePoint(s0 ,(c))
@@ -82,9 +58,23 @@ uniform float CRTCGWG_GAMMA;
 #define CRTCGWG_GAMMA 2.7
 #endif
 
-float4 crt_cgwg_fast( COMPAT_Texture2D(s0), float2 c01, float2 c11, float2 c21, float2 c31, float2 c02, float2 c12, 
-   float2 c22, float2 c32, float mod_factor, float2 ratio_scale)
+float4 crt_cgwg_fast( COMPAT_Texture2D(s0), float2 texCoord, float2 texture_size, float2 video_size, float2 output_size)
 {
+   float2 delta = 1.0 / texture_size;
+   float dx = delta.x;
+   float dy = delta.y;
+   
+   float2 c01 = texCoord + float2(-dx, 0.0);
+   float2 c11 = texCoord + float2(0.0, 0.0);
+   float2 c21 = texCoord + float2(dx, 0.0);
+   float2 c31 = texCoord + float2(2.0 * dx, 0.0);
+   float2 c02 = texCoord + float2(-dx, dy);
+   float2 c12 = texCoord + float2(0.0, dy);
+   float2 c22 = texCoord + float2(dx, dy);
+   float2 c32 = texCoord + float2(2.0 * dx, dy);
+   float mod_factor = c11.x * output_size.x * texture_size.x / video_size.x;
+   float2 ratio_scale = c11 * texture_size;
+   
    float2 uv_ratio = frac(ratio_scale);
    float3 col, col2;
 
@@ -128,8 +118,7 @@ float4 crt_cgwg_fast( COMPAT_Texture2D(s0), float2 c01, float2 c11, float2 c21, 
    return float4(pow(mcol * multi, float3(0.454545, 0.454545, 0.454545)), 1.0);
 }
 
-float4 main_fragment(in tex_coords co : TEXCOORD1, uniform input IN, COMPAT_Texture2D(decal) : TEXUNIT0) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	return crt_cgwg_fast(decal, co.c01, co.c11, co.c21, co.c31, co.c02, co.c12, 
-   co.c22, co.c32, co.mod_factor, co.ratio_scale);
+	return crt_cgwg_fast(decal, VAR.texCoord, COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size);
 }

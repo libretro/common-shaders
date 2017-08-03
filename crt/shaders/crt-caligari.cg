@@ -51,35 +51,29 @@ uniform float OutputGamma;
 #include "../../compat_macros.inc"
 #include "../../compat_input_struct.inc"
 
-struct tex_coords
+struct out_vertex
 {
-   float2 texCoord : TEXCOORD0;
-   float2 onex;
-   float2 oney;
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+  float2 onex;
+  float2 oney;
 };
 
-/* Default Vertex shader */
-void main_vertex
+out_vertex main_vertex
 (
-   float4 position : COMPAT_POS,
-   out float4 oPosition : COMPAT_POS,
-   uniform float4x4 modelViewProj,
-
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 texCoord : TEXCOORD,
-
-   uniform input IN,
-   out tex_coords coords : TEXCOORD1
- )
+	float4 position : COMPAT_POS,
+	float2 texCoord : TEXCOORD0,
+	uniform float4x4 modelViewProj,
+	uniform input IN
+)
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-
-   coords.texCoord = texCoord + float2(0.0, 0.0);
-   coords.onex = float2(1.0 / IN.texture_size.x, 0.0);
-   coords.oney = float2(0.0, 1.0 / IN.texture_size.y);
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.onex = float2(1.0 / COMPAT_texture_size.x, 0.0);
+	OUT.oney = float2(0.0, 1.0 / COMPAT_texture_size.y);
+	
+	return OUT;
 }
 
 #define GAMMA_IN(color)     pow(color, float4(InputGamma, InputGamma, InputGamma, InputGamma))
@@ -157,8 +151,8 @@ float4 crt_caligari(COMPAT_Texture2D(s_p), float2 texCoord, float2 texture_size,
    return clamp( GAMMA_OUT(color), 0.0, 1.0 );
 }
 
-float4 main_fragment(float2 texCoord : TEXCOORD0, in tex_coords co : TEXCOORD1, uniform input IN, COMPAT_Texture2D(decal) : TEXUNIT0) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, uniform input IN, COMPAT_Texture2D(decal) : TEXUNIT0) : COMPAT_Output
 {
-	return crt_caligari(decal, texCoord, IN.texture_size, co.onex, co.oney);
+	return crt_caligari(decal, VAR.texCoord, COMPAT_texture_size, VAR.onex, VAR.oney);
 }
 

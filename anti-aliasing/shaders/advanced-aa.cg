@@ -37,22 +37,11 @@ float3  dt = float3(1,1,1);
 	VERTEX_SHADER
 */
 
-struct VERTEX_OUTPUT
-{
-  float4 position : COMPAT_POS;
-  float4 color    : COLOR;
-  float2 texCoord : TEXCOORD0;
-  float4 t1 : TEXCOORD1;
-  float4 t2 : TEXCOORD2;
-  float4 t3 : TEXCOORD3;
-  float4 t4 : TEXCOORD4;
-};
-
 #pragma parameter AA_RESOLUTION_X "AdvancedAA Input Resolution X" 0.0 0.0 1920.0 1.0
 #pragma parameter AA_RESOLUTION_Y "AdvancedAA Input Resolution Y" 0.0 0.0 1920.0 1.0
 
-#define AA_RESOLUTION_X_DEF IN.texture_size.x
-#define AA_RESOLUTION_Y_DEF IN.texture_size.y
+#define AA_RESOLUTION_X_DEF COMPAT_texture_size.x
+#define AA_RESOLUTION_Y_DEF COMPAT_texture_size.y
 #ifdef PARAMETER_UNIFORM
 uniform float AA_RESOLUTION_X;
 uniform float AA_RESOLUTION_Y;
@@ -61,20 +50,27 @@ uniform float AA_RESOLUTION_Y;
 #define AA_RESOLUTION_Y AA_RESOLUTION_Y_DEF
 #endif
 
-VERTEX_OUTPUT main_vertex
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+	float4 t4 : TEXCOORD4;
+	float2 CT : TEXCOORD5;
+};
+
+out_vertex main_vertex
 (
 	float4 position	: COMPAT_POS,
-	float4 color	: COLOR,
 	float2 texCoord1 : TEXCOORD0,
-
    	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
-	VERTEX_OUTPUT OUT;
+	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	float2 ps = float2(1.0/((AA_RESOLUTION_X == 0) ? AA_RESOLUTION_X_DEF : AA_RESOLUTION_X), 1.0/((AA_RESOLUTION_Y == 0) ? AA_RESOLUTION_Y_DEF : AA_RESOLUTION_Y));
 	float dx = ps.x*0.5;
@@ -83,7 +79,7 @@ VERTEX_OUTPUT main_vertex
 	// This line fix a bug in ATI cards.
 	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
 
-	OUT.texCoord = texCoord;
+	OUT.CT = texCoord;
 	OUT.t1.xy = texCoord + float2(-dx, 0);
 	OUT.t2.xy = texCoord + float2( dx, 0);
 	OUT.t3.xy = texCoord + float2( 0,-dy);
@@ -99,21 +95,6 @@ VERTEX_OUTPUT main_vertex
 /* 
 	FRAGMENT SHADER
 */
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct VERTEX_INPUT
-{
-	float4 position : POSITION;
-	float2 CT : TEXCOORD0;
-	float4 t1 : TEXCOORD1;
-	float4 t2 : TEXCOORD2;
-	float4 t3 : TEXCOORD3;
-	float4 t4 : TEXCOORD4;
-};
 
 float4 advanced_aa(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 CT, float4 t1, 
 	float4 t2, float4 t3, float4 t4)
@@ -146,8 +127,7 @@ float4 advanced_aa(float2 texture_size, float2 video_size, float2 output_size, C
    return final;
 }
 
-float4 main_fragment(in VERTEX_INPUT VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = advanced_aa(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.CT, VAR.t1, VAR.t2, VAR.t3, VAR.t4);
-	return final;
+	return advanced_aa(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.CT, VAR.t1, VAR.t2, VAR.t3, VAR.t4);
 }

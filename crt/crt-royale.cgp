@@ -16,7 +16,7 @@
 # calculate scale_y5 (among other values):
 # 1.) geom_max_aspect_ratio = (geom_max_aspect_ratio used to calculate scale_y5)
 
-shaders = "12"
+shaders = "11"
 
 # Set an identifier, filename, and sampling traits for the phosphor mask texture.
 # Load an aperture grille, slot mask, and an EDP shadow mask, and load a small

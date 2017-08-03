@@ -29,6 +29,7 @@
 */
 
 #include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
                                            0.5, -1.0,     -0.5, 1.0,
@@ -43,18 +44,10 @@ const static float4x4 invY = float4x4(-1.0/6.0,  0.5, -0.5,  1.0/6.0,
                                       -1.0/3.0, -0.5,  1.0, -1.0/6.0,
                                            0.0,  1.0,  0.0,      0.0);
 
-struct input
+
+struct out_vertex
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-        float  frame_count;
-        float  frame_direction;
-	float frame_rotation;
-};
-
-
-struct out_vertex {
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -69,36 +62,32 @@ struct out_vertex {
 /*    VERTEX_SHADER    */
 out_vertex main_vertex
 (
-	float4 position	: POSITION,
-   out float4 oPosition : POSITION,
+	float4 position	: COMPAT_POS,
 	float2 texCoord1 : TEXCOORD0,
-
    	uniform float4x4 modelViewProj,
 	uniform input IN
 )
 {
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	out_vertex OUT;
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
-
-   oPosition = mul(modelViewProj, position);
 
 	// This line fix a bug in ATI cards.
 	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
 
-	out_vertex VAR = { 
-		tex,
-		float4(tex,tex) + float4(   -dx,    -dy,    0.0,    -dy), 
-		float4(tex,tex) + float4(    dx,    -dy, 2.0*dx,    -dy),
-		float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0), 
-		float4(tex,tex) + float4(2.0*dx,    0.0,    -dx,     dy),
-		float4(tex,tex) + float4(   0.0,     dy,     dx,     dy), 
-		float4(tex,tex) + float4(2.0*dx,     dy,    -dx, 2.0*dy),
-		float4(tex,tex) + float4(   0.0, 2.0*dy,     dx, 2.0*dy),
-		tex             + float2(2.0*dx, 2.0*dy)
-	};
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = tex;
+	OUT.t1 = float4(tex,tex) + float4(   -dx,    -dy,    0.0,    -dy);
+	OUT.t2 = float4(tex,tex) + float4(    dx,    -dy, 2.0*dx,    -dy);
+	OUT.t3 = float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0); 
+	OUT.t4 = float4(tex,tex) + float4(2.0*dx,    0.0,    -dx,     dy);
+	OUT.t5 = float4(tex,tex) + float4(   0.0,     dy,     dx,     dy);
+	OUT.t6 = float4(tex,tex) + float4(2.0*dx,     dy,    -dx, 2.0*dy);
+	OUT.t7 = float4(tex,tex) + float4(   0.0, 2.0*dy,     dx, 2.0*dy);
+	OUT.t8 = tex             + float2(2.0*dx, 2.0*dy);
 
-	return VAR;
+	return OUT;
 }
 
 float4 bicubic_fast(float2 texture_size, float2 video_size, float2 output_size, COMPAT_Texture2D(decal), float2 texCoord,
@@ -154,7 +143,6 @@ float4 bicubic_fast(float2 texture_size, float2 video_size, float2 output_size, 
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = bicubic_fast(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord,
+	return bicubic_fast(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord,
 		VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7, VAR.t8);
-	return final;
 }

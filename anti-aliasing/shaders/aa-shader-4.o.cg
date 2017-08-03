@@ -40,7 +40,6 @@ float3 texture2d (COMPAT_Texture2D(s2D), float2 texcoord, float4 yx)
 struct out_vertex
 {
 	float4 position : COMPAT_POS;
-	float4 color    : COLOR;
 	float2 texCoord : TEXCOORD0;
 };
 
@@ -48,7 +47,6 @@ struct out_vertex
 out_vertex main_vertex
 (
 	float4 position	: COMPAT_POS,
-	float4 color	: COLOR,
 	float2 texCoord : TEXCOORD0,
 
    	uniform float4x4 modelViewProj,
@@ -58,7 +56,6 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color    = color;
 	OUT.texCoord = texCoord;
 
 	return OUT;
@@ -122,5 +119,5 @@ float4 aa_shader_4_o(float2 texture_size, float2 video_size, float2 output_size,
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	return aa_shader_4_o(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord);
+	return aa_shader_4_o(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord);
 }

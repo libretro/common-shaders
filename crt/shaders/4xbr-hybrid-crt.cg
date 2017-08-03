@@ -113,7 +113,6 @@ float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float
 struct out_vertex
 {
 	half4 position  : POSITION;
-	half4 color     : COLOR;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -128,9 +127,7 @@ struct out_vertex
 out_vertex main_vertex
 (
 	half4 position	: POSITION,
-	half4 color	: COLOR,
 	float2 texCoord1 : TEXCOORD0,
-
    	uniform half4x4 modelViewProj,
 	uniform input IN
 )
@@ -138,9 +135,8 @@ out_vertex main_vertex
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -354,5 +350,5 @@ float4 xBR_hybrid_CRT(float2 texture_size, float2 texCoord, COMPAT_Texture2D(dec
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	return xBR_hybrid_CRT(IN.texture_size, VAR.texCoord, decal, VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7);
+	return xBR_hybrid_CRT(COMPAT_texture_size, VAR.texCoord, decal, VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7);
 }

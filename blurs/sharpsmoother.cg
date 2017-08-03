@@ -44,6 +44,7 @@ uniform float mtric;
 */
 
 #include "../compat_macros.inc"
+#include "../compat_input_struct.inc"
 
 const static float3 dt = float3(1.0, 1.0, 1.0);
 
@@ -51,18 +52,6 @@ float wt(float3 A, float3 B)
 {	
 	return clamp(smoot - ((6.0+lumad)/pow(3.0,mtric))*pow(dot(pow(abs(A-B),float3(1.0/mtric, 1.0/mtric, 1.0/mtric)),dt),mtric)/(dot(A+B,dt)+lumad), min_w, max_w);
 }
-
-
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-    float frame_count;
-    float frame_direction;
-	float frame_rotation;
-};
-
 
 struct out_vertex {
 	float4 position : POSITION;
@@ -83,8 +72,8 @@ out_vertex main_vertex
 	uniform input IN
 )
 {
-   float x = 1.0 * (1.0 / IN.texture_size.x);
-   float y = 1.0 * (1.0 / IN.texture_size.y);
+   float x = 1.0 * (1.0 / COMPAT_texture_size.x);
+   float y = 1.0 * (1.0 / COMPAT_texture_size.y);
    float2 dg1 = float2( x, y);
    float2 dg2 = float2(-x, y);
    float2 dx = float2(x, 0.0);
@@ -126,7 +115,6 @@ float4 sharpsmoother(float2 texture_size, float2 video_size, float2 output_size,
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = sharpsmoother(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord,
+	return sharpsmoother(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord,
 		VAR.t1, VAR.t2, VAR.t3, VAR.t4);
-	return final;
 }

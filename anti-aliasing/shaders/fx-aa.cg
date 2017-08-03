@@ -6,14 +6,14 @@
 #define FXAA_SPAN_MAX 8.0
 #define FXAA_SUBPIX_SHIFT (1.0/8.0)
 
-struct VERTEX_OUTPUT
+struct out_vertex
 {
-  float4 position : COMPAT_POS;
-  float4 vpos : TEXCOORD1;
-  float2 texCoord : TEXCOORD0;
+	float4 position : COMPAT_POS;
+	float4 vpos : TEXCOORD1;
+	float2 texCoord : TEXCOORD0;
 };
 
-VERTEX_OUTPUT main_vertex
+out_vertex main_vertex
 (
 	float4 position	: COMPAT_POS,
 	float2 texCoord : TEXCOORD0,
@@ -22,7 +22,7 @@ VERTEX_OUTPUT main_vertex
    	uniform float4x4 modelViewProj
 )
 {
-	VERTEX_OUTPUT OUT;
+	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
     OUT.vpos = OUT.position;
 	OUT.texCoord = texCoord;
@@ -74,8 +74,7 @@ float4 fxaa(float2 texture_size, float2 video_size, float2 output_size, COMPAT_T
 	
 }
 
-float4 main_fragment(in VERTEX_OUTPUT VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = fxaa(IN.texture_size, IN.video_size, IN.output_size, decal, VAR.texCoord, VAR.vpos);
-	return final;
+	return fxaa(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord, VAR.vpos);
 }

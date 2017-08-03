@@ -8,18 +8,24 @@ uniform float GAMMA_INPUT;
 #define GAMMA_INPUT 2.4
 #endif
 
-void main_vertex
+struct out_vertex
+{
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
     float4 position : COMPAT_POS,
-    out float4 oPosition : COMPAT_POS,
-    uniform float4x4 modelViewProj,
-
-    float2 texCoord : TEXCOORD,
-    out float2 oTexCoord : TEXCOORD
+	float2 texCoord : TEXCOORD0,
+    uniform float4x4 modelViewProj
 )
 {
-    oPosition = mul(modelViewProj, position);
-    oTexCoord = texCoord;
+	out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 float4 linearize(uniform COMPAT_Texture2D(decal), float2 texCoord)
@@ -27,7 +33,7 @@ float4 linearize(uniform COMPAT_Texture2D(decal), float2 texCoord)
     return pow(COMPAT_SamplePoint(decal, texCoord), GAMMA_INPUT);
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, float2 texCoord : TEXCOORD0) : COMPAT_Output
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR) : COMPAT_Output
 {
-	return linearize(decal, texCoord);
+	return linearize(decal, VAR.texCoord);
 }

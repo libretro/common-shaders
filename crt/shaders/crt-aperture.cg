@@ -57,17 +57,24 @@ define BRIGHTNESS 1.5
 #define PI 3.141592653589
 #define TEX2D(c) pow(COMPAT_SamplePoint(tex, c).rgb, GAMMA_INPUT)
 
-void main_vertex
+struct out_vertex
+{
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex
 (
-    float4 position : COMPAT_POS,
-    out float4 oPosition : COMPAT_POS,
-    uniform float4x4 modelViewProj,
-    float2 tex : TEXCOORD,
-    out float2 oTex : TEXCOORD
+	float4 position : COMPAT_POS,
+	float2 texCoord : TEXCOORD0,
+	uniform float4x4 modelViewProj
 )
 {
-    oPosition = mul(modelViewProj, position);
-    oTex = tex;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
 float3x3 get_color_matrix(COMPAT_Texture2D(tex), float2 co, float2 dx)
@@ -132,7 +139,7 @@ float3 get_scanline_weight(float x, float3 col)
 
 float3 get_mask_weight(float x, input IN)
 {
-    float i = mod(floor(x * IN.output_size.x * IN.texture_size.x / (IN.video_size.x * MASK_SIZE)), MASK_COLORS);
+    float i = mod(floor(x * COMPAT_output_size.x * COMPAT_texture_size.x / (COMPAT_video_size.x * MASK_SIZE)), MASK_COLORS);
 
     if (i == 0.0) return lerp(float3(1.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), MASK_COLORS - 2.0);
     else if (i == 1.0) return float3(0.0, 1.0, 0.0);
@@ -141,12 +148,12 @@ float3 get_mask_weight(float x, input IN)
 
 float4 crt_aperture(COMPAT_Texture2D(tex), float2 co, input IN)
 {
-    float3 col_glow = filter_gaussian(tex, co, IN.texture_size);
-    float3 col_soft = filter_lanczos(tex, co, IN.texture_size, SHARPNESS_IMAGE);
-    float3 col_sharp = filter_lanczos(tex, co, IN.texture_size, SHARPNESS_EDGES);
+    float3 col_glow = filter_gaussian(tex, co, COMPAT_texture_size);
+    float3 col_soft = filter_lanczos(tex, co, COMPAT_texture_size, SHARPNESS_IMAGE);
+    float3 col_sharp = filter_lanczos(tex, co, COMPAT_texture_size, SHARPNESS_EDGES);
     float3 col = sqrt(col_sharp * col_soft);
 
-    col *= get_scanline_weight(frac(co.y * IN.texture_size.y), col_soft);
+    col *= get_scanline_weight(frac(co.y * COMPAT_texture_size.y), col_soft);
     col_glow = saturate(col_glow - col);
     col += col_glow * col_glow * GLOW_HALATION;
     col = lerp(col, col * get_mask_weight(co.x, IN) * MASK_COLORS, MASK_STRENGTH);
@@ -156,7 +163,7 @@ float4 crt_aperture(COMPAT_Texture2D(tex), float2 co, input IN)
     return float4(col, 1.0);
 }
 
-float4 main_fragment(COMPAT_Texture2D(decal) : TEXUNIT0, float2 co : TEXCOORD0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR, uniform input IN) : COMPAT_Output
 {
-	return crt_aperture(decal, co, IN);
+	return crt_aperture(decal, VAR.texCoord, IN);
 }

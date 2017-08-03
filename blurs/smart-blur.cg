@@ -43,6 +43,7 @@ uniform float SB_BLUE_THRESHOLD;
 */
 
 #include "../compat_macros.inc"
+#include "../compat_input_struct.inc"
 
 // Below the thresholds, blur is applied for each color channel.
 // Threshold is the max color differency among the eight pixel neighbors from central pixel.
@@ -52,23 +53,14 @@ bool eq(float3 c1, float3 c2) {
     return (df.r < SB_RED_THRESHOLD) && (df.g < SB_GREEN_THRESHOLD) && (df.b < SB_BLUE_THRESHOLD);
 }
 
-struct input
-{
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float  frame_count;
-    float  frame_direction;
-    float  frame_rotation;
-};
-
 /*       
            A  B  C
            D  E  F 
            G  H  I
 */
 
-struct out_vertex {
+struct out_vertex
+{
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -86,7 +78,7 @@ out_vertex main_vertex
     uniform input IN
 )
 {
-    float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+    float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
     float dx = ps.x;
     float dy = ps.y;
 
@@ -128,7 +120,6 @@ float4 smart_blur(float2 texture_size, float2 video_size, float2 output_size, CO
 
 float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
 {
-	float4 final = smart_blur(IN.texture_size, IN.video_size, IN.output_size, decal,
+	return smart_blur(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal,
 		VAR.t1, VAR.t2, VAR.t3);
-	return final;
 }
