@@ -1,35 +1,31 @@
+#include "../../../compat_macros.inc"
+#include "../../../compat_input_struct.inc"
+#include "../../../compat_prev_struct.inc"
+
+INITIALIZE_PASSPREV(3, 0)
+
 void main_vertex
 (
-    float4 position : POSITION,
-    out float4 oPosition : POSITION,
+    float4 position : COMPAT_POS,
+    out float4 oPosition : COMPAT_POS,
     uniform float4x4 modelViewProj,
 
-    float2 tex : TEXCOORD,
-    out float2 oTex : TEXCOORD
+    float2 texCoord : TEXCOORD,
+    out float2 oTexCoord : TEXCOORD
 )
 {
     oPosition = mul(modelViewProj, position);
-    oTex = tex;
+    oTexCoord = texCoord;
 }
 
-struct input
+float4 threshold(COMPAT_Texture2D(s0), float2 texCoord, COMPAT_Texture2D(PASSPREV3))
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
-};
-
-struct prev
-{
-    sampler2D texture : TEXUNIT1;
-};
-
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASSPREV3) : COLOR
-{
-    float3 diff = saturate(tex2D(tex, coords).rgb - tex2D(PASSPREV3.texture, coords).rgb);
+    float3 diff = saturate(COMPAT_SamplePoint(s0, texCoord).rgb - PASSPREV_Sample(3, texCoord).rgb);
 
     return float4(diff, 1.0);
+}
+
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, float2 texCoord : TEXCOORD0, uniform input IN, uniform prev PASSPREV3) : COMPAT_Output
+{
+	return threshold(decal, texCoord, PASSPREV_texture(3));
 }

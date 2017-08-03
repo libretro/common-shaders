@@ -65,38 +65,29 @@ uniform float SHARPNESS_V;
 #define SHARPNESS_V 1.0
 #endif
 
+#include "../../../compat_macros.inc"
+#include "../../../compat_input_struct.inc"
+#include "../../../compat_prev_struct.inc"
+
+INITIALIZE_PASSPREV(4, 1)
+
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-#define TEX2D(c) tex2D(tex, c)
+#define TEX2D(c) PASSPREV_Sample(4, c)
 
 void main_vertex
 (
-    float4 position : POSITION,
-    out float4 oPosition : POSITION,
+    float4 position : COMPAT_POS,
+    out float4 oPosition : COMPAT_POS,
     uniform float4x4 modelViewProj,
     
-    float2 tex : TEXCOORD,
-    out float2 oTex : TEXCOORD
+    float2 texCoord : TEXCOORD,
+    out float2 oTexCoord : TEXCOORD
 )
 {
     oPosition = mul(modelViewProj, position);
-    oTex = tex;
+    oTexCoord = texCoord;
 }
-
-struct input
-{
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
-};
-
-struct prev
-{
-    sampler2D texture : TEXUNIT1;
-};
 
 float curve_distance(float x, float sharp)
 {
@@ -106,7 +97,7 @@ float curve_distance(float x, float sharp)
     return lerp(x, curve, sharp);
 }
 
-float4x4 get_color_matrix(sampler2D tex, float2 co, float2 dx)
+float4x4 get_color_matrix(COMPAT_Texture2D(PASSPREV4), float2 co, float2 dx)
 {
     return float4x4(TEX2D(co - dx), TEX2D(co), TEX2D(co + dx), TEX2D(co + 2.0 * dx));
 }
@@ -154,17 +145,18 @@ float get_corner_weight(float2 co, float2 corner, float smooth)
     return corner_weight;
 }
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN, uniform prev PASSPREV4) : COLOR
+float4 crt_easymode_halation(COMPAT_Texture2D(tex), float2 coords, float2 texture_size, float2 video_size,
+	float2 output_size, float frame_count, COMPAT_Texture2D(PASSPREV4))
 {
-    float2 tex_size = IN.texture_size;
+    float2 tex_size = texture_size;
     float2 midpoint = float2(0.5, 0.5);
     float scan_offset = 0.0;
 
-    if (INTERLACING_TOGGLE && IN.video_size.y >= 400)
+    if (INTERLACING_TOGGLE && video_size.y >= 400)
     {
         tex_size.y *= 0.5;
 
-        if (mod(IN.frame_count, 2.0))
+        if (mod(frame_count, 2.0))
         {
             midpoint.y = 0.75;
             scan_offset = 0.5;
@@ -172,11 +164,11 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
         else midpoint.y = 0.25;
     }
 
-    float2 co = coords * tex_size / IN.video_size;
+    float2 co = coords * tex_size / video_size;
     float2 xy = curve_coordinate(co, GEOM_WARP);
     float corner_weight = get_corner_weight(curve_coordinate(co, GEOM_CURVATURE), float2(GEOM_CORNER_SIZE), GEOM_CORNER_SMOOTH);
 
-    xy *= IN.video_size / tex_size;
+    xy *= video_size / tex_size;
 
     float2 dx = float2(1.0 / tex_size.x, 0.0);
     float2 dy = float2(0.0, 1.0 / tex_size.y);
@@ -202,16 +194,16 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
 
     float4x4 color_matrix;
 
-    color_matrix[0] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co - dy, dx));
-    color_matrix[1] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co, dx));
-    color_matrix[2] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co + dy, dx));
-    color_matrix[3] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4.texture, tex_co + 2.0 * dy, dx));
+    color_matrix[0] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4, tex_co - dy, dx));
+    color_matrix[1] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4, tex_co, dx));
+    color_matrix[2] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4, tex_co + dy, dx));
+    color_matrix[3] = filter_lanczos(coeffs_x, get_color_matrix(PASSPREV4, tex_co + 2.0 * dy, dx));
 
     col = filter_lanczos(coeffs_y, color_matrix).rgb;
     diff = tex2D(tex, xy).rgb;
 
     float rgb_max = max(col.r, max(col.g, col.b));
-    float sample_offset = (IN.video_size.y / IN.output_size.y) * 0.5;
+    float sample_offset = (video_size.y / output_size.y) * 0.5;
     float scan_pos = xy.y * tex_size.y + scan_offset;
     float scan_strength = lerp(SCANLINE_STRENGTH_MAX, SCANLINE_STRENGTH_MIN, rgb_max);
     float scan_beam = clamp(rgb_max * SCANLINE_BEAM_MAX, SCANLINE_BEAM_MIN, SCANLINE_BEAM_MAX);
@@ -238,7 +230,7 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     mask_stagger = mask_config.w;
     mask_dither = frac(mask_config.x) * 10.0;
 
-    float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, mask_dot_height * MASK_SIZE)));
+    float2 mod_fac = floor(coords * output_size * texture_size / (video_size * float2(MASK_SIZE, mask_dot_height * MASK_SIZE)));
     int dot_no = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * mask_stagger) / mask_dot_width, mask_colors));
     int dither = mod(mod_fac.y + mod(floor(mod_fac.x / mask_colors), 2.0), 2.0);
 
@@ -262,11 +254,11 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     col2 = (col * mask_weight);
     col2 *= BRIGHTNESS;
 
-    scan_weight = get_scanline_weight(scan_pos - sample_offset, scan_beam, scan_strength);
+    scan_weight = get_scanline_weight(scan_pos - sample_offset, scan_beam, scan_strength).x;
     col = saturate(col2 * scan_weight);
-    scan_weight = get_scanline_weight(scan_pos, scan_beam, scan_strength);
+    scan_weight = get_scanline_weight(scan_pos, scan_beam, scan_strength).x;
     col += saturate(col2 * scan_weight);
-    scan_weight = get_scanline_weight(scan_pos + sample_offset, scan_beam, scan_strength);
+    scan_weight = get_scanline_weight(scan_pos + sample_offset, scan_beam, scan_strength).x;
     col += saturate(col2 * scan_weight);
     col /= 3.0;
 
@@ -276,4 +268,9 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     col = pow(col, float3(1.0 / GAMMA_OUTPUT));
 
     return float4(col, 1.0);
+}
+
+float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, float2 texCoord : TEXCOORD0, uniform input IN, uniform prev PASSPREV4) : COMPAT_Output
+{
+	return crt_easymode_halation(decal, texCoord, COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, PASSPREV_texture(4));
 }
