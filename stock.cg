@@ -1,31 +1,35 @@
 /* COMPATIBILITY 
    - HLSL compilers
-   - Cg   compilers
+   - Cg	  compilers
 */
 
 #include "compat_macros.inc"
 #include "compat_input_struct.inc"
 
-void main_vertex
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 t1 : TEXCOORD1;
+};
+
+out_vertex main_vertex
 (
 	float4 position	: COMPAT_POS,
 	float2 texCoord : TEXCOORD0,
 	float2 t1 : TEXCOORD1,
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : COMPAT_POS,
-	out float2 otexCoord : TEXCOORD0,
-	out float2 ot1 : TEXCOORD1
+	uniform float4x4 modelViewProj
 )
 {
-	oPosition = mul(modelViewProj, position);
-	otexCoord = texCoord;
-    ot1 = t1;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.t1 = t1;
+	return OUT;
 }
 
-float4 main_fragment(float2 texCoord : TEXCOORD0, uniform COMPAT_Texture2D(decal), uniform input IN) : COMPAT_Output
+float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal), uniform input IN) : COMPAT_Output
 {
-    return COMPAT_SamplePoint(decal, texCoord);
+	return COMPAT_SamplePoint(decal, VAR.texCoord);
 }
-
