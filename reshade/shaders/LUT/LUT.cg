@@ -58,7 +58,7 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	float green = ( imgColor.g * (LUT_Size - 1.0) + 0.5 ) / LUT_Size;
 	float blue1 = floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
 	float blue2 = ceil( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
-	float mixer = (imgColor.b - (blue1 + red)) / ((blue2 + red) - (blue1 + red));
+	float mixer = clamp((imgColor.b - (blue1 + red)) / ((blue2 + red) - (blue1 + red)), 0.0, 1.0);
 	float4 color1 = tex2D( SamplerLUT, float2( blue1 + red, green ));
 	float4 color2 = tex2D( SamplerLUT, float2( blue2 + red, green ));
 	output OUT;
