@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11
 */
 
 /*
@@ -8,6 +9,9 @@
  * Author: Themaister
  * Licesese: Public Domain
  */
+
+#include "../../compat_macros.inc"
+#include "../../compat_input_struct.inc"
 
 #pragma parameter INPUT_GAMMA "Input Gamma" 2.4 0.0 10.0 0.01
 #pragma parameter OUTPUT_GAMMA "Output Gamma" 2.2 0.0 10.0 0.01
@@ -28,44 +32,43 @@ uniform float COLOR_BOOST;
 #define GAMMA_IN(color)     pow(color, float3(INPUT_GAMMA, INPUT_GAMMA, INPUT_GAMMA))
 #define GAMMA_OUT(color)    pow(color, float3(1.0 / OUTPUT_GAMMA, 1.0 / OUTPUT_GAMMA, 1.0 / OUTPUT_GAMMA))
 
-#define TEX2D(coords)	GAMMA_IN( tex2D(samp, coords).rgb )
+#define TEX2D(coords)	GAMMA_IN( COMPAT_Sample(decal, coords).rgb )
 
-struct coords
+uniform COMPAT_Texture2D(decal);
+uniform float4x4 modelViewProj;
+
+struct in_vertex
 {
-   float2 coord;
-   float2 coord_prev;
-   float2 coord_prev_prev;
-   float2 tex_index;
+   float4 position : COMPAT_POS;
+   float2 texCoord : TEXCOORD0;
+   float2 t1 : TEXCOORD1;
 };
 
-struct input
+struct out_vertex
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+   float4 position : COMPAT_POS;
+   float2 texCoord : TEXCOORD0;
+   float2 t1 : TEXCOORD1;
+
+   // Extra args defined here
+   float2 coord : TEXCOORD2;
+   float2 coord_prev : TEXCOORD3;
+   float2 coord_prev_prev : TEXCOORD4;
+   float2 tex_index : TEXCOORD5;
 };
 
-void main_vertex(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-
-   float2 tex : TEXCOORD,
-
-   uniform input IN,
-   out coords co : TEXCOORD1
-)
+out_vertex main_vertex(in_vertex IN)
 {
-   oPosition = mul(modelViewProj, position);
+   COMPAT_START_SHADER_DEFAULT
 
-   float2 one_x = float2(1.0 / (3.0 * IN.texture_size.x), 0.0);
-   co.coord = tex - 0.0 * one_x;
-   co.coord_prev = tex - 1.0 * one_x;
-   co.coord_prev_prev = tex - 2.0 * one_x;
-   co.tex_index = tex * IN.texture_size;
+   out_vertex OUT;
+   OUT.position = mul(modelViewProj, position);
+   float2 one_x = float2(1.0 / (3.0 * texture_size.x), 0.0);
+   OUT.coord = texCoord - 0.0 * one_x;
+   OUT.coord_prev = texCoord - 1.0 * one_x;
+   OUT.coord_prev_prev = texCoord - 2.0 * one_x;
+   OUT.tex_index = texCoord * texture_size;
+   return OUT;
 }
 
 float3 to_focus(float pixel)
@@ -79,16 +82,21 @@ float3 to_focus(float pixel)
       return float3(1.0 - pixel, pixel, 0.0);
 }
 
-float4 main_fragment(in coords co : TEXCOORD1, uniform sampler2D samp : TEXUNIT0) : COLOR
+uniform COMPAT_Texture2D(samp) : TEXUNIT0;
+
+float4 main_fragment(out_vertex IN) : COMPAT_Output
 {
-   float y = fmod(co.tex_index.y, 1.0);
+   // Could omit this if we don't mind using "IN." to refer to coord, coord_prev, etc
+   COMPAT_START_SHADER4(float2, coord, float2, coord_prev, float2, coord_prev_prev, float2, tex_index)
+
+   float y = fmod(tex_index.y, 1.0);
    float intensity = exp(-0.2 * y);
 
-   float3 color = TEX2D(co.coord);
-   float3 color_prev = TEX2D(co.coord_prev);
-   float3 color_prev_prev = TEX2D(co.coord_prev_prev);
+   float3 color = TEX2D(coord);
+   float3 color_prev = TEX2D(coord_prev);
+   float3 color_prev_prev = TEX2D(coord_prev_prev);
 
-   float pixel_x = 3.0 * co.tex_index.x;
+   float pixel_x = 3.0 * tex_index.x;
 
    float3 focus = to_focus(pixel_x - 0.0);
    float3 focus_prev = to_focus(pixel_x - 1.0);
@@ -105,3 +113,5 @@ float4 main_fragment(in coords co : TEXCOORD1, uniform sampler2D samp : TEXUNIT0
 
    return float4(clamp( GAMMA_OUT(intensity * result), 0.0, 1.0 ), 1.0);
 }
+
+COMPAT_END

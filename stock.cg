@@ -1,11 +1,35 @@
 /* COMPATIBILITY 
    - HLSL compilers
-   - Cg	  compilers
+   - Cg   compilers
+   - FX11
 */
 
 #include "compat_macros.inc"
 #include "compat_input_struct.inc"
 
+// ************
+// * UNIFORMS *
+// ************
+
+// The view projects and the texture are global uniforms,
+// not args to shader functions
+uniform float4x4 modelViewProj;
+uniform COMPAT_Texture2D(decal);
+
+// ***********
+// * STRUCTS *
+// ***********
+
+// Vertex shader input struct
+struct in_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 t1 : TEXCOORD1;
+};
+
+// Vertex shader output truct
+// Pixel shader input struct
 struct out_vertex
 {
 	float4 position : COMPAT_POS;
@@ -13,15 +37,23 @@ struct out_vertex
 	float2 t1 : TEXCOORD1;
 };
 
+// *****************
+// * VERTEX SHADER *
+// *****************
+
+// Vertex shader returns one struct, 'in_vertex'. no "out" shenanigans
+// It can not have more args
+// Uniforms are declared in global scope
+// Other args are passed to out_vertex for the rasterizer and the pixel shader to use
 out_vertex main_vertex
 (
-	float4 position	: COMPAT_POS,
-	float2 texCoord : TEXCOORD0,
-	float2 t1 : TEXCOORD1,
-
-	uniform float4x4 modelViewProj
+	in_vertex IN
 )
 {
+	// The below line rids us from having to use 'IN.' before 'position', 'texCoord' and 't1'
+	// If you want more variables, look into using the COMPAT_START_VS macro defined in compat_macros.inc
+	COMPAT_START_VS_DEFAULT
+
 	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
@@ -29,7 +61,22 @@ out_vertex main_vertex
 	return OUT;
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal), uniform input IN) : COMPAT_Output
+// Instead of the shader above we could have used
+// 'COMPAT_DEFAULT_VS_SHADER'
+
+// ****************
+// * PIXEL SHADER *
+// ****************
+
+// Same as the vertex shader:
+// Uniforms are not here but declared in global scope
+// It can not have more args
+// There's no "uniform input IN" either,
+// shaders can refer to fields of the input struct (like 'ouput_size') as if they're globals ('output_size')
+float4 main_fragment(in out_vertex VAR) : COMPAT_Output
 {
-	return COMPAT_SamplePoint(decal, VAR.texCoord);
+	return COMPAT_Sample(decal, VAR.texCoord);
 }
+
+// Add this at the end of every shader
+COMPAT_END
