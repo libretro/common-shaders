@@ -54,26 +54,13 @@
 		#define COMPAT_END
 	#endif
 	
-	// common helper macros
-	#define COMPAT_START_SHADER1(t1,v1) t1 v1=VIN.v1;
-	#define COMPAT_START_SHADER2(t1,v1,t2,v2) t1 v1=VIN.v1;t2 v2=VIN.v2;
-	#define COMPAT_START_SHADER3(t1,v1,t2,v2,t3,v3) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;
-	#define COMPAT_START_SHADER4(t1,v1,t2,v2,t3,v3,t4,v4) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;
-	#define COMPAT_START_SHADER5(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;
-	#define COMPAT_START_SHADER6(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5,t6,v6) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;t6 v6=VIN.v6;
-	#define COMPAT_START_SHADER7(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5,t6,v6,t7,v7) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;t6 v6=VIN.v6;t7 v7=VIN.v7;
-	#define COMPAT_START_SHADER8(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5,t6,v6,t7,v7,t8,v8) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;t6 v6=VIN.v6;t7 v7=VIN.v7;t8 v8=VIN.v8;
-	#define COMPAT_START_SHADER9(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5,t6,v6,t7,v7,t8,v8,t9,v9) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;t6 v6=VIN.v6;t7 v7=VIN.v7;t8 v8=VIN.v8;t9 v9=VIN.v9;
-	#define COMPAT_START_SHADER10(t1,v1,t2,v2,t3,v3,t4,v4,t5,v5,t6,v6,t7,v7,t8,v8,t9,v9,t10,v10) t1 v1=VIN.v1;t2 v2=VIN.v2;t3 v3=VIN.v3;t4 v4=VIN.v4;t5 v5=VIN.v5;t6 v6=VIN.v6;t7 v7=VIN.v7;t8 v8=VIN.v8;t9 v9=VIN.v9;t10 v10=VIN.v10;
-	#define COMPAT_START_SHADER_DEFAULT COMPAT_START_SHADER2(float4, position, float2, texCoord)
-	
 	#define COMPAT_DEFAULT_VS_SHADER \
 		out_vertex main_vertex(out_vertex VIN) \
 		{ \
 		  COMPAT_START_SHADER_DEFAULT \
 		  out_vertex OUT; \
 		  OUT.position = mul(modelViewProj, position); \
-		  OUT.texCoord = texCoord; \
+		  OUT.texCoord = texCoord * 1.0004; \
 		  return OUT; \
 		}
 		

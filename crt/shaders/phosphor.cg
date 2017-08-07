@@ -7,12 +7,10 @@
 /*
  * (Inaccurate) Phosphor shader
  * Author: Themaister
- * Licesese: Public Domain
+ * License: Public Domain
  */
 
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
-#include "../../compat_in_vertex.inc"
+#include "../../compat_includes.inc"
 
 #pragma parameter INPUT_GAMMA "Input Gamma" 2.4 0.0 10.0 0.01
 #pragma parameter OUTPUT_GAMMA "Output Gamma" 2.2 0.0 10.0 0.01
@@ -53,7 +51,8 @@ uniform float4x4 modelViewProj;
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
 #ifdef HLSL_4
-	COMPAT_START_SHADER_DEFAULT
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
 #endif
 
 	out_vertex OUT;
@@ -107,12 +106,9 @@ float4 phosphor(float2 coord, float2 coord_prev, float2 coord_prev_prev, float2 
 
 uniform COMPAT_Texture2D(samp) : TEXUNIT0;
 
-float4 main_fragment(out_vertex VIN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-   // Could omit this if we don't mind using "IN." to refer to coord, coord_prev, etc
-   COMPAT_START_SHADER4(float2, coord, float2, coord_prev, float2, coord_prev_prev, float2, tex_index)
-
-	return phosphor(coord, coord_prev, coord_prev_prev, tex_index, samp);
+	return phosphor(VOUT.coord, VOUT.coord_prev, VOUT.coord_prev_prev, VOUT.tex_index, samp);
 }
 
 COMPAT_END
