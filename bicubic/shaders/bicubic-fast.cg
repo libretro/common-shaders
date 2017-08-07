@@ -28,8 +28,9 @@
 
 */
 
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 const static float4x4 invX = float4x4(-1.0/6.0,  0.5, -1.0/3.0, 0.0,
                                            0.5, -1.0,     -0.5, 1.0,
@@ -60,21 +61,19 @@ struct out_vertex
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: COMPAT_POS,
-	float2 texCoord1 : TEXCOORD0,
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
 	// This line fix a bug in ATI cards.
-	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
+	float2 tex = texCoord + float2(0.0000001, 0.0000001);
 
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = tex;
@@ -141,8 +140,8 @@ float4 bicubic_fast(float2 texture_size, float2 video_size, float2 output_size, 
   return float4(red, green, blue, 1.0);
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return bicubic_fast(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord,
-		VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7, VAR.t8);
+	return bicubic_fast(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord,
+		VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.t5, VOUT.t6, VOUT.t7, VOUT.t8);
 }

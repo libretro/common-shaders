@@ -42,8 +42,9 @@ uniform float SB_BLUE_THRESHOLD;
 
 */
 
-#include "../compat_macros.inc"
-#include "../compat_input_struct.inc"
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 // Below the thresholds, blur is applied for each color channel.
 // Threshold is the max color differency among the eight pixel neighbors from central pixel.
@@ -61,6 +62,7 @@ bool eq(float3 c1, float3 c2) {
 
 struct out_vertex
 {
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -68,28 +70,23 @@ struct out_vertex
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-    float4 position    : POSITION,
-    out float4 oPosition : POSITION,
-    float2 tex      : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-    uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
     float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
     float dx = ps.x;
     float dy = ps.y;
 
-    oPosition = mul(modelViewProj, position);
+    OUT.position = mul(modelViewProj, position);
 
-    out_vertex OUT = {
-        tex,
-        tex.xxxy + float4(    -dx,    0.0,     dx,    -dy), //  A B C
-        tex.xxxy + float4(    -dx,    0.0,     dx,    0.0), //  D E F
-        tex.xxxy + float4(    -dx,    0.0,     dx,     dy)  //  G H I
-    };
+    OUT.texCoord = texCoord;
+    OUT.t1 = texCoord.xxxy + float4(    -dx,    0.0,     dx,    -dy); //  A B C
+    OUT.t2 = texCoord.xxxy + float4(    -dx,    0.0,     dx,    0.0); //  D E F
+    OUT.t3 = texCoord.xxxy + float4(    -dx,    0.0,     dx,     dy);  //  G H I
 	
     return OUT;
 }
@@ -118,8 +115,8 @@ float4 smart_blur(float2 texture_size, float2 video_size, float2 output_size, CO
     return float4(E, 1.0);
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return smart_blur(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal,
-		VAR.t1, VAR.t2, VAR.t3);
+		VOUT.t1, VOUT.t2, VOUT.t3);
 }

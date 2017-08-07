@@ -4,8 +4,7 @@
    - FX11
 */
 
-#include "compat_macros.inc"
-#include "compat_input_struct.inc"
+#include "compat_includes.inc"
 
 // ************
 // * UNIFORMS *
@@ -20,21 +19,12 @@ uniform COMPAT_Texture2D(decal);
 // * STRUCTS *
 // ***********
 
-// Vertex shader input struct
-struct in_vertex
-{
-	float4 position : COMPAT_POS;
-	float2 texCoord : TEXCOORD0;
-	float2 t1 : TEXCOORD1;
-};
-
 // Vertex shader output truct
 // Pixel shader input struct
 struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
-	float2 t1 : TEXCOORD1;
 };
 
 // *****************
@@ -45,19 +35,15 @@ struct out_vertex
 // It can not have more args
 // Uniforms are declared in global scope
 // Other args are passed to out_vertex for the rasterizer and the pixel shader to use
-out_vertex main_vertex
-(
-	in_vertex IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-	// The below line rids us from having to use 'IN.' before 'position', 'texCoord' and 't1'
-	// If you want more variables, look into using the COMPAT_START_VS macro defined in compat_macros.inc
-	COMPAT_START_VS_DEFAULT
-
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
-	OUT.t1 = t1;
 	return OUT;
 }
 
@@ -73,9 +59,9 @@ out_vertex main_vertex
 // It can not have more args
 // There's no "uniform input IN" either,
 // shaders can refer to fields of the input struct (like 'ouput_size') as if they're globals ('output_size')
-float4 main_fragment(in out_vertex VAR) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return COMPAT_Sample(decal, VAR.texCoord);
+	return COMPAT_Sample(decal, VOUT.texCoord);
 }
 
 // Add this at the end of every shader

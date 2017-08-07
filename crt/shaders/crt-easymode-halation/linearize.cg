@@ -1,4 +1,6 @@
-#include "../../../compat_macros.inc"
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 #pragma parameter GAMMA_INPUT "Gamma Input" 2.4 0.1 5.0 0.01
 
@@ -14,13 +16,12 @@ struct out_vertex
   float2 texCoord : TEXCOORD0;
 };
 
-out_vertex main_vertex
-(
-    float4 position : COMPAT_POS,
-	float2 texCoord : TEXCOORD0,
-    uniform float4x4 modelViewProj
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
     OUT.position = mul(modelViewProj, position);
     OUT.texCoord = texCoord;
@@ -33,7 +34,7 @@ float4 linearize(uniform COMPAT_Texture2D(decal), float2 texCoord)
     return pow(COMPAT_SamplePoint(decal, texCoord), GAMMA_INPUT);
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return linearize(decal, VAR.texCoord);
+	return linearize(decal, VOUT.texCoord);
 }

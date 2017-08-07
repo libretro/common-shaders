@@ -3,58 +3,44 @@
    - Cg   compilers
 */
 
-#include "../compat_macros.inc"
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 const float box_scale = 1.0; // 1x scale.
 
-struct input
+/* Vertex shader */
+
+struct out_vertex
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+  float4 position : COMPAT_POS;
+  float2 texCoord : TEXCOORD0;
 };
 
-
-/* Default Vertex shader */
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD,
-
-   uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
    
-   float2 scale = (IN.output_size / IN.video_size) / box_scale;
-   float2 middle = 0.5 * IN.video_size / IN.texture_size;
-   float2 diff = tex.xy - middle;
-   oTex = middle + diff * scale;
+	float2 scale = (COMPAT_output_size / COMPAT_video_size) / box_scale;
+	float2 middle = 0.5 * COMPAT_video_size / COMPAT_texture_size;
+	float2 diff = texCoord.xy - middle;
+	OUT.texCoord = middle + diff * scale;
+   
+	return OUT;
 }
 
-struct output 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-  float4 color    : COLOR;
-};
-
-float4 main_fragment( in float2 Tex : TEXCOORD0, uniform COMPAT_Texture2D(decal) : TEXUNIT0 ) : COMPAT_Output
-{
-   float4 Color = COMPAT_SamplePoint( decal, Tex.xy );
+   float4 Color = COMPAT_SamplePoint( decal, VOUT.texCoord.xy );
    float Sharpenfactor = 5; //Make this between 10 and 50;
 
-   Color -= COMPAT_SamplePoint( decal, Tex.xy+0.0001)*Sharpenfactor;
-   Color += COMPAT_SamplePoint( decal, Tex.xy-0.0001)*Sharpenfactor;
+   Color -= COMPAT_SamplePoint( decal, VOUT.texCoord.xy+0.0001)*Sharpenfactor;
+   Color += COMPAT_SamplePoint( decal, VOUT.texCoord.xy-0.0001)*Sharpenfactor;
 
    Color.a = 1.0;
    float4 final = Color;

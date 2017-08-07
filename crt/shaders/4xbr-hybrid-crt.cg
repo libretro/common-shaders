@@ -49,8 +49,9 @@
  *
  */
 
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 const static float coef           = 2.0;
 const static float4 eq_threshold  = float4(15.0, 15.0, 15.0, 15.0);
@@ -124,14 +125,12 @@ struct out_vertex
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	half4 position	: POSITION,
-	float2 texCoord1 : TEXCOORD0,
-   	uniform half4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
@@ -147,16 +146,16 @@ out_vertex main_vertex
 	//    G5 H5 I5
 
 	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+	float2 texCoord1 = texCoord + float2(0.0000001, 0.0000001);
 
-	OUT.texCoord = texCoord;
-	OUT.t1 = texCoord.xxxy + half4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
-	OUT.t2 = texCoord.xxxy + half4( -dx, 0, dx,    -dy); //  A  B  C
-	OUT.t3 = texCoord.xxxy + half4( -dx, 0, dx,      0); //  D  E  F
-	OUT.t4 = texCoord.xxxy + half4( -dx, 0, dx,     dy); //  G  H  I
-	OUT.t5 = texCoord.xxxy + half4( -dx, 0, dx, 2.0*dy); // G5 H5 I5
-	OUT.t6 = texCoord.xyyy + half4(-2.0*dx,-dy, 0,  dy); // A0 D0 G0
-	OUT.t7 = texCoord.xyyy + half4( 2.0*dx,-dy, 0,  dy); // C4 F4 I4
+	OUT.texCoord = texCoord1;
+	OUT.t1 = texCoord1.xxxy + half4( -dx, 0, dx,-2.0*dy); // A1 B1 C1
+	OUT.t2 = texCoord1.xxxy + half4( -dx, 0, dx,    -dy); //  A  B  C
+	OUT.t3 = texCoord1.xxxy + half4( -dx, 0, dx,      0); //  D  E  F
+	OUT.t4 = texCoord1.xxxy + half4( -dx, 0, dx,     dy); //  G  H  I
+	OUT.t5 = texCoord1.xxxy + half4( -dx, 0, dx, 2.0*dy); // G5 H5 I5
+	OUT.t6 = texCoord1.xyyy + half4(-2.0*dx,-dy, 0,  dy); // A0 D0 G0
+	OUT.t7 = texCoord1.xyyy + half4( 2.0*dx,-dy, 0,  dy); // C4 F4 I4
 
 	return OUT;
 }
@@ -348,7 +347,7 @@ float4 xBR_hybrid_CRT(float2 texture_size, float2 texCoord, COMPAT_Texture2D(dec
 
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return xBR_hybrid_CRT(COMPAT_texture_size, VAR.texCoord, decal, VAR.t1, VAR.t2, VAR.t3, VAR.t4, VAR.t5, VAR.t6, VAR.t7);
+	return xBR_hybrid_CRT(COMPAT_texture_size, VOUT.texCoord, decal, VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.t5, VOUT.t6, VOUT.t7);
 }

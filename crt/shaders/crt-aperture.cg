@@ -50,8 +50,9 @@ define GAMMA_OUTPUT 2.4
 define BRIGHTNESS 1.5
 #endif
 
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
@@ -63,13 +64,12 @@ struct out_vertex
   float2 texCoord : TEXCOORD0;
 };
 
-out_vertex main_vertex
-(
-	float4 position : COMPAT_POS,
-	float2 texCoord : TEXCOORD0,
-	uniform float4x4 modelViewProj
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
@@ -163,7 +163,7 @@ float4 crt_aperture(COMPAT_Texture2D(tex), float2 co, input IN)
     return float4(col, 1.0);
 }
 
-float4 main_fragment(COMPAT_Texture2D(decal) : TEXUNIT0, in out_vertex VAR, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return crt_aperture(decal, VAR.texCoord, IN);
+	return crt_aperture(decal, VOUT.texCoord, IN);
 }

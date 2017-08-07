@@ -43,8 +43,9 @@ uniform float mtric;
 
 */
 
-#include "../compat_macros.inc"
-#include "../compat_input_struct.inc"
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 const static float3 dt = float3(1.0, 1.0, 1.0);
 
@@ -63,30 +64,26 @@ struct out_vertex {
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 tex      : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float x = 1.0 * (1.0 / COMPAT_texture_size.x);
-   float y = 1.0 * (1.0 / COMPAT_texture_size.y);
-   float2 dg1 = float2( x, y);
-   float2 dg2 = float2(-x, y);
-   float2 dx = float2(x, 0.0);
-   float2 dy = float2(0.0, y);
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	float x = 1.0 * (1.0 / COMPAT_texture_size.x);
+	float y = 1.0 * (1.0 / COMPAT_texture_size.y);
+	float2 dg1 = float2( x, y);
+	float2 dg2 = float2(-x, y);
+	float2 dx = float2(x, 0.0);
+	float2 dy = float2(0.0, y);
 
-	out_vertex OUT = { 
-		mul(modelViewProj, position),
-		tex,
-		float4(tex-dg1,tex-dy),
-		float4(tex-dg2,tex+dx),
-		float4(tex+dg1,tex+dy),
-		float4(tex+dg2,tex-dx)
-	};
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.t1 = float4(texCoord-dg1,texCoord-dy);
+	OUT.t2 = float4(texCoord-dg2,texCoord+dx);
+	OUT.t3 = float4(texCoord+dg1,texCoord+dy);
+	OUT.t4 = float4(texCoord+dg2,texCoord-dx);
 
 	return OUT;
 }
@@ -113,8 +110,8 @@ float4 sharpsmoother(float2 texture_size, float2 video_size, float2 output_size,
    return float4(w10*c10+w21*c21+w12*c12+w01*c01+w00*c00+w22*c22+w20*c20+w02*c02+(1.0-w10-w21-w12-w01-w00-w22-w20-w02)*c11, 1.0);
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return sharpsmoother(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord,
-		VAR.t1, VAR.t2, VAR.t3, VAR.t4);
+	return sharpsmoother(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord,
+		VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4);
 }

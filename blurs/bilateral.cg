@@ -8,8 +8,9 @@ Increasing the radius leads to more pixel lookups and therefore to a lower shade
 
 */
 
-#include "../compat_macros.inc"
-#include "../compat_input_struct.inc"
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 #pragma parameter RAD   "BILATERAL Radius"        2.00 0.00 12.0 0.25
 #pragma parameter CLR   "BILATERAL Color Thresh"  0.15 0.01  1.0 0.01
@@ -54,19 +55,15 @@ struct out_vertex {
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
 	OUT.texCoord = texCoord;
 	OUT.t1       = 1.0/COMPAT_texture_size;
@@ -109,7 +106,7 @@ float4 bilateral(float2 texture_size, float2 video_size, float2 output_size, COM
 	return float4(result/norm, 1.0);
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return bilateral(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord, VAR.t1);
+	return bilateral(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord, VOUT.t1);
 }

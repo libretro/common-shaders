@@ -9,9 +9,9 @@
 		
 		cbuffer prev : register(b1)
 		{
-			float2 video_size;
-			float2 texture_size;
-			float2 output_size;
+			float2 prev_video_size;
+			float2 prev_texture_size;
+			float2 prev_output_size;
 		};
 		
 		#define INITIALIZE_PASSPREV(c, d) Texture2D PASSPREV##c: register(t##d);

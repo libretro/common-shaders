@@ -9,9 +9,9 @@
 		
 		cbuffer orig : register(b1)
 		{
-			float2 video_size;
-			float2 texture_size;
-			float2 output_size;
+			float2 orig_video_size;
+			float2 orig_texture_size;
+			float2 orig_output_size;
 		};
 		
 		#define INITIALIZE_ORIG(c) Texture2D ORIG: register(t##c);
@@ -25,7 +25,7 @@
 			float2 output_size;
 			sampler2D texture;
 		};
-		#define INITIALIZE_PASSPREV(c) 
+		#define INITIALIZE_ORIG(c) 
 		#define ORIG_Sample(coord) tex2D(ORIG, coord)
 		#define ORIG_texture ORIG.texture
 	#endif
