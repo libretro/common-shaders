@@ -12,6 +12,7 @@
 
 #include "../../compat_macros.inc"
 #include "../../compat_input_struct.inc"
+#include "../../compat_in_vertex.inc"
 
 #pragma parameter INPUT_GAMMA "Input Gamma" 2.4 0.0 10.0 0.01
 #pragma parameter OUTPUT_GAMMA "Output Gamma" 2.2 0.0 10.0 0.01
@@ -34,41 +35,36 @@ uniform float COLOR_BOOST;
 
 #define TEX2D(coords)	GAMMA_IN( COMPAT_Sample(decal, coords).rgb )
 
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+
+	// Extra args defined here
+	float2 coord : TEXCOORD2;
+	float2 coord_prev : TEXCOORD3;
+	float2 coord_prev_prev : TEXCOORD4;
+	float2 tex_index : TEXCOORD5;
+};
+
 uniform COMPAT_Texture2D(decal);
 uniform float4x4 modelViewProj;
 
-struct in_vertex
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float4 position : COMPAT_POS;
-   float2 texCoord : TEXCOORD0;
-   float2 t1 : TEXCOORD1;
-};
+#ifdef HLSL_4
+	COMPAT_START_SHADER_DEFAULT
+#endif
 
-struct out_vertex
-{
-   float4 position : COMPAT_POS;
-   float2 texCoord : TEXCOORD0;
-   float2 t1 : TEXCOORD1;
-
-   // Extra args defined here
-   float2 coord : TEXCOORD2;
-   float2 coord_prev : TEXCOORD3;
-   float2 coord_prev_prev : TEXCOORD4;
-   float2 tex_index : TEXCOORD5;
-};
-
-out_vertex main_vertex(in_vertex IN)
-{
-   COMPAT_START_SHADER_DEFAULT
-
-   out_vertex OUT;
-   OUT.position = mul(modelViewProj, position);
-   float2 one_x = float2(1.0 / (3.0 * texture_size.x), 0.0);
-   OUT.coord = texCoord - 0.0 * one_x;
-   OUT.coord_prev = texCoord - 1.0 * one_x;
-   OUT.coord_prev_prev = texCoord - 2.0 * one_x;
-   OUT.tex_index = texCoord * texture_size;
-   return OUT;
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	float2 one_x = float2(1.0 / (3.0 * COMPAT_texture_size.x), 0.0);
+	OUT.coord = texCoord - 0.0 * one_x;
+	OUT.coord_prev = texCoord - 1.0 * one_x;
+	OUT.coord_prev_prev = texCoord - 2.0 * one_x;
+	OUT.tex_index = texCoord * COMPAT_texture_size;
+	
+	return OUT;
 }
 
 float3 to_focus(float pixel)
@@ -82,13 +78,8 @@ float3 to_focus(float pixel)
       return float3(1.0 - pixel, pixel, 0.0);
 }
 
-uniform COMPAT_Texture2D(samp) : TEXUNIT0;
-
-float4 main_fragment(out_vertex IN) : COMPAT_Output
+float4 phosphor(float2 coord, float2 coord_prev, float2 coord_prev_prev, float2 tex_index, COMPAT_Texture2D(decal))
 {
-   // Could omit this if we don't mind using "IN." to refer to coord, coord_prev, etc
-   COMPAT_START_SHADER4(float2, coord, float2, coord_prev, float2, coord_prev_prev, float2, tex_index)
-
    float y = fmod(tex_index.y, 1.0);
    float intensity = exp(-0.2 * y);
 
@@ -112,6 +103,16 @@ float4 main_fragment(out_vertex IN) : COMPAT_Output
    result *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
    return float4(clamp( GAMMA_OUT(intensity * result), 0.0, 1.0 ), 1.0);
+}
+
+uniform COMPAT_Texture2D(samp) : TEXUNIT0;
+
+float4 main_fragment(out_vertex VIN) : COMPAT_Output
+{
+   // Could omit this if we don't mind using "IN." to refer to coord, coord_prev, etc
+   COMPAT_START_SHADER4(float2, coord, float2, coord_prev, float2, coord_prev_prev, float2, tex_index)
+
+	return phosphor(coord, coord_prev, coord_prev_prev, tex_index, samp);
 }
 
 COMPAT_END
