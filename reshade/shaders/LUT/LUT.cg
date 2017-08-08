@@ -8,50 +8,34 @@ uniform float LUT_Size;
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(SamplerLUT) : TEXUNIT1;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
-}
-
-struct output 
-{
-  float4 color    : COLOR;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-struct input
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
 
-// This shouldn't be necessary but it seems some undefined values can
-// creep in and each GPU vendor handles that differently. This keeps
-// all values within a safe range
-float4 mixfix(float4 a, float4 b, float c)
-{
-	return (a.z < 1.0) ? lerp(a, b, c) : a;
+	return OUT;
 }
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform sampler2D SamplerLUT : TEXUNIT1, uniform input IN) 
+float4 lut_palette(float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(SamplerLUT)) 
 {
 	float4 imgColor = tex2D(decal, texCoord.xy);
 	float red = ( imgColor.r * (LUT_Size - 1.0) + 0.5 ) / (LUT_Size * LUT_Size);
@@ -59,9 +43,15 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	float blue1 = floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
 	float blue2 = ceil( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size;
 	float mixer = clamp((imgColor.b - (blue1 + red)) / ((blue2 + red) - (blue1 + red)), 0.0, 32.0);
-	float4 color1 = tex2D( SamplerLUT, float2( blue1 + red, green ));
-	float4 color2 = tex2D( SamplerLUT, float2( blue2 + red, green ));
-	output OUT;
-	OUT.color = mixfix(color1, color2, mixer);
-	return OUT;
+	float4 color1 = COMPAT_SamplePoint( SamplerLUT, float2( blue1 + red, green ));
+	float4 color2 = COMPAT_SamplePoint( SamplerLUT, float2( blue2 + red, green ));
+
+	float4 lut_color = mix(color1, color2, mixer);
+	return lut_color;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lut_palette(VOUT.texCoord, decal, SamplerLUT);
+}
+COMPAT_END
