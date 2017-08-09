@@ -6,6 +6,7 @@
 	};
 
 	#define COMPAT_IN_VERTEX in_vertex VIN
+	#define COMPAT_IN_FRAGMENT out_vertex VOUT
 #else
 	struct in_vertex
 	{
