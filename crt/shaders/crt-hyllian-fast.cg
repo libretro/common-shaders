@@ -1,6 +1,7 @@
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -28,6 +29,10 @@
 
 */
 
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 // Uncomment to increase the sharpness of the scanlines.
 //#define SHARPER
 
@@ -47,70 +52,51 @@ const static float4x4 invX = float4x4(    -0.5,  1.0,     -0.5, 0.0,
                                           -1.5,  2.0,      0.5, 0.0,
                                            0.5, -0.5,      0.0, 0.0);
 
-
-struct input
+struct out_vertex
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float  frame_count;
-    float  frame_direction;
-    float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-
-struct out_vertex {
-    float2 texCoord : TEXCOORD0;
-};
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-    float4 position      : POSITION,
-    out float4 oPosition : POSITION,
-    float2 texCoord      : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-    uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
 #ifdef SHARPER
-    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+    float2 TextureSize = float2(SHARPNESS*COMPAT_texture_size.x, COMPAT_texture_size.y);
 #else
-    float2 TextureSize = IN.texture_size;
+    float2 TextureSize = COMPAT_texture_size;
 #endif
     float2 ps = 1.0/TextureSize;
 
-    oPosition = mul(modelViewProj, position);
-
-    out_vertex OUT = {
-        texCoord + ps*float2(-0.49, 0.0)
-    };
+    OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord + ps*float2(-0.49, 0.0);
 
     return OUT;
 }
 
-
-
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+float4 crt_hyllian_fast(float2 texture_size, float2 texCoord, COMPAT_Texture2D(s_p))
 {
 #ifdef SHARPER
-    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y);
+    float2 TextureSize = float2(SHARPNESS*texture_size.x, texture_size.y);
 #else
-    float2 TextureSize = IN.texture_size;
+    float2 TextureSize = texture_size;
 #endif
 
     float2 dx = float2(1.0/TextureSize.x, 0.0);
     float2 dy = float2(0.0, 1.0/TextureSize.y);
 
-    float2 tc = (floor(VAR.texCoord*TextureSize)+float2(0.5,0.5))/TextureSize;
+    float2 tc = (floor(texCoord*TextureSize)+float2(0.5,0.5))/TextureSize;
 
-    float2 fp = frac(VAR.texCoord*TextureSize);
+    float2 fp = frac(texCoord*TextureSize);
 
-    float3 c10 = tex2D(s_p, tc     - dx).xyz;
-    float3 c11 = tex2D(s_p, tc         ).xyz;
-    float3 c12 = tex2D(s_p, tc     + dx).xyz;
-    float3 c13 = tex2D(s_p, tc + 2.0*dx).xyz;
+    float3 c10 = COMPAT_SamplePoint(s_p, tc     - dx).xyz;
+    float3 c11 = COMPAT_SamplePoint(s_p, tc         ).xyz;
+    float3 c12 = COMPAT_SamplePoint(s_p, tc     + dx).xyz;
+    float3 c13 = COMPAT_SamplePoint(s_p, tc + 2.0*dx).xyz;
 
     float4x3 color_matrix = float4x3(c10, c11, c12, c13);
 
@@ -126,3 +112,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     return float4(GAMMA_OUT(color), 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return crt_hyllian_fast(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END

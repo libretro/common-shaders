@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 #include "../../compat_includes.inc"
@@ -66,3 +67,4 @@ float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return _3dfx_pass_2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord);
 }
+COMPAT_END

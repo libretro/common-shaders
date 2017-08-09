@@ -279,3 +279,4 @@ float4 main_fragment(uniform prev PASSPREV4, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return crt_easymode_halation(decal, VOUT.texCoord, COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, PASSPREV_texture(4));
 }
+COMPAT_END

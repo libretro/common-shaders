@@ -1,5 +1,6 @@
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 struct out_vertex
 {
@@ -8,15 +9,12 @@ struct out_vertex
 	float2 texCoord : TEXCOORD0;
 };
 
-out_vertex main_vertex
-(
-	float4 position	: COMPAT_POS,
-	float2 texCoord : TEXCOORD0,
-	float4 vpos : TEXCOORD1,
-    uniform input IN,
-   	uniform float4x4 modelViewProj
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
     OUT.vpos = OUT.position;
@@ -68,7 +66,8 @@ float4 fxaa_edge_detect(float2 texture_size, float2 video_size, float2 output_si
 	return final;
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return fxaa_edge_detect(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord, VAR.vpos);
+	return fxaa_edge_detect(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord, VOUT.vpos);
 }
+COMPAT_END

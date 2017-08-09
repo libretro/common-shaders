@@ -18,7 +18,9 @@ uniform float INTERNAL_RES;
 //##############################################################// 
 // Ported by Hyllian - 2015
 
-#include "../../compat_macros.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 static const float3 dt = float3(1.0,1.0,1.0);
 
@@ -35,24 +37,18 @@ float3 texture2d (COMPAT_Texture2D(s2D), float2 texcoord, float4 yx)
 	return .5*(m2*(s00+s22)+m1*(s02+s20))/(m1+m2);
 }
 
-#include "../../compat_input_struct.inc"
-
 struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 };
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: COMPAT_POS,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
@@ -117,7 +113,8 @@ float4 aa_shader_4_o(float2 texture_size, float2 video_size, float2 output_size,
 	return float4(c11, 1.0);
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return aa_shader_4_o(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord);
+	return aa_shader_4_o(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord);
 }
+COMPAT_END

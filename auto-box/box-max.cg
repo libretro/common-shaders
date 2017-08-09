@@ -45,5 +45,4 @@ float4 main_fragment (COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
    return COMPAT_SamplePoint(decal, VOUT.texCoord);
 }
-
-
+COMPAT_END

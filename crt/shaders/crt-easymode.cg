@@ -83,36 +83,34 @@ uniform float SHARPNESS_V;
 #define SHARPNESS_V 1.0
 #endif
 
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
-#define TEX2D(c) dilate(tex2D(tex, c))
+#define TEX2D(c) dilate(COMPAT_SamplePoint(tex, c))
 
 // Set to 0 to use linear filter and gain speed
 #define ENABLE_LANCZOS 1
 
-void main_vertex
-(
-    float4 position : POSITION,
-    out float4 oPosition : POSITION,
-    uniform float4x4 modelViewProj,
-
-    float2 tex : TEXCOORD,
-    out float2 oTex : TEXCOORD
-)
+struct out_vertex
 {
-    oPosition = mul(modelViewProj, position);
-    oTex = tex;
-}
-
-struct input
-{
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	return OUT;
+}
 
 float4 dilate(float4 col)
 {
@@ -152,12 +150,12 @@ float3 filter_lanczos(float4 coeffs, float4x4 color_matrix)
     return col.rgb;
 }
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
+float4 crt_easymode(float2 texture_size, float2 video_size, float2 output_size, float2 coords, COMPAT_Texture2D(tex))
 {
-    float2 dx = float2(1.0 / IN.texture_size.x, 0.0);
-    float2 dy = float2(0.0, 1.0 / IN.texture_size.y);
-    float2 pix_co = coords * IN.texture_size - float2(0.5, 0.5);
-    float2 tex_co = (floor(pix_co) + float2(0.5, 0.5)) / IN.texture_size;
+    float2 dx = float2(1.0 / texture_size.x, 0.0);
+    float2 dy = float2(0.0, 1.0 / texture_size.y);
+    float2 pix_co = coords * texture_size - float2(0.5, 0.5);
+    float2 tex_co = (floor(pix_co) + float2(0.5, 0.5)) / texture_size;
     float2 dist = frac(pix_co);
     float curve_x;
     float3 col, col2;
@@ -187,10 +185,10 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     float bright = (max(col.r, max(col.g, col.b)) + luma) / 2.0;
     float scan_bright = clamp(bright, SCANLINE_BRIGHT_MIN, SCANLINE_BRIGHT_MAX);
     float scan_beam = clamp(bright * SCANLINE_BEAM_WIDTH_MAX, SCANLINE_BEAM_WIDTH_MIN, SCANLINE_BEAM_WIDTH_MAX);
-    float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * IN.texture_size.y) * 0.5 + 0.5, scan_beam) * SCANLINE_STRENGTH;
+    float scan_weight = 1.0 - pow(cos(coords.y * 2.0 * PI * texture_size.y) * 0.5 + 0.5, scan_beam) * SCANLINE_STRENGTH;
 
     float mask = 1.0 - MASK_STRENGTH;    
-    float2 mod_fac = floor(coords * IN.output_size * IN.texture_size / (IN.video_size * float2(MASK_SIZE, MASK_DOT_HEIGHT * MASK_SIZE)));
+    float2 mod_fac = floor(coords * output_size * texture_size / (video_size * float2(MASK_SIZE, MASK_DOT_HEIGHT * MASK_SIZE)));
     int dot_no = int(mod((mod_fac.x + mod(mod_fac.y, 2.0) * MASK_STAGGER) / MASK_DOT_WIDTH, 3.0));
     float3 mask_weight;
 
@@ -198,7 +196,7 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
     else if (dot_no == 1) mask_weight = float3(mask, 1.0, mask);
     else mask_weight = float3(mask, mask, 1.0);
 
-    if (IN.video_size.y >= SCANLINE_CUTOFF) scan_weight = 1.0;
+    if (video_size.y >= SCANLINE_CUTOFF) scan_weight = 1.0;
 
     col2 = col.rgb;
     col *= float3(scan_weight);
@@ -208,3 +206,9 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
 
     return float4(col * BRIGHT_BOOST, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return crt_easymode(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

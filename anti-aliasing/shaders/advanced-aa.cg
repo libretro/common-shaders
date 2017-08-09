@@ -21,8 +21,9 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include "../../compat_macros.inc"
-#include "../../compat_input_struct.inc"
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 float3  dt = float3(1,1,1);
 
@@ -60,14 +61,12 @@ struct out_vertex
 	float2 CT : TEXCOORD5;
 };
 
-out_vertex main_vertex
-(
-	float4 position	: COMPAT_POS,
-	float2 texCoord1 : TEXCOORD0,
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
@@ -77,17 +76,17 @@ out_vertex main_vertex
 	float dy = ps.y*0.5;
 
 	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+	float2 texCoord1 = texCoord + float2(0.0000001, 0.0000001);
 
-	OUT.CT = texCoord;
-	OUT.t1.xy = texCoord + float2(-dx, 0);
-	OUT.t2.xy = texCoord + float2( dx, 0);
-	OUT.t3.xy = texCoord + float2( 0,-dy);
-	OUT.t4.xy = texCoord + float2( 0, dy);
-	OUT.t1.zw = texCoord + float2(-dx,-dy);
-	OUT.t2.zw = texCoord + float2(-dx, dy);
-	OUT.t3.zw = texCoord + float2( dx,-dy);
-	OUT.t4.zw = texCoord + float2( dx, dy);
+	OUT.CT = texCoord1;
+	OUT.t1.xy = texCoord1 + float2(-dx, 0);
+	OUT.t2.xy = texCoord1 + float2( dx, 0);
+	OUT.t3.xy = texCoord1 + float2( 0,-dy);
+	OUT.t4.xy = texCoord1 + float2( 0, dy);
+	OUT.t1.zw = texCoord1 + float2(-dx,-dy);
+	OUT.t2.zw = texCoord1 + float2(-dx, dy);
+	OUT.t3.zw = texCoord1 + float2( dx,-dy);
+	OUT.t4.zw = texCoord1 + float2( dx, dy);
 
 	return OUT;
 }
@@ -127,7 +126,8 @@ float4 advanced_aa(float2 texture_size, float2 video_size, float2 output_size, C
    return final;
 }
 
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return advanced_aa(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.CT, VAR.t1, VAR.t2, VAR.t3, VAR.t4);
+	return advanced_aa(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.CT, VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4);
 }
+COMPAT_END

@@ -48,6 +48,7 @@ uniform float CRT_ANTI_RINGING;
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -74,6 +75,10 @@ uniform float CRT_ANTI_RINGING;
    THE SOFTWARE.
 
 */
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 #define GAMMA_IN(color)     pow(color, float3(InputGamma, InputGamma, InputGamma))
 #define GAMMA_OUT(color)    pow(color, float3(1.0 / OutputGamma, 1.0 / OutputGamma, 1.0 / OutputGamma))
@@ -102,70 +107,52 @@ const static float4x4 invX = float4x4(            (-B - 6.0*C)/6.0,         (3.0
                                        -(12.0 - 9.0*B - 6.0*C)/6.0, (18.0 - 15.0*B - 12.0*C)/6.0,      (3.0*B + 6.0*C)/6.0,             B/6.0,
                                                    (B + 6.0*C)/6.0,                           -C,                      0.0,               0.0);
 
-const float3 dtt = float3(65536,255,1);
+static const float3 dtt = float3(65536,255,1);
 
 float reduce(float3 A)
 {
   return dot(A, dtt);
 }
 
-struct input
+struct out_vertex
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float  frame_count;
-    float  frame_direction;
-    float  frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-
-struct out_vertex {
-    float2 texCoord : TEXCOORD0;
-};
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-    float4 position      : POSITION,
-    out float4 oPosition : POSITION,
-    float2 texCoord      : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-    uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-    oPosition = mul(modelViewProj, position);
-
-    out_vertex OUT = {
-        texCoord
-    };
-
-    return OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	return OUT;
 }
 
-
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+float4 crt_hyllian_3d(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(s_p))
 {
-    float2 TextureSize = float2(SHARPNESS*IN.texture_size.x, IN.texture_size.y)/float2(CRT_MULRES_X, CRT_MULRES_Y);
+    float2 TextureSize = float2(SHARPNESS*texture_size.x, texture_size.y)/float2(CRT_MULRES_X, CRT_MULRES_Y);
 
     float3 color;
     float2 dx = float2(1.0/TextureSize.x, 0.0);
     float2 dy = float2(0.0, 1.0/TextureSize.y);
-    float2 pix_coord = VAR.texCoord*TextureSize+float2(-0.5,0.5);
+    float2 pix_coord = texCoord*TextureSize+float2(-0.5,0.5);
 
     float2 tc = (floor(pix_coord)+float2(0.5,0.5))/TextureSize;
 
     float2 fp = frac(pix_coord);
 
-    float3 c00 = GAMMA_IN(tex2D(s_p, tc     - dx - dy).xyz);
-    float3 c01 = GAMMA_IN(tex2D(s_p, tc          - dy).xyz);
-    float3 c02 = GAMMA_IN(tex2D(s_p, tc     + dx - dy).xyz);
-    float3 c03 = GAMMA_IN(tex2D(s_p, tc + 2.0*dx - dy).xyz);
-    float3 c10 = GAMMA_IN(tex2D(s_p, tc     - dx).xyz);
-    float3 c11 = GAMMA_IN(tex2D(s_p, tc         ).xyz);
-    float3 c12 = GAMMA_IN(tex2D(s_p, tc     + dx).xyz);
-    float3 c13 = GAMMA_IN(tex2D(s_p, tc + 2.0*dx).xyz);
+    float3 c00 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc     - dx - dy).xyz);
+    float3 c01 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc          - dy).xyz);
+    float3 c02 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc     + dx - dy).xyz);
+    float3 c03 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc + 2.0*dx - dy).xyz);
+    float3 c10 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc     - dx).xyz);
+    float3 c11 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc         ).xyz);
+    float3 c12 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc     + dx).xyz);
+    float3 c13 = GAMMA_IN(COMPAT_SamplePoint(s_p, tc + 2.0*dx).xyz);
 
     //  Get min/max samples
     float3 min_sample = min(min(c01,c11), min(c02,c12));
@@ -189,8 +176,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
     float pos0 = fp.y;
     float pos1 = 1 - fp.y;
 
-    float3 lum0 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color0);
-    float3 lum1 = lerp(float3(BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH), color1);
+    float3 lum0 = lerp(float3(BEAM_MIN_WIDTH, BEAM_MIN_WIDTH, BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH, BEAM_MAX_WIDTH, BEAM_MAX_WIDTH), color0);
+    float3 lum1 = lerp(float3(BEAM_MIN_WIDTH, BEAM_MIN_WIDTH, BEAM_MIN_WIDTH), float3(BEAM_MAX_WIDTH, BEAM_MAX_WIDTH, BEAM_MAX_WIDTH), color1);
 
     float3 d0 = clamp(pos0/(lum0+0.0000001), 0.0, 1.0);
     float3 d1 = clamp(pos1/(lum1+0.0000001), 0.0, 1.0);
@@ -202,7 +189,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
     color *= COLOR_BOOST*float3(RED_BOOST, GREEN_BOOST, BLUE_BOOST);
 
-    float mod_factor = VAR.texCoord.x * IN.output_size.x * IN.texture_size.x / IN.video_size.x;
+    float mod_factor = texCoord.x * output_size.x * texture_size.x / video_size.x;
 
     float3 dotMaskWeights = lerp(
                                  float3(1.0, 0.7, 1.0),
@@ -210,10 +197,14 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
                                  floor(fmod(mod_factor, 2.0))
                                   );
 
-    color.rgb *= lerp(float3(1.0), dotMaskWeights, PHOSPHOR);
+    color.rgb *= lerp(float3(1.0, 1.0, 1.0), dotMaskWeights, PHOSPHOR);
 
     color  = GAMMA_OUT(color);
 
     return float4(color, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return crt_hyllian_3d(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}

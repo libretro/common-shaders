@@ -34,3 +34,4 @@ float4 main_fragment(uniform prev PASSPREV3, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return threshold(decal, VOUT.texCoord, PASSPREV_texture(3));
 }
+COMPAT_END

@@ -28,8 +28,9 @@ uniform float AAOFFSET2;
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
-#include "../../../compat_macros.inc"
-#include "../../../compat_input_struct.inc"
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 /* Vertex shader */
 
@@ -39,13 +40,12 @@ struct out_vertex
 	float2 texCoord : TEXCOORD0;
 };
 
-out_vertex main_vertex
-(
- float4 position : COMPAT_POS,
- float2 texCoord : TEXCOORD0,
- uniform float4x4 modelViewProj
- )
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord + float2(0.0000001, 0.0000001);
@@ -77,7 +77,8 @@ float4 aa_shader_4_o_level2_pass2(float2 texture_size, float2 video_size, float2
    return final;
 }
 
-float4 main_fragment(uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN, in out_vertex VAR) : COMPAT_Output
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return aa_shader_4_o_level2_pass2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VAR.texCoord);
+	return aa_shader_4_o_level2_pass2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, decal, VOUT.texCoord);
 }
+COMPAT_END
