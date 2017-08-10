@@ -1,11 +1,20 @@
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 #include "ntsc-pass1-vertex.inc"
 #define TWO_PHASE
 #define SVIDEO
 #include "ntsc-param.inc"
 #include "ntsc-rgbyuv.inc"
 
-float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 ntsc_pass1_svideo_2phase(float2 texture_size, float frame_count, float2 tex, COMPAT_Texture2D(s0), float2 pix_no)
 {
 #include "ntsc-pass1-encode-demodulate.inc"
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return ntsc_pass1_svideo_2phase(COMPAT_texture_size, COMPAT_frame_count, VOUT.texCoord, decal, VOUT.pix_no);
+}
+COMPAT_END

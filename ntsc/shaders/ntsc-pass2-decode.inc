@@ -1,5 +1,5 @@
-float one_x = 1.0 / IN.texture_size.x;
-float3 signal = float3(0.0);
+float one_x = 1.0 / texture_size.x;
+float3 signal = float3(0.0, 0.0, 0.0);
 for (int i = 0; i < TAPS; i++)
 {
    float offset = float(i);
@@ -9,6 +9,6 @@ for (int i = 0; i < TAPS; i++)
 
    signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
 }
-signal += tex2D(s0, vertex.tex).xyz *
+signal += COMPAT_Sample(s0, tex).xyz *
    float3(luma_filter[TAPS], chroma_filter[TAPS], chroma_filter[TAPS]);
 

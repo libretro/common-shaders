@@ -8,6 +8,7 @@ https://www.shadertoy.com/view/llyGzR
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 // Parameter lines go here:
@@ -30,43 +31,29 @@ uniform float HUE;
 #define HUE 0.0
 #endif
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+#include "../../../compat_includes.inc"
+INITIALIZE_ORIG(1)
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
-
-struct orig
-{
-  sampler2D texture;
-};
 
 //Composite color artifact simulator
 //Change Buf A to change the input image.
@@ -104,9 +91,9 @@ float2x2 rotate(float a)
 }
 
 //Non-normalized texture sampling.
-vec4 sample2D(sampler2D tex,vec2 resolution, vec2 uv)
+float4 sample2D(COMPAT_Texture2D(tex), float2 resolution, float2 uv)
 {
-    return tex2D(tex, uv / resolution);
+    return COMPAT_Sample(tex, uv / resolution);
 }
 
 float sinc(float x)
@@ -139,24 +126,24 @@ float Lowpass(float Fc, float Fs, int N, int i)
     return 2.0*wc * wnd * sinc(2.0*wc * float(i - N/2));
 }
 
-#define gl_FragCoord float2((texCoord.xy * float2(IN.output_size.xy))*(IN.texture_size.xy/IN.video_size.xy))
+#define gl_FragCoord float2((texCoord.xy * float2(output_size.xy))*(texture_size.xy/video_size.xy))
 
 #define macroloop(i) tpidx = int(FIR_SIZE) - i - 1; \
         lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx); \
-        chroma += sample2D(decal, IN.texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
+        chroma += sample2D(decal, texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform orig ORIG) 
+float4 artifact_colors2(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(original_texture)) 
 {
     float4 final;
-	float Fs = IN.texture_size.x;
+	float Fs = texture_size.x;
     float Fcol = Fs * F_COL;
     float Flumlp = Fs * F_LUMA_LP;
     float n = floor(gl_FragCoord.x);
     
-	float2 uv = gl_FragCoord.xy / (IN.output_size.xy / IN.video_size.xy);
+	float2 uv = gl_FragCoord.xy / (output_size.xy / video_size.xy);
     
-    float luma = sample2D(decal, IN.texture_size.xy, uv).r;
-    float2 chroma = float2(0.);
+    float luma = sample2D(decal, texture_size.xy, uv).r;
+    float2 chroma = float2(0., 0.);
     
     //Filtering out unwanted high freqency content from the chroma(IQ) signal.
 	int tpidx;
@@ -165,7 +152,7 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
     {
         int tpidx = int(FIR_SIZE) - i - 1;
         float lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx);
-        chroma += sample2D(decal, IN.texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
+        chroma += sample2D(decal, texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
     }
 */
 
@@ -207,7 +194,7 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
     	final = float4(color, 0.);
     
     #elif(VIEW_MODE == RGB)
-   		final = tex2D(ORIG.texture, texCoord.xy);
+   		final = ORIG_Sample(texCoord.xy);
     
     #elif(VIEW_MODE == LUMA) 
     	final = float4(luma);
@@ -216,20 +203,24 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
     	final = float4(40.0*chroma+0.5,0.,0.);
     
     #elif(VIEW_MODE == SIGNAL)
-    	final = 0.5 * tex2D(decal, uv / IN.texture_size.xy).rrrr+0.25;
+    	final = 0.5 * COMPAT_Sample(decal, uv / texture_size.xy).rrrr+0.25;
     
     #elif(VIEW_MODE == SPLIT)
     	if(texCoord.x < 0.25)
         {
-            final = tex2D(ORIG.texture, texCoord.xy);
+            final = ORIG_Sample(texCoord.xy);
         }
         else
         {
     		final = float4(color, 0.);
         }
     #endif
-   output OUT;
-   OUT.color = final;
-   return OUT;
+
+   return final;
 }
 
+float4 main_fragment(orig ORIG : TEXUNIT1, COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return artifact_colors2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal, ORIG_texture);
+}
+COMPAT_END

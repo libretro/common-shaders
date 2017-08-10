@@ -15,7 +15,8 @@
 		};
 		
 		#define INITIALIZE_PASSPREV(c, d) Texture2D PASSPREV##c: register(t##d);
-		#define PASSPREV_Sample(c, coord) PASSPREV##c.Sample(PointSampler, coord)
+		#define PASSPREV_Sample(c, coord) PASSPREV##c.Sample(LinearSampler, coord)
+		#define PASSPREV_SamplePoint(c, coord) PASSPREV##c.Sample(PointSampler, coord)
 		#define PASSPREV_texture(c) PASSPREV##c
 	#else
 		struct prev
@@ -27,6 +28,7 @@
 		};
 		#define INITIALIZE_PASSPREV(c, d) 
 		#define PASSPREV_Sample(c, coord) tex2D(PASSPREV##c, coord)
+		#define PASSPREV_SamplePoint(c, coord) tex2D(PASSPREV##c, coord)
 		#define PASSPREV_texture(c) PASSPREV##c.texture
 	#endif
 #endif // COMPAT_PREV_STRUCT

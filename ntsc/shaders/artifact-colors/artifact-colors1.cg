@@ -8,6 +8,7 @@ https://www.shadertoy.com/view/llyGzR
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 //#pragma parameter FIR_SIZE "FIR Size" 29.0 1.0 50.0 1.0
@@ -24,38 +25,28 @@ uniform float F_COL_BW;
 #define F_COL_BW 50.0
 #endif
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
 
 //Demodulator
 
@@ -70,9 +61,9 @@ float pi = 3.141592654;//atan(1.0)*4.0;
 float tau = 6.283185308;//atan(1.0)*8.0;
 
 //Non-normalized texture sampling.
-vec4 sample2D(sampler2D tex, float2 resolution, float2 uv)
+float4 sample2D(COMPAT_Texture2D(tex), float2 resolution, float2 uv)
 {
-    return tex2D(tex, uv / resolution);
+    return COMPAT_Sample(tex, uv / resolution);
 }
 
 //Complex multiply
@@ -130,17 +121,17 @@ float2 Oscillator(float Fo, float Fs, float N)
     return float2(cos(phase),sin(phase));
 }
 
-#define gl_FragCoord float2((texCoord.xy * float2(IN.output_size.xy))*(IN.texture_size.xy/IN.video_size.xy))
+#define gl_FragCoord float2((texCoord.xy * float2(output_size.xy))*(texture_size.xy/video_size.xy))
 
 #define macroloop(i) tpidx = int(FIR_SIZE) - i - 1; \
         lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx); \
         bp = Bandpass(Fcol - Fcolbw, Fcol + Fcolbw, Fs, int(FIR_SIZE), tpidx); \
-        y_sig += sample2D(decal, IN.texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp; \
-        iq_sig += sample2D(decal, IN.texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
+        y_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp; \
+        iq_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 artifact_colors1(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-    float Fs = IN.texture_size.x;
+    float Fs = texture_size.x;
     float Fcol = Fs * F_COL;
     float Fcolbw = Fs * (1.0 / F_COL_BW);
     float Flumlp = Fs * F_LUMA_LP;
@@ -163,8 +154,8 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
         float lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx);
         float bp = Bandpass(Fcol - Fcolbw, Fcol + Fcolbw, Fs, int(FIR_SIZE), tpidx);
         
-        y_sig += sample2D(decal, IN.texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp;
-        iq_sig += sample2D(decal, IN.texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
+        y_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp;
+        iq_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
     }
 */
 
@@ -202,8 +193,11 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
     float2 iq_sig_mix = cmul(float2(iq_sig, 0.), cOsc);
     
    float4 final = float4(y_sig, iq_sig_mix, 0.);
-   output OUT;
-   OUT.color = final;
-   return OUT;
+   return final;
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return artifact_colors1(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

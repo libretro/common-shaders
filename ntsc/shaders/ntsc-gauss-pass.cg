@@ -1,32 +1,28 @@
-struct data
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float2 tex;
-   float2 pix_no;
-   float2 one;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 pix_no   : TEXCOORD1;
+	float2 one      : TEXCOORD2;
 };
 
-struct input
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-};
-
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   uniform input IN,
-   out data oData
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oData.tex = tex;
-   oData.pix_no = tex * IN.texture_size;
-   oData.one = 1.0 / IN.texture_size;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.pix_no = texCoord * COMPAT_texture_size;
+	OUT.one = 1.0 / COMPAT_texture_size;
+	
+	return OUT;
 }
 
 #pragma parameter NTSC_CRT_GAMMA "NTSC CRT Gamma" 2.5 0.0 10.0 0.1
@@ -40,9 +36,9 @@ uniform float NTSC_DISPLAY_GAMMA;
 #define NTSC_DISPLAY_GAMMA 2.1
 #endif
 
-float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 ntsc_gauss_pass(float2 tex, COMPAT_Texture2D(s0), float2 one, float2 pix_no)
 {
-#define TEX(off) pow(tex2D(s0, vertex.tex + float2(0.0, (off) * vertex.one.y)).rgb, float3(NTSC_CRT_GAMMA))
+#define TEX(off) pow(COMPAT_Sample(s0, tex + float2(0.0, (off) * one.y)).rgb, float3(NTSC_CRT_GAMMA, NTSC_CRT_GAMMA, NTSC_CRT_GAMMA))
 
    float3 frame0 = TEX(-2.0);
    float3 frame1 = TEX(-1.0);
@@ -50,7 +46,7 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    float3 frame3 = TEX(1.0);
    float3 frame4 = TEX(2.0);
 
-   float offset_dist = frac(vertex.pix_no.y) - 0.5;
+   float offset_dist = frac(pix_no.y) - 0.5;
    float dist0 =  2.0 + offset_dist;
    float dist1 =  1.0 + offset_dist;
    float dist2 =  0.0 + offset_dist;
@@ -62,7 +58,14 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
    scanline += frame2 * exp(-5.0 * dist2 * dist2);
    scanline += frame3 * exp(-5.0 * dist3 * dist3);
    scanline += frame4 * exp(-5.0 * dist4 * dist4);
+   
+   float3 gamma_mod = float3(1.0 / NTSC_DISPLAY_GAMMA, 1.0 / NTSC_DISPLAY_GAMMA, 1.0 / NTSC_DISPLAY_GAMMA);
 
-   return float4(pow(1.15 * scanline, float3(1.0 / NTSC_DISPLAY_GAMMA)), 1.0);
+   return float4(pow(float3(1.15, 1.15, 1.15) * scanline, gamma_mod), 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return ntsc_gauss_pass(VOUT.texCoord, decal, VOUT.one, VOUT.pix_no);
+}
+COMPAT_END

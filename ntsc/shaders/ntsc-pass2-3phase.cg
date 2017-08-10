@@ -1,14 +1,23 @@
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 #include "ntsc-pass2-vertex.inc"
 #include "ntsc-decode-filter-3phase.inc"
 #include "ntsc-rgbyuv.inc"
 
 #define fetch_offset(offset, one_x) \
-   tex2D(s0, vertex.tex + float2((offset) * (one_x), 0.0)).xyz
+   COMPAT_Sample(s0, tex + float2((offset) * (one_x), 0.0)).xyz
 
-float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 ntsc_pass2_3phase(float2 texture_size, float2 tex, COMPAT_Texture2D(s0))
 {
 #include "ntsc-pass2-decode.inc"
    float3 rgb = yiq2rgb(signal);
    return float4(rgb, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return ntsc_pass2_3phase(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END

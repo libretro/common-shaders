@@ -41,7 +41,7 @@ uniform float CRT_ANTI_RINGING;
 #define CRT_ANTI_RINGING 0.8 
 #endif
 // END PARAMETERS //
-#define HLSL_4
+
 /* COMPATIBILITY
    - HLSL compilers
    - Cg   compilers

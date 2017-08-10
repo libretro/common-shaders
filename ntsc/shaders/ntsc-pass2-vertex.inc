@@ -1,28 +1,18 @@
-struct data
+struct out_vertex
 {
-   float2 tex;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-struct input
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-};
-
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   uniform input IN,
-   out data oData
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oData.tex = tex - float2(0.5 / IN.texture_size.x, 0.0); // Compensate for decimate-by-2.
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord - float2(0.5 / COMPAT_texture_size.x, 0.0); // Compensate for decimate-by-2.
+	
+	return OUT;
 }
-
-

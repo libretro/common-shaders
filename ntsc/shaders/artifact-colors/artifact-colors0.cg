@@ -8,6 +8,7 @@ https://www.shadertoy.com/view/llyGzR
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 //#pragma parameter F_COL "F Col" 0.25 0.25 0.5 0.25
@@ -17,38 +18,28 @@ uniform float F_COL;
 #define F_COL 0.25
 #endif
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
 
 //Modulator
 
@@ -66,15 +57,15 @@ float2 Oscillator(float Fo, float Fs, float n)
     return float2(cos(phase),sin(phase));
 }
 
-#define gl_FragCoord float2((texCoord.xy * float2(IN.output_size.xy))*(IN.texture_size.xy/IN.video_size.xy))
+#define gl_FragCoord float2((texCoord.xy * float2(output_size.xy))*(texture_size.xy/video_size.xy))
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 artifact_colors0(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-    float Fs = IN.texture_size.x;
+    float Fs = texture_size.x;
     float Fcol = Fs * F_COL;
     float n = floor(gl_FragCoord.x);
     
-    float3 cRGB = tex2D(decal, texCoord.xy).rgb;
+    float3 cRGB = COMPAT_Sample(decal, texCoord.xy).rgb;
     float3 cYIQ = mul(cRGB, rgb2yiq);
     
     float2 cOsc = Oscillator(Fcol, Fs, n);
@@ -83,8 +74,11 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 
    float4 final = float4(sig,0.,0.,0.);
    
-   output OUT;
-   OUT.color = final;
-   return OUT;
+   return final;
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return artifact_colors0(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

@@ -1,5 +1,5 @@
 #define TAPS 24
-const float luma_filter[TAPS + 1] = float[TAPS + 1](
+static float luma_filter[TAPS + 1] = {
    -0.000012020,
    -0.000022146,
    -0.000013155,
@@ -24,9 +24,9 @@ const float luma_filter[TAPS + 1] = float[TAPS + 1](
    0.084016453,
    0.135563500,
    0.175261268,
-   0.190176552);
+   0.190176552};
 
-const float chroma_filter[TAPS + 1] = float[TAPS + 1](
+static float chroma_filter[TAPS + 1] = {
    -0.000118847,
    -0.000271306,
    -0.000502642,
@@ -51,4 +51,4 @@ const float chroma_filter[TAPS + 1] = float[TAPS + 1](
    0.068803602,
    0.074356193,
    0.077856564,
-   0.079052396);
+   0.079052396};

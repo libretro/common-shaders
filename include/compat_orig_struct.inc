@@ -14,9 +14,10 @@
 			float2 orig_output_size;
 		};
 		
-		#define INITIALIZE_ORIG(c) Texture2D ORIG: register(t##c);
-		#define ORIG_Sample(coord) ORIG.Sample(PointSampler, coord)
-		#define ORIG_texture ORIG
+		#define INITIALIZE_ORIG(c) Texture2D ORIGtex: register(t##c);
+		#define ORIG_Sample(coord) ORIGtex.Sample(LinearSampler, coord)
+		#define ORIG_SamplePoint(coord) ORIGtex.Sample(PointSampler, coord)
+		#define ORIG_texture ORIGtex
 	#else
 		struct orig
 		{
@@ -27,6 +28,7 @@
 		};
 		#define INITIALIZE_ORIG(c) 
 		#define ORIG_Sample(coord) tex2D(ORIG, coord)
+		#define ORIG_SamplePoint(coord) tex2D(ORIG, coord)
 		#define ORIG_texture ORIG.texture
 	#endif
 #endif // COMPAT_ORIG_STRUCT
