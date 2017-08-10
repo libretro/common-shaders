@@ -3,6 +3,7 @@
 	{
 		float4 position : COMPAT_POS;
 		float2 texCoord : TEXCOORD0;
+		float2 t1 : TEXCOORD1;
 	};
 
 	#define COMPAT_IN_VERTEX in_vertex VIN
@@ -13,6 +14,6 @@
 		bool dummy;
 	};
 		
-	#define COMPAT_IN_VERTEX in_vertex VIN, input IN, float4 position : COMPAT_POS, float2 texCoord : TEXCOORD0
+	#define COMPAT_IN_VERTEX in_vertex VIN, input IN, float4 position : COMPAT_POS, float2 texCoord : TEXCOORD0, float2 t1 : TEXCOORD1
 	#define COMPAT_IN_FRAGMENT out_vertex VOUT, uniform input IN
 #endif
