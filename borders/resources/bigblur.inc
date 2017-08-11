@@ -1,18 +1,20 @@
+#include "../../compat_macros.inc"
+
 struct input
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-   float frame_direction;
-   float frame_rotation;
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float frame_count;
+	float frame_direction;
+	float frame_rotation;
 };
 
 struct passprev
 {
-sampler2D texture : TEXUNIT1;
-float2 texture_size;
-float2 video_size;
+	uniform COMPAT_Texture2D(texture) : TEXUNIT1;
+	float2 texture_size;
+	float2 video_size;
 };
 
 void main_vertex
@@ -60,14 +62,14 @@ float4 conv_background(float4 back, float2 coord, float frame_count)
 
 float4 main_fragment (
    float2 tex : TEXCOORD0, float2 tex_border : TEXCOORD1, float2 tex2 : TEXCOORD2,
-   uniform passprev PASSPREV3,
-   uniform sampler2D bg,
-   uniform sampler2D s0 : TEXUNIT0,
-   uniform input IN) : COLOR
+   uniform passprev PASSPREV3 : TEXCOORD3,
+   uniform COMPAT_Texture2D(bg) : TEXUNIT3,
+   uniform COMPAT_Texture2D(decal) : TEXUNIT0,
+   uniform input IN) : COMPAT_Output
 {
  float2 shift = 0.5 * PASSPREV3.video_size / PASSPREV3.texture_size;
- float4 big = float4(tex2D(s0, ((tex - shift) / border_zoom) + shift));
- float4 frame = tex2D(PASSPREV3.texture, tex);
- float4 background = conv_background(tex2D(bg, tex_border), tex_border, IN.frame_count);
+ float4 big = float4(COMPAT_SamplePoint(decal, ((tex - shift) / border_zoom) + shift));
+ float4 frame = COMPAT_SamplePoint(PASSPREV3.texture, tex);
+ float4 background = conv_background(COMPAT_SamplePoint(bg, tex_border), tex_border, IN.frame_count);
    return lerp(frame, big, background.a);
 }
