@@ -1,8 +1,3 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
 /*
    Hyllian's Data Dependent Triangulation Shader
    
@@ -28,6 +23,47 @@
 
 */
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float4 t1       : TEXCOORD1;
+	float2 loc      : TEXCOORD2;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord1 = texCoord + float2(0.0000001, 0.0000001);
+
+	OUT.texCoord = texCoord1;
+	OUT.t1.xy = float2( dx,  0); // F
+	OUT.t1.zw = float2(  0, dy); // H
+	OUT.loc = texCoord1*COMPAT_texture_size;
+	
+	return OUT;
+}
+
 const static float3 dtt = float3(65536,255,1);
 
 float reduce(float3 color)
@@ -40,66 +76,19 @@ float3 bilinear(float p, float q, float3 A, float3 B, float3 C, float3 D)
 	return ((1-p)*(1-q)*A + p*(1-q)*B + (1-p)*q*C + p*q*D);
 }
 
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-        float frame_count;
-        float frame_direction;
-	float frame_rotation;
-};
-
-struct out_vertex {
-	float4 position : POSITION;
-	float2 texCoord : TEXCOORD0;
-	float4 t1 : TEXCOORD1;
-	float2 loc : TEXCOORD2;
-};
-
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord1 : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
-{
-	out_vertex OUT;
-
-	OUT.position = mul(modelViewProj, position);
-
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
-	float dx = ps.x;
-	float dy = ps.y;
-
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-
-	OUT.texCoord = texCoord;
-	OUT.t1.xy = float2( dx,  0); // F
-	OUT.t1.zw = float2(  0, dy); // H
-	OUT.loc = texCoord*IN.texture_size;
-
-	return OUT;
-}
-
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 ddt_waterpaint(float2 texCoord, float4 t1, float2 loc, COMPAT_Texture2D(decal), float2 texture_size)
 {
-	float2 pos = frac(VAR.loc)-float2(0.5, 0.5); // pos = pixel position
+	float2 pos = frac(loc)-float2(0.5, 0.5); // pos = pixel position
 	float2 dir = sign(pos); // dir = pixel direction
 
-	float2 g1 = dir*VAR.t1.xy;
-	float2 g2 = dir*VAR.t1.zw;
+	float2 g1 = dir*t1.xy;
+	float2 g2 = dir*t1.zw;
 
-	float3 A = tex2D(decal, VAR.texCoord       ).xyz;
-	float3 B = tex2D(decal, VAR.texCoord +g1   ).xyz;
-	float3 C = tex2D(decal, VAR.texCoord    +g2).xyz;
-	float3 D = tex2D(decal, VAR.texCoord +g1+g2).xyz;
+	float3 A = COMPAT_SamplePoint(decal, texCoord       ).xyz;
+	float3 B = COMPAT_SamplePoint(decal, texCoord +g1   ).xyz;
+	float3 C = COMPAT_SamplePoint(decal, texCoord    +g2).xyz;
+	float3 D = COMPAT_SamplePoint(decal, texCoord +g1+g2).xyz;
 
 	float a = reduce(A);
 	float b = reduce(B);
@@ -130,32 +119,37 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	float3 color_old = bilinear(p, q, A, B, C, D);
 
-	float2 texsize = IN.texture_size;
+	float2 texsize = texture_size;
 	const float scale_factor = 1.0;
 	float2 delta = 0.5 / (texsize * scale_factor);
 	float dx = delta.x;
 	float dy = delta.y;
 
-	float3 c00 = tex2D(decal, VAR.texCoord + float2(-dx, -dy)).xyz;
-	float3 c01 = tex2D(decal, VAR.texCoord + float2(-dx, 0)).xyz;
-	float3 c02 = tex2D(decal, VAR.texCoord + float2(-dx, dy)).xyz;
-	float3 c10 = tex2D(decal, VAR.texCoord + float2(0, -dy)).xyz;
-	float3 c11 = tex2D(decal, VAR.texCoord + float2(0, 0)).xyz;
-	float3 c12 = tex2D(decal, VAR.texCoord + float2(0, dy)).xyz;
-	float3 c20 = tex2D(decal, VAR.texCoord + float2(dx, -dy)).xyz;
-	float3 c21 = tex2D(decal, VAR.texCoord + float2(dx, 0)).xyz;
-	float3 c22 = tex2D(decal, VAR.texCoord + float2(dx, dy)).xyz;
+	float3 c00 = COMPAT_SamplePoint(decal, texCoord + float2(-dx, -dy)).xyz;
+	float3 c01 = COMPAT_SamplePoint(decal, texCoord + float2(-dx, 0)).xyz;
+	float3 c02 = COMPAT_SamplePoint(decal, texCoord + float2(-dx, dy)).xyz;
+	float3 c10 = COMPAT_SamplePoint(decal, texCoord + float2(0, -dy)).xyz;
+	float3 c11 = COMPAT_SamplePoint(decal, texCoord + float2(0, 0)).xyz;
+	float3 c12 = COMPAT_SamplePoint(decal, texCoord + float2(0, dy)).xyz;
+	float3 c20 = COMPAT_SamplePoint(decal, texCoord + float2(dx, -dy)).xyz;
+	float3 c21 = COMPAT_SamplePoint(decal, texCoord + float2(dx, 0)).xyz;
+	float3 c22 = COMPAT_SamplePoint(decal, texCoord + float2(dx, dy)).xyz;
 
-	float3 first = lerp(c00, c20, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
-	float3 second = lerp(c02, c22, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
+	float3 first = lerp(c00, c20, frac(scale_factor * texCoord.x * texsize.x + 0.5));
+	float3 second = lerp(c02, c22, frac(scale_factor * texCoord.x * texsize.x + 0.5));
 
-	float3 mid_horiz = lerp(c01, c21, frac(scale_factor * VAR.texCoord.x * texsize.x + 0.5));
-	float3 mid_vert = lerp(c10, c12, frac(scale_factor * VAR.texCoord.y * texsize.y + 0.5));
+	float3 mid_horiz = lerp(c01, c21, frac(scale_factor * texCoord.x * texsize.x + 0.5));
+	float3 mid_vert = lerp(c10, c12, frac(scale_factor * texCoord.y * texsize.y + 0.5));
 
-	float3 res = lerp(first, second, frac(scale_factor * VAR.texCoord.y * texsize.y + 0.5));
+	float3 res = lerp(first, second, frac(scale_factor * texCoord.y * texsize.y + 0.5));
 
 	float color =  float4(0.28 * (res + mid_horiz + mid_vert) + 4.7 * abs(res - lerp(mid_horiz, mid_vert, 0.5)), 1.0);
 
 	return float4((color + color_old) / 2.0, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return ddt_waterpaint(VOUT.texCoord, VOUT.t1, VOUT.loc, decal, COMPAT_texture_size);
+}
+COMPAT_END
