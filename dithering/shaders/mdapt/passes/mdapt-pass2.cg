@@ -6,7 +6,6 @@
 
 */
 
-
 #pragma parameter VL_LO "MDAPT VL LO Thresh" 1.25 0.0 10.0 0.05
 #pragma parameter VL_HI "MDAPT VL HI Thresh" 1.75 0.0 10.0 0.05
 #pragma parameter CB_LO "MDAPT CB LO Thresh" 5.25 0.0 25.0 0.05
@@ -21,8 +20,13 @@
 	#define CB_HI 5.75
 #endif
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
 
-#define TEX(dx,dy) tex2D(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+#define TEX(dx,dy) COMPAT_Sample(decal, texCoord+float2((dx),(dy))*t1)
 #define and(x,y) min(x,y)
 #define or(x,y)  max(x,y)
 
@@ -30,46 +34,34 @@ float2 sigmoid(float2 signal){
 	return smoothstep(float2(VL_LO, CB_LO), float2(VL_HI, CB_HI), signal);
 }
 
+#include "../../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-struct input
+struct out_vertex
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 t1       : TEXCOORD1;
 };
 
-struct out_vertex {
-        float4 position : POSITION;
-        float2 texCoord : TEXCOORD0;
-        float2 t1;
-};
-
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-        out_vertex OUT;
-
-        OUT.position = mul(modelViewProj, position);
-
-        OUT.texCoord = texCoord;
-	OUT.t1       = 1.0/IN.texture_size;
-
-        return OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.t1 = 1.0 / COMPAT_texture_size;
+	
+	return OUT;
 }
 
-
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 mdapt_pass2(float2 texCoord, float2 t1, COMPAT_Texture2D(decal))
 {
-
 	/*
 		NW  UUL U2 UUR NE
 		ULL UL  U1 UR  URR
@@ -81,7 +73,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	float2 C = TEX( 0, 0).xy;
 	
 
-	float2 hits = float2(0.0);
+	float2 hits = float2(0.0, 0.0);
 	
 	//phase 1
 	float2 L1 = TEX(-1, 0).xy;
@@ -120,3 +112,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	return float4(C * sigmoid(hits), C);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return mdapt_pass2(VOUT.texCoord, VOUT.t1, decal);
+}
+COMPAT_END

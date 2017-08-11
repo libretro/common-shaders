@@ -6,8 +6,6 @@
 
 */
 
-#include "../../../../compat_macros.inc"
-
 #pragma parameter MODE "GDAPT Monochrome Analysis"	0.0 0.0 1.0 1.0
 #pragma parameter PWR  "GDAPT Color Metric Exp"		2.0 0.0 10.0 0.1
 
@@ -18,9 +16,14 @@
 	#define PWR 2.0
 #endif
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
 
 #define dot(x,y) saturate(dot(x,y))	// NVIDIA Fix
-#define TEX(dx,dy) COMPAT_Sample(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1).xyz
+#define TEX(dx,dy) COMPAT_Sample(decal, texCoord+float2((dx),(dy))*t1).xyz
 
 // Reference: http://www.compuphase.com/cmetric.htm
 float eq(float3 A, float3 B)
@@ -33,45 +36,34 @@ float eq(float3 A, float3 B)
 	return pow( smoothstep(3.0, 0.0, sqrt(diff.x + diff.y + diff.z)), PWR );
 }
 
+#include "../../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-struct input
+struct out_vertex
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 t1       : TEXCOORD1;
 };
 
-struct out_vertex {
-        float4 position : POSITION;
-        float2 texCoord : TEXCOORD0;
-        float2 t1 : TEXCOORD1;
-};
-
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-        out_vertex OUT;
-
-        OUT.position = mul(modelViewProj, position);
-
-        OUT.texCoord = texCoord;
-		OUT.t1		 = 1.0/IN.texture_size;
-
-        return OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.t1 = 1.0 / COMPAT_texture_size;
+	
+	return OUT;
 }
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 gdapt_pass0(float2 texCoord, float2 t1, COMPAT_Texture2D(decal))
 {
-
 	float3 C = TEX( 0, 0).rgb;
 	float3 L = TEX(-1, 0).rgb;
 	float3 R = TEX( 1, 0).rgb;
@@ -87,3 +79,9 @@ float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNI
 
 	return float4(C, tag);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return gdapt_pass0(VOUT.texCoord, VOUT.t1, decal);
+}
+COMPAT_END

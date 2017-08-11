@@ -6,8 +6,6 @@
 
 */
 
-#include "../../../../compat_macros.inc"
-
 #pragma parameter STEPS "GDAPT Error Prevention LVL"	1.0 0.0 5.0 1.0
 #pragma parameter DEBUG "GDAPT Adjust View"		0.0 0.0 1.0 1.0
 
@@ -18,52 +16,46 @@
 	#define DEBUG 0.0
 #endif
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
 
-#define TEX(dx,dy) COMPAT_Sample(decal, VAR.texCoord+float2((dx),(dy))*VAR.t1)
+#define TEX(dx,dy) COMPAT_Sample(decal, texCoord+float2((dx),(dy))*t1)
 
-struct input
+#include "../../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 t1       : TEXCOORD1;
 };
 
-struct out_vertex {
-        float4 position : POSITION;
-        float2 texCoord : TEXCOORD0;
-        float2 t1 : TEXCOORD1;
-};
-
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-        out_vertex OUT;
-
-        OUT.position = mul(modelViewProj, position);
-
-        OUT.texCoord = texCoord;
-	OUT.t1       = 1.0/IN.texture_size;
-
-        return OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.t1 = 1.0 / COMPAT_texture_size;
+	
+	return OUT;
 }
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNIT0, uniform input IN) : COMPAT_Output
+float4 gdapt_pass1(float2 texCoord, float2 t1, COMPAT_Texture2D(decal))
 {
-
 	float4 C = TEX( 0, 0);
 	float4 L = TEX(-1, 0);
 	float4 R = TEX( 1, 0);
 	
-
 	float str = 0.0;
 
 	if(STEPS == 0.0){
@@ -91,7 +83,6 @@ float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNI
 		str = min(max(min(max(min(max(min(max(min(max(TEX(-5,0).w, R.w), TEX(-4,0).w), tmp1), TEX(-3,0).w), tmp2), TEX(-2,0).w), tmp3), L.w), min(tmp3, TEX(5,0).w)), C.w);
 	}
 
-
 	if(DEBUG)
 		return float4(str, str, str, str);
 
@@ -101,3 +92,9 @@ float4 main_fragment(in out_vertex VAR, uniform COMPAT_Texture2D(decal) : TEXUNI
 
 	return float4(lerp(C.xyz, (wght*C.xyz + L.w*L.xyz + R.w*R.xyz)/(wght + sum), str), 1.0);	
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return gdapt_pass1(VOUT.texCoord, VOUT.t1, decal);
+}
+COMPAT_END
