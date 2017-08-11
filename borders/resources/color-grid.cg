@@ -1,0 +1,102 @@
+#pragma parameter box_scale "Box Scale" 4.0 1.0 10.0 1.0
+#pragma parameter aspect_x "Aspect Ratio X" 64.0 1.0 256. 1.0
+#pragma parameter aspect_y "Aspect Ratio Y" 49.0 1.0 256. 1.0
+#pragma parameter ZOOM "Zoom" 4.0 0.5 10 0.5
+#pragma parameter SPEED "Speed" 4.0 0.5 10 0.5
+#pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float box_scale;
+uniform float aspect_x;
+uniform float aspect_y;
+uniform float ZOOM;
+uniform float SPEED;
+uniform float integer_scale;
+#else
+#define box_scale 4.0
+#define aspect_x 64.0
+#define aspect_y 49.0
+#define ZOOM 4.0
+#define SPEED 4.0
+#define integer_scale 1.0
+#endif
+// END PARAMETERS //
+
+// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
+// Created by inigo quilez - iq/2014
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
+#include "../../compat_includes.inc"
+
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(bg) : TEXUNIT1;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD;
+	float2 tex_border : TEXCOORD1;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+	float2 t1 = VIN.t1;
+#endif
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 out_res = COMPAT_output_size;
+	float2 corrected_size = COMPAT_video_size * float2(aspect_x / aspect_y, 1.0) * float2(COMPAT_video_size.y / COMPAT_video_size.x, 1.0);
+	float full_scale = COMPAT_output_size.y / COMPAT_video_size.y;
+	float2 scale = (integer_scale > 0.5) ? (COMPAT_output_size / corrected_size) / box_scale : (COMPAT_output_size / corrected_size) / full_scale;
+	float2 middle = float2(0.49999, 0.49999) * COMPAT_video_size / COMPAT_texture_size;
+	float2 diff = texCoord.xy - middle;
+	OUT.texCoord = middle + diff * scale;
+
+	float2 dist = t1 - middle;
+	OUT.tex_border = texCoord;
+	return OUT;
+}
+
+#define fragcoord (tex.xy * (texture_size.xy/video_size.xy))
+
+float4 conv_background(float4 back, float2 coord, float frame_count)
+{
+	return float4(back.rgb, back.a);
+}
+
+float4 colorgrid(float2 texture_size, float frame_count, float2 uv)
+{
+    float2  px = 1000.0 *(-texture_size.xy + 2.0 * ZOOM * uv) / texture_size.y;
+	
+    float id = 0.5 + 0.5*cos(frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
+    
+    float3  co = 0.5 + 0.5*cos(frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
+    
+    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
+
+	return float4( co*pa.x*pa.y, 1.0 );
+}
+
+float4 color_grid(float2 texture_size, float2 video_size, float frame_count, float2 tex,
+	COMPAT_Texture2D(decal), float2 tex_border)
+{
+	float4 effect = colorgrid(texture_size, frame_count, tex_border * 3.0);
+	
+	float4 frame = COMPAT_SamplePoint(decal, tex);
+	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0)
+		return frame;
+	
+	else return effect;
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return color_grid(COMPAT_texture_size, COMPAT_video_size, COMPAT_frame_count,
+		VOUT.texCoord, decal, VOUT.tex_border);
+}
+COMPAT_END
