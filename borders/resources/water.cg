@@ -1,11 +1,12 @@
-// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
-// Created by inigo quilez - iq/2014
-// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+/*
+   Author: Themaister
+   License: Public domain
+*/
+
+// Border shader :)
 
 #pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
 #pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
-#pragma parameter ZOOM "Border Zoom" 3.0 0.5 10 0.5
-#pragma parameter SPEED "Border Animation Speed" 1.0 0.5 10 0.5
 #pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
 #pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
 #pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
@@ -15,8 +16,6 @@
 #ifdef PARAMETER_UNIFORM
 uniform float aspect_x;
 uniform float aspect_y;
-uniform float ZOOM;
-uniform float SPEED;
 uniform float integer_scale;
 uniform float overscale;
 uniform float scanline_toggle;
@@ -26,8 +25,6 @@ uniform float interp_toggle;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
-#define ZOOM 3.0
-#define SPEED 1.0
 #define integer_scale 1.0
 #define overscale 0.0
 #define scanline_toggle 0.0
@@ -42,11 +39,10 @@ uniform float interp_toggle;
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
-struct out_vertex
-{
-	float4 position : COMPAT_POS;
-	float2 texCoord : TEXCOORD;
-	float2 tex_border : TEXCOORD1;
+struct out_vertex{
+   float4 position : COMPAT_POS;
+   float2 texCoord : TEXCOORD;
+   float2 tex_border : TEXCOORD1;
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
@@ -77,24 +73,6 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 #define fragcoord (tex.xy * (texture_size.xy/video_size.xy))
 
-float4 conv_background(float4 back, float2 coord, float frame_count)
-{
-	return float4(back.rgb, back.a);
-}
-
-float4 colorgrid(float2 texture_size, float frame_count, float2 uv)
-{
-    float2  px = 1000.0 *(-texture_size.xy + 2.0 * ZOOM * uv) / texture_size.y;
-	
-    float id = 0.5 + 0.5*cos(frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
-    
-    float3  co = 0.5 + 0.5*cos(frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
-    
-    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
-
-	return float4( co*pa.x*pa.y, 1.0 );
-}
-
 float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
 	video_size, float2 output_size)
 {
@@ -119,27 +97,56 @@ float2 interp_coord(float2 coord, float2 texture_size)
 	p = i + f;
 
 	p = (p - vec2(0.5, 0.5)) * 1.0 / texture_size;
-	return p;
+	return float2(p.x, coord.y);
 }
 
-float4 border(float2 texture_size, float2 video_size, float2 output_size,
+float apply_wave(float2 pos, float2 src, float cnt)
+{
+   float2 diff = pos - src;
+   float dist = 300.0 * sqrt(dot(diff, diff));
+   dist -= 0.15 * cnt;
+   return sin(dist);
+}
+
+const float2 src0 = float2(0.6, 0.7);
+const float2 src1 = float2(0.9, 0.9);
+const float2 src2 = float2(-0.6, 0.3);
+const float2 src3 = float2(0.1, 0.4);
+const float2 src4 = float2(0.1, 0.4);
+const float2 src5 = float2(0.5, 0.5);
+const float2 src6 = float2(-1.0, 1.0);
+
+float4 conv_background(float4 back, float2 coord, float frame_count)
+{
+   float cnt = frame_count;
+   float res = apply_wave(coord, src0, cnt);
+   res +=      apply_wave(coord, src1, cnt);
+   res +=      apply_wave(coord, src2, cnt);
+   res +=      apply_wave(coord, src3, cnt);
+   res +=      apply_wave(coord, src4, cnt);
+   res +=      apply_wave(coord, src5, cnt);
+   res +=      apply_wave(coord, src6, cnt);
+
+   return float4(back.rgb * (0.7 + 0.05 * res), back.a);
+}
+
+float4 effect_border(float2 texture_size, float2 video_size, float2 output_size,
 	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border)
 {
-	float4 effect = colorgrid(texture_size, frame_count, tex_border * (texture_size / video_size)
-	 * float2(output_size.x / output_size.y, 1.0));
-	
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
 	float4 frame = COMPAT_SamplePoint(decal, coord);
 	frame = scanlines(frame, tex, texture_size, video_size, output_size);
+	float4 background = conv_background(float4(0.25, 0.25, 1.0, 1.0), tex_border * (texture_size / video_size)
+	 * float2(output_size.x / output_size.y, 1.0), frame_count);
 	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0)
 		return frame;
 	
-	else return effect;
+	else return background;
 }
 
 float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return border(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size,
+	return effect_border(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, 
 		COMPAT_frame_count, VOUT.texCoord, decal, VOUT.tex_border);
 }
 COMPAT_END

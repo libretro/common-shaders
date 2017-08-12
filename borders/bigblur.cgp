@@ -1,0 +1,11 @@
+shaders = 3
+
+shader0 = ../blurs/blur11fast-horizontal.cg
+filter_linear0 = true
+scale_type0 = source
+
+shader1 = ../blurs/blur11fast-vertical.cg
+filter_linear1 = true
+scale_type1 = source
+
+shader2 = resources/bigblur.cg

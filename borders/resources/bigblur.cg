@@ -1,11 +1,10 @@
-// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
-// Created by inigo quilez - iq/2014
-// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+// A recreation of the blur border commonly used for portrait cell phone videos
+// Created by hunterk
+// License: public domain
 
 #pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
 #pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
-#pragma parameter ZOOM "Border Zoom" 3.0 0.5 10 0.5
-#pragma parameter SPEED "Border Animation Speed" 1.0 0.5 10 0.5
+#pragma parameter ZOOM "Border Zoom" 1.5 0.5 10 0.5
 #pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
 #pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
 #pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
@@ -16,7 +15,6 @@
 uniform float aspect_x;
 uniform float aspect_y;
 uniform float ZOOM;
-uniform float SPEED;
 uniform float integer_scale;
 uniform float overscale;
 uniform float scanline_toggle;
@@ -26,8 +24,7 @@ uniform float interp_toggle;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
-#define ZOOM 3.0
-#define SPEED 1.0
+#define ZOOM 1.5
 #define integer_scale 1.0
 #define overscale 0.0
 #define scanline_toggle 0.0
@@ -38,7 +35,7 @@ uniform float interp_toggle;
 // END PARAMETERS //
 
 #include "../../compat_includes.inc"
-
+INITIALIZE_ORIG(1)
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
@@ -69,31 +66,13 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 	float2 middle = float2(0.49999, 0.49999) * COMPAT_video_size / COMPAT_texture_size;
 	float2 diff = texCoord.xy - middle;
 	OUT.texCoord = middle + diff * scale;
-
-	float2 dist = t1 - middle;
-	OUT.tex_border = texCoord;
+	float2 zoom_coord = (((texCoord - middle) / ZOOM) * float2(COMPAT_output_size.x / COMPAT_output_size.y, 1.0)
+		/ float2(aspect_x / aspect_y, 1.0)) + middle;
+	OUT.tex_border = zoom_coord;
 	return OUT;
 }
 
 #define fragcoord (tex.xy * (texture_size.xy/video_size.xy))
-
-float4 conv_background(float4 back, float2 coord, float frame_count)
-{
-	return float4(back.rgb, back.a);
-}
-
-float4 colorgrid(float2 texture_size, float frame_count, float2 uv)
-{
-    float2  px = 1000.0 *(-texture_size.xy + 2.0 * ZOOM * uv) / texture_size.y;
-	
-    float id = 0.5 + 0.5*cos(frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
-    
-    float3  co = 0.5 + 0.5*cos(frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
-    
-    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
-
-	return float4( co*pa.x*pa.y, 1.0 );
-}
 
 float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
 	video_size, float2 output_size)
@@ -123,13 +102,12 @@ float2 interp_coord(float2 coord, float2 texture_size)
 }
 
 float4 border(float2 texture_size, float2 video_size, float2 output_size,
-	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border)
+	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border, COMPAT_Texture2D(ORIG))
 {
-	float4 effect = colorgrid(texture_size, frame_count, tex_border * (texture_size / video_size)
-	 * float2(output_size.x / output_size.y, 1.0));
+	float4 effect = COMPAT_Sample(decal, tex_border);
 	
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
-	float4 frame = COMPAT_SamplePoint(decal, coord);
+	float4 frame = COMPAT_SamplePoint(ORIG, coord);
 	frame = scanlines(frame, tex, texture_size, video_size, output_size);
 	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0)
 		return frame;
@@ -137,9 +115,9 @@ float4 border(float2 texture_size, float2 video_size, float2 output_size,
 	else return effect;
 }
 
-float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+float4 main_fragment(orig ORIG : TEXUNIT1, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return border(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size,
-		COMPAT_frame_count, VOUT.texCoord, decal, VOUT.tex_border);
+		COMPAT_frame_count, VOUT.texCoord, decal, VOUT.tex_border, ORIG_texture);
 }
 COMPAT_END

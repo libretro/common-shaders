@@ -1,11 +1,9 @@
-// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
+// Based on Voronoi - smooth Shadertoy - https://www.shadertoy.com/view/ldB3zc
 // Created by inigo quilez - iq/2014
 // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
 #pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
 #pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
-#pragma parameter ZOOM "Border Zoom" 3.0 0.5 10 0.5
-#pragma parameter SPEED "Border Animation Speed" 1.0 0.5 10 0.5
 #pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
 #pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
 #pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
@@ -15,8 +13,6 @@
 #ifdef PARAMETER_UNIFORM
 uniform float aspect_x;
 uniform float aspect_y;
-uniform float ZOOM;
-uniform float SPEED;
 uniform float integer_scale;
 uniform float overscale;
 uniform float scanline_toggle;
@@ -26,8 +22,6 @@ uniform float interp_toggle;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
-#define ZOOM 3.0
-#define SPEED 1.0
 #define integer_scale 1.0
 #define overscale 0.0
 #define scanline_toggle 0.0
@@ -42,11 +36,10 @@ uniform float interp_toggle;
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
-struct out_vertex
-{
-	float4 position : COMPAT_POS;
-	float2 texCoord : TEXCOORD;
-	float2 tex_border : TEXCOORD1;
+struct out_vertex{
+   float4 position : COMPAT_POS;
+   float2 texCoord : TEXCOORD;
+   float2 tex_border : TEXCOORD1;
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
@@ -79,20 +72,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 float4 conv_background(float4 back, float2 coord, float frame_count)
 {
-	return float4(back.rgb, back.a);
-}
-
-float4 colorgrid(float2 texture_size, float frame_count, float2 uv)
-{
-    float2  px = 1000.0 *(-texture_size.xy + 2.0 * ZOOM * uv) / texture_size.y;
-	
-    float id = 0.5 + 0.5*cos(frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
-    
-    float3  co = 0.5 + 0.5*cos(frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
-    
-    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
-
-	return float4( co*pa.x*pa.y, 1.0 );
+   return float4(back.rgb, back.a);
 }
 
 float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
@@ -122,11 +102,70 @@ float2 interp_coord(float2 coord, float2 texture_size)
 	return p;
 }
 
+float hash1( float n )
+{
+	return frac(sin(n)*43758.5453);
+}
+
+float2 hash2( float2  p )
+{
+	p = float2( dot(p,float2(127.1,311.7)), dot(p,float2(269.5,183.3)) );
+	return frac(sin(p)*43758.5453);
+}
+
+float4 voronoi( in float2 x, float w, float frame_count )
+{
+    float2 n = floor( x );
+    float2 f = frac( x );
+
+	float4 m = float4( 8.0, 0.0, 0.0, 0.0 );
+    for( int j=-1; j<=2; j++ )
+    for( int i=-1; i<=2; i++ )
+    {
+        float2 g = float2( float(i),float(j) );
+        float2 o = hash2( n + g );
+		
+		// animate
+        o = 0.5 + 0.5*sin( 0.01 * frame_count + 6.2831*o );
+
+        // distance to cell		
+		float d = length(g - f + o);
+		
+        // do the smooth min for colors and distances		
+		float3 col = 0.5 + 0.5*sin( hash1(dot(n+g,float2(7.0,113.0)))*2.5 + 3.5 + float3(2.0,3.0,0.0));
+		float h = smoothstep( 0.0, 1.0, 0.5 + 0.5*(m.x-d)/w );
+		
+	    m.x   = lerp( m.x,     d, h ) - h*(1.0-h)*w/(1.0+3.0*w); // distance
+		m.yzw = lerp( m.yzw, col, h ) - h*(1.0-h)*w/(1.0+3.0*w); // cioloe
+    }
+	
+	return m;
+}
+
+float4 voronoi_bg(float2 texture_size, float frame_count, float2 uv)
+{
+    float2 p = uv * float2(2.0,1.0);
+	
+	float k = 2.0 + 70.0 * pow( 0.5 + 0.5*sin(0.25*6.2831*0.03 * frame_count), 4.0 );
+	k = 0.5 - 0.5*cos(0.25*6.2831*0.01 * frame_count);
+    float4 c = voronoi( 6.0*p, k, frame_count );
+
+    float3 col = c.yzw;
+	
+	col *= 1.0 - 0.8*c.x*step(p.y,0.33);
+	col *= lerp(c.x,1.0,step(p.y,0.66));
+	
+	col *= smoothstep( 0.005, 0.007, abs(p.y-0.33) );
+	col *= smoothstep( 0.005, 0.007, abs(p.y-0.66) );
+	
+	return float4( col, 1.0 );
+}
+
 float4 border(float2 texture_size, float2 video_size, float2 output_size,
 	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border)
 {
-	float4 effect = colorgrid(texture_size, frame_count, tex_border * (texture_size / video_size)
-	 * float2(output_size.x / output_size.y, 1.0));
+	float4 effect = voronoi_bg(texture_size, frame_count, tex_border * (texture_size / video_size)
+	 * float2(output_size.x / output_size.y * 0.5, 1.0));
 	
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
 	float4 frame = COMPAT_SamplePoint(decal, coord);

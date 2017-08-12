@@ -1,21 +1,20 @@
-// Based on Color Grid Shadertoy - https://www.shadertoy.com/view/4dBSRK
+// Based on Iterations - shiny Shadertoy - https://www.shadertoy.com/view/MslXz8
 // Created by inigo quilez - iq/2014
 // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
 #pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
 #pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
-#pragma parameter ZOOM "Border Zoom" 3.0 0.5 10 0.5
-#pragma parameter SPEED "Border Animation Speed" 1.0 0.5 10 0.5
+#pragma parameter SPEED "Border Animation Speed" 0.5 0.5 10 0.5
 #pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
 #pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
 #pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
 #pragma parameter interp_toggle "Sharpen Linear Scaling" 0.0 0.0 1.0 1.0
 #pragma parameter THICKNESS "Scanline Thickness" 2.0 1.0 12.0 1.0
 #pragma parameter DARKNESS "Scanline Darkness" 0.35 0.0 1.0 0.05
+#pragma parameter COL_SHFT "Color Shift" 0.5 0.0 5.0 0.25
 #ifdef PARAMETER_UNIFORM
 uniform float aspect_x;
 uniform float aspect_y;
-uniform float ZOOM;
 uniform float SPEED;
 uniform float integer_scale;
 uniform float overscale;
@@ -23,17 +22,18 @@ uniform float scanline_toggle;
 uniform float THICKNESS;
 uniform float DARKNESS;
 uniform float interp_toggle;
+uniform float COL_SHFT;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
-#define ZOOM 3.0
-#define SPEED 1.0
+#define SPEED 0.5
 #define integer_scale 1.0
 #define overscale 0.0
 #define scanline_toggle 0.0
 #define THICKNESS 2.0
 #define DARKNESS 0.35
 #define interp_toggle 0.0
+#define COL_SHFT 0.5
 #endif
 // END PARAMETERS //
 
@@ -44,9 +44,9 @@ uniform float4x4 modelViewProj;
 
 struct out_vertex
 {
-	float4 position : COMPAT_POS;
-	float2 texCoord : TEXCOORD;
-	float2 tex_border : TEXCOORD1;
+   float4 position : COMPAT_POS;
+   float2 texCoord : TEXCOORD;
+   float2 tex_border : TEXCOORD1;
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
@@ -79,20 +79,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 float4 conv_background(float4 back, float2 coord, float frame_count)
 {
-	return float4(back.rgb, back.a);
-}
-
-float4 colorgrid(float2 texture_size, float frame_count, float2 uv)
-{
-    float2  px = 1000.0 *(-texture_size.xy + 2.0 * ZOOM * uv) / texture_size.y;
-	
-    float id = 0.5 + 0.5*cos(frame_count * 0.01 * SPEED + sin(dot(floor(px+0.5),float2(113.1,17.81)))*43758.545);
-    
-    float3  co = 0.5 + 0.5*cos(frame_count * 0.01 + 3.5*id + float3(0.0,1.57,3.14) );
-    
-    float2  pa = smoothstep( 0.0, 0.2, id*(0.5 + 0.5*cos(6.2831*px)) );
-
-	return float4( co*pa.x*pa.y, 1.0 );
+   return float4(back.rgb, back.a);
 }
 
 float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
@@ -122,10 +109,83 @@ float2 interp_coord(float2 coord, float2 texture_size)
 	return p;
 }
 
+float4 shiny_iterations(float2 texture_size, float frame_count, float2 uv)
+{
+	float2 pc = uv * 5.0;
+
+	float2 pa = pc + float2(0.04,0.0);
+	float2 pb = pc + float2(0.0,0.04);
+	
+    // shape (3 times for diferentials)
+	float2 zc = pc;
+	float3 fc = float3( 0.0, 0.0, 0.0 );
+	for( int i=0; i<8; i++ ) 
+	{
+        // transform		
+		zc += cos(zc.yx + cos(zc.yx + cos(zc.yx+frame_count * 0.01 * SPEED) ) );
+
+        // orbit traps		
+		float d = dot( zc-pc, zc-pc ); 
+		fc.x += 1.0/(1.0+d);
+		fc.y += d;
+		fc.z += sin(atan2(zc.x-pc.x, zc.y-pc.y));
+	}
+	fc /= 8.0;
+	float3 sc = fc;
+	
+	float2 za = pa;
+	float3 fa = float3( 0.0, 0.0, 0.0 );
+		for( int j=0; j<8; j++ ) 
+	{
+        // transform		
+		za += cos(za.yx + cos(za.yx + cos(za.yx+frame_count * 0.01 * SPEED) ) );
+
+        // orbit traps		
+		float d = dot( za-pa, za-pa ); 
+		fa.x += 1.0/(1.0+d);
+		fa.y += d;
+		fa.z += sin(atan2(zc.x-pc.x, zc.y-pc.y));
+	}
+	fa /= 8.0;
+	float3 sa = fa;
+	
+	float2 zb = pb;
+	float3 fb = float3( 0.0, 0.0, 0.0 );
+		for( int k=0; k<8; k++ ) 
+	{
+        // transform		
+		zb += cos(zb.yx + cos(zb.yx + cos(zb.yx+frame_count * 0.01 * SPEED) ) );
+
+        // orbit traps		
+		float d = dot( zb-pb, zb-pb ); 
+		fb.x += 1.0/(1.0+d);
+		fb.y += d;
+		fb.z += sin(atan2(zc.x-pc.x, zc.y-pc.y));
+	}
+	fb /= 8.0;
+	float3 sb = fb;
+
+    // color	
+	float3 col = lerp( float3(0.08,0.02,0.15), float3(0.6,1.1,1.6), sc.x );
+	col = lerp( col, col.zxy, smoothstep(-0.5,0.5,cos(0.01*frame_count * COL_SHFT)) );
+	col *= 0.15*sc.y;
+	col += 0.4*abs(sc.z) - 0.1;
+
+    // light	
+	float3 nor = normalize( float3( sa.x-sc.x, 0.01, sb.x-sc.x ) );
+	float dif = clamp(0.5 + 0.5*dot( nor,float3(0.5773, 0.5773, 0.5773) ),0.0,1.0);
+	col *= 1.0 + 0.7*dif*col;
+	col += 0.3 * pow(nor.y,128.0);
+
+    // vignetting	
+	col *= 1.0 - 0.1*length(pc);
+	return float4(col, 1.0);
+}
+
 float4 border(float2 texture_size, float2 video_size, float2 output_size,
 	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border)
 {
-	float4 effect = colorgrid(texture_size, frame_count, tex_border * (texture_size / video_size)
+	float4 effect = shiny_iterations(texture_size, frame_count, tex_border * (texture_size / video_size)
 	 * float2(output_size.x / output_size.y, 1.0));
 	
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
