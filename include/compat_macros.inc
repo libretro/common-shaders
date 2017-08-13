@@ -4,6 +4,7 @@
 	#if defined(HLSL_4)
 		SamplerState LinearSampler { Filter = MIN_MAG_LINEAR_MIP_POINT; AddressU = Clamp; AddressV = Clamp; };
 		SamplerState PointSampler { Filter = MIN_MAG_MIP_POINT; AddressU = Clamp; AddressV = Clamp; };
+        #define mod(x,y) (x - y * trunc(x/y))
 		#define COMPAT_Texture2D(tex) Texture2D tex
 		#define COMPAT_TexturePass2D(tex) tex
 		#define COMPAT_SampleLevelZero(tex, coord) tex.SampleLevel(LinearSampler, coord, 0)
