@@ -60,6 +60,8 @@ uniform float interlace_toggle;
    - FX11 compilers
 */
 
+#define mod(x,y) (x - y * trunc(x/y))
+
 /*
     CRT-interlaced
 
@@ -284,7 +286,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
                 float2 xy2 = ((xy*TextureSize/video_size-float2(0.5))*float2(1.0,1.0)+float2(0.5))*video_size/TextureSize;
                 // Of all the pixels that are mapped onto the texel we are
                 // currently rendering, which pixel are we currently rendering?
-                float2 ilfloat = float2(0.0,ilfac.y > 1.5 ? fmod(float(frame_count),2.0) : 0.0);
+                float2 ilfloat = float2(0.0,ilfac.y > 1.5 ? mod(float(frame_count),2.0) : 0.0);
 
             float2 ratio_scale = (xy * TextureSize - float2(0.5) + ilfloat)/ilfac;
       
@@ -352,7 +354,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
                 float3 dotMaskWeights = lerp(
                         float3(1.0, 1.0 - DOTMASK, 1.0),
                         float3(1.0 - DOTMASK, 1.0, 1.0 - DOTMASK),
-                        floor(fmod(mod_factor, 2.0))
+                        floor(mod(mod_factor, 2.0))
                     ); 
 		mul_res *= dotMaskWeights;
         

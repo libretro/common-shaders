@@ -57,6 +57,7 @@ uniform float4x4 modelViewProj;
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
 #define TEX2D(c) pow(COMPAT_SamplePoint(tex, c).rgb, GAMMA_INPUT)
+#define mod(x,y) (x - y * trunc(x/y))
 
 struct out_vertex
 {

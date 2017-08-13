@@ -90,6 +90,7 @@ uniform float4x4 modelViewProj;
 #define FIX(c) max(abs(c), 1e-5)
 #define PI 3.141592653589
 #define TEX2D(c) dilate(COMPAT_SamplePoint(tex, c))
+#define mod(x,y) (x - y * trunc(x/y))
 
 // Set to 0 to use linear filter and gain speed
 #define ENABLE_LANCZOS 1
