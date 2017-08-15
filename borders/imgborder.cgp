@@ -1,0 +1,6 @@
+shaders = 1
+
+shader0 = resources/imgborder.cg
+
+textures = bg
+bg = sgb/sample-borders/sgb2-default.png

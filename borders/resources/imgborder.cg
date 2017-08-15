@@ -1,0 +1,119 @@
+#pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
+#pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
+#pragma parameter ZOOM "Background Zoom" 1.0 0.05 10.0 0.05
+#pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
+#pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
+#pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
+#pragma parameter interp_toggle "Sharpen Linear Scaling" 0.0 0.0 1.0 1.0
+#pragma parameter THICKNESS "Scanline Thickness" 2.0 1.0 12.0 1.0
+#pragma parameter DARKNESS "Scanline Darkness" 0.35 0.0 1.0 0.05
+#pragma parameter on_top "Border On Top" 0.0 0.0 1.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float aspect_x;
+uniform float aspect_y;
+uniform float ZOOM;
+uniform float integer_scale;
+uniform float overscale;
+uniform float scanline_toggle;
+uniform float THICKNESS;
+uniform float DARKNESS;
+uniform float interp_toggle;
+uniform float on_top;
+#else
+#define aspect_x 64.0
+#define aspect_y 49.0
+#define ZOOM 1.0
+#define integer_scale 1.0
+#define overscale 0.0
+#define scanline_toggle 0.0
+#define THICKNESS 2.0
+#define DARKNESS 0.35
+#define interp_toggle 0.0
+#define on_top 0.0
+#endif
+// END PARAMETERS //
+
+#include "../../compat_includes.inc"
+
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(bg)    : TEXUNIT1;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 tex_border : TEXCOORD1;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+
+	OUT.position = mul(modelViewProj, position);
+
+	float2 out_res = COMPAT_output_size;
+	float2 corrected_size = COMPAT_video_size * float2(aspect_x / aspect_y, 1.0)
+		 * float2(COMPAT_video_size.y / COMPAT_video_size.x, 1.0);
+	float full_scale = (integer_scale > 0.5) ? floor(COMPAT_output_size.y /
+		COMPAT_video_size.y) + overscale : COMPAT_output_size.y / COMPAT_video_size.y;
+	float2 scale = (COMPAT_output_size / corrected_size) / full_scale;
+	float2 middle = float2(0.49999, 0.49999) * COMPAT_video_size / COMPAT_texture_size;
+	float2 diff = texCoord.xy - middle;
+	OUT.texCoord = middle + diff * scale;
+	OUT.tex_border = (((texCoord * (COMPAT_texture_size / COMPAT_video_size)) - 0.5) / ZOOM) + 0.5;
+	return OUT;
+}
+
+#define fragcoord (tex.xy * (texture_size.xy/video_size.xy))
+
+float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
+	video_size, float2 output_size)
+{
+	float lines = frac(coord.y * texture_size.y);
+	float scale_factor = floor((output_size.y / video_size.y) + 0.4999);
+    float lightness = 1.0 - DARKNESS;
+	return (scanline_toggle > 0.5 && (lines < (1.0 / scale_factor * THICKNESS)))
+		? frame * float4(lightness, lightness, lightness, lightness) : frame;
+}
+
+float2 interp_coord(float2 coord, float2 texture_size)
+{
+	float2 p = coord.xy;
+
+	p = p * texture_size.xy + float2(0.5, 0.5);
+
+	float2 i = floor(p);
+	float2 f = p - i;
+
+	// Smoothstep - amazingly, smoothstep() is slower than calculating directly the expression!
+	f = f * f * f * f * (f * (f * (-20.0 * f + float2(70.0, 70.0)) - float2(84.0, 84.0)) + float2(35.0, 35.0));
+
+	p = i + f;
+
+	p = (p - float2(0.5, 0.5)) * 1.0 / texture_size;
+	return p;
+}
+
+float4 border(float2 texture_size, float2 video_size, float2 output_size, float frame_count, float2 tex, float2 tex_border)
+{
+	float4 background = COMPAT_SamplePoint(bg, tex_border);
+	
+	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
+	float4 frame = COMPAT_SamplePoint(decal, coord);
+	frame = scanlines(frame, tex, texture_size, video_size, output_size);
+	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0 && on_top < 0.5)
+		return frame;
+	
+	else return mix(frame, background, background.a);
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return border(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, VOUT.texCoord, VOUT.tex_border);
+}
+COMPAT_END
