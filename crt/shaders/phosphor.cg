@@ -77,7 +77,7 @@ float3 to_focus(float pixel)
       return float3(1.0 - pixel, pixel, 0.0);
 }
 
-float4 phosphor(float2 coord, float2 coord_prev, float2 coord_prev_prev, float2 tex_index, COMPAT_Texture2D(decal))
+float4 phosphor(float2 coord, float2 coord_prev, float2 coord_prev_prev, float2 tex_index)
 {
    float y = fmod(tex_index.y, 1.0);
    float intensity = exp(-0.2 * y);
@@ -104,11 +104,9 @@ float4 phosphor(float2 coord, float2 coord_prev, float2 coord_prev_prev, float2 
    return float4(clamp( GAMMA_OUT(intensity * result), 0.0, 1.0 ), 1.0);
 }
 
-uniform COMPAT_Texture2D(samp) : TEXUNIT0;
-
 float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return phosphor(VOUT.coord, VOUT.coord_prev, VOUT.coord_prev_prev, VOUT.tex_index, samp);
+	return phosphor(VOUT.coord, VOUT.coord_prev, VOUT.coord_prev_prev, VOUT.tex_index);
 }
 
 COMPAT_END
