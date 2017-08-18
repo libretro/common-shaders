@@ -1,11 +1,37 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
+
+// VERTEX SHADER //
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 #define round(x) floor( (x) + 0.5 )
 #define gamma 2.2
-#define TEX2D(c) pow(tex2D(IN.texture, (c)), float4(gamma))
+#define TEX2D(c) pow(COMPAT_SamplePoint(decal, (c)), float4(gamma))
 
 #pragma parameter GRID_STRENGTH "LCD Grid Strength" 0.05 0.00 1.00 0.01
 #ifdef PARAMETER_UNIFORM
@@ -13,40 +39,6 @@ uniform float GRID_STRENGTH;
 #else
 #define GRID_STRENGTH 0.05
 #endif
-
-// VERTEX SHADER //
-
-void main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float2 otexCoord : TEXCOORD
-)
-{
-	oPosition = mul(modelViewProj, position);
-	otexCoord = texCoord;
-}
-
-struct input
-{
-  float2 video_size;
-  float2 texCoord_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-  float2 texture_size;
-  sampler2D texture : TEXUNIT0;
-};
-
-struct output 
-{
-  float4 col    : COLOR;
-};
 
 float intsmear_func(float z)
 {
@@ -66,16 +58,13 @@ float intsmear(float x, float dx)
 
 // FRAGMENT SHADER //
 
-output main_fragment(in float2 texCoord : TEXCOORD0,
-uniform input IN,
-uniform sampler2D texture : TEXUNIT0
-)
+float4 lcd_grid(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-  float2 texelSize = 1.0 / IN.texture_size;
+  float2 texelSize = 1.0 / texture_size;
   float2 subtexelSize = texelSize / float2(3.0,1.0);
   float2 range;
-  range = IN.video_size / (IN.output_size * IN.texture_size);
- // range.y = IN.video_size / (IN.output_size * IN.texture_size);
+  range = video_size / (output_size * texture_size);
+ // range.y = video_size / (output_size * texture_size);
 
   float left   = texCoord.x - texelSize.x*0.5;
   float top    = texCoord.y + range.y;
@@ -108,7 +97,11 @@ uniform sampler2D texture : TEXUNIT0
   averageColor += ((borderb.y - bottom) / totalArea) * bottomLeftColor;
   averageColor += ((top - bordert.y)    / totalArea) * topRightColor;
 
-  output OUT;
-   OUT.col = pow(averageColor,float4(1.0/gamma));
-   return OUT;   
+   return pow(averageColor,float4(1.0/gamma));   
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lcd_grid(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

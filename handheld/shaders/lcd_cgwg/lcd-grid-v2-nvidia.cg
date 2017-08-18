@@ -1,3 +1,34 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+// VERTEX SHADER //
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
+
 #pragma parameter RSUBPIX_R "Colour of R subpixel: R" 1.0 0.0 1.0 0.01
 #pragma parameter RSUBPIX_G "Colour of R subpixel: G" 0.0 0.0 1.0 0.01
 #pragma parameter RSUBPIX_B "Colour of R subpixel: B" 0.0 0.0 1.0 0.01
@@ -43,43 +74,10 @@ uniform float BGR;
 #define ambient 0.0
 #define BGR 0.0
 #endif
- 
- 
+
 #define outgamma 2.2
- 
-void main_vertex
-(
-        float4 position : POSITION,
-        float2 texCoord : TEXCOORD0,
- 
-    uniform float4x4 modelViewProj,
- 
-        out float4 oPosition : POSITION,
-        out float2 otexCoord : TEXCOORD
-)
-{
-        oPosition = mul(modelViewProj, position);
-        otexCoord = texCoord;
-}
- 
-struct input
-{
-  float2 video_size;
-  float2 texCoord_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-  float2 texture_size;
-  sampler2D texture : TEXUNIT0;
-};
- 
-struct output
-{
-  float4 col    : COLOR;
-};
- 
-#define fetch_offset(coord,offset) (pow(float3(gain) * texelFetchOffset(IN.texture, (coord), 0, (offset)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))
+
+#define fetch_offset(coord,offset) (pow(float3(gain) * texelFetchOffset(decal, (coord), 0, (offset)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))
  
 // integral of (1 - x^2 - x^4 + x^6)^2
 const float coeffs_x[] = float[](1.0, -2.0/3.0, -1.0/5.0, 4.0/7.0, -1.0/9.0, -2.0/11.0, 1.0/13.0);
@@ -96,6 +94,7 @@ float intsmear_func(float z, float coeffs[7])
   }
   return ret;
 }
+
 float intsmear(float x, float dx, float d, float coeffs[7])
 {
   float zl = clamp((x-dx*0.5)/d,-1.0,1.0);
@@ -103,15 +102,11 @@ float intsmear(float x, float dx, float d, float coeffs[7])
   return d * ( intsmear_func(zh,coeffs) - intsmear_func(zl,coeffs) )/dx;
 }
  
-output main_fragment(in float2 texCoord : TEXCOORD0,
-uniform input IN,
-uniform sampler2D texture : TEXUNIT0
-)
+float4 lcd_grid_v2(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-  float2 texelSize = 1.0 / IN.texture_size;
+  float2 texelSize = 1.0 / texture_size;
   float2 range;
-  range = IN.video_size / (IN.output_size * IN.texture_size);
-  //float2 range = sourceSize[0].xy / (targetSize.xy * sourceSize[0].xy);
+  range = video_size / (output_size * texture_size);
  
   float3 cred   = pow(float3(RSUBPIX_R, RSUBPIX_G, RSUBPIX_B), float3(outgamma));
   float3 cgreen = pow(float3(GSUBPIX_R, GSUBPIX_G, GSUBPIX_B), float3(outgamma));
@@ -147,7 +142,11 @@ uniform sampler2D texture : TEXUNIT0
  
   averageColor = mul(averageColor, mat3x3(cred, cgreen, cblue));
  
-  output OUT;
-  OUT.col = float4(pow(averageColor,float3(1.0/outgamma)),0.0);
-  return OUT;
+  return float4(pow(averageColor,float3(1.0/outgamma)),0.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lcd_grid_v2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

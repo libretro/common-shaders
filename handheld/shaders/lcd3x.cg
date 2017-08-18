@@ -1,56 +1,50 @@
-/* COMPATIBILITY
-   - HLSL compilers (untested)
-   - Cg compilers
-*/
-
 /*
    Author: Gigaherz
    License: Public domain
 */
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 /* configuration (higher values mean brighter image but reduced effect depth) */
 const int brighten_scanlines = 16;
 const int brighten_lcd = 4;
 
-struct input
+struct out_vertex
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 omega    : TEXCOORD1;
 };
 
-void main_vertex (
-    uniform float4x4 modelViewProj,
-	uniform input IN, 
-
-    float4 position : POSITION, out float4 oPosition : POSITION,
-    float4 color : COLOR, out float4 oColor : COLOR,
-    float2 tex : TEXCOORD, out float2 oTex : TEXCOORD,
-
-    out float2 omega : TEXCOORD2
-    )
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-    oPosition = mul(modelViewProj, position);
-    oColor = color;
-    oTex = tex;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    OUT.texCoord = texCoord;
 
-    omega = 3.141592654 * 2 * IN.texture_size;
+    OUT.omega = 3.141592654 * 2 * IN.texture_size;
+	return OUT;
 }
 
 const float3 offsets = 3.141592654 * float3(1.0/2,1.0/2 - 2.0/3,1.0/2-4.0/3);
 
-float4 main_fragment (
-    in float2 omega : TEXCOORD2, 
-    float2 tex : TEXCOORD, 
-    uniform sampler2D s0 : TEXUNIT0
-    ) : COLOR
+float4 lcd3x(COMPAT_Texture2D(decal), float2 omega, float2 texCoord)
 {
-    float3 res = tex2D(s0, tex).xyz;
+    float3 res = COMPAT_SamplePoint(decal, texCoord).xyz;
 
-    float2 angle = tex * omega;
+    float2 angle = texCoord * omega;
 	
     float yfactor = (brighten_scanlines + sin(angle.y)) / (brighten_scanlines + 1);
     float3 xfactors = (brighten_lcd + sin(angle.x + offsets)) / (brighten_lcd + 1);
@@ -60,3 +54,8 @@ float4 main_fragment (
     return float4(color.x, color.y, color.z, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lcd3x(decal, VOUT.omega, VOUT.texCoord);
+}
+COMPAT_END

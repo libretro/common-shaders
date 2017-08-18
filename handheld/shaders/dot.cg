@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -8,53 +9,41 @@
    License: Public domain
 */
 
-struct tex_coord
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float4 c00_10;
-   float4 c20_01;
-   float4 c21_02;
-   float4 c12_22;
-   float2 c11;
-   float2 pixel_no;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float4 c00_10   : TEXCOORD1;
+	float4 c20_01   : TEXCOORD2;
+	float4 c21_02   : TEXCOORD3;
+	float4 c12_22   : TEXCOORD4;
+	float2 c11      : TEXCOORD5;
+	float2 pixel_no : TEXCOORD6;
 };
 
-struct input
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-};
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
 
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
+	float dx = 1.0 / IN.texture_size.x;
+	float dy = 1.0 / IN.texture_size.y;
 
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 tex : TEXCOORD,
-
-   uniform input IN,
-   out tex_coord coords : TEXCOORD1
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-
-   float dx = 1.0 / IN.texture_size.x;
-   float dy = 1.0 / IN.texture_size.y;
-
-   coords.c00_10 = float4(tex + float2(-dx, -dy), tex + float2(0, -dy));
-   coords.c20_01 = float4(tex + float2(dx, -dy), tex + float2(-dx, 0));
-   coords.c21_02 = float4(tex + float2(dx, 0), tex + float2(-dx, dy));
-   coords.c12_22 = float4(tex + float2(0, dy), tex + float2(dx, dy));
-   coords.c11 = tex;
-   coords.pixel_no = tex * IN.texture_size;
+	OUT.c00_10 = float4(texCoord + float2(-dx, -dy), texCoord + float2(0, -dy));
+	OUT.c20_01 = float4(texCoord + float2(dx, -dy), texCoord + float2(-dx, 0));
+	OUT.c21_02 = float4(texCoord + float2(dx, 0), texCoord + float2(-dx, dy));
+	OUT.c12_22 = float4(texCoord + float2(0, dy), texCoord + float2(dx, dy));
+	OUT.c11 = texCoord;
+	OUT.pixel_no = texCoord * IN.texture_size;
+	return OUT;
 }
 
 const float gamma = 2.4;
@@ -81,23 +70,28 @@ float3 lookup(float2 pixel_no, float offset_x, float offset_y, float3 color)
    return color * exp(-gamma * delta * color_bloom(color));
 }
 
-#define TEX(coord) tex2D(s0, co.coord).rgb
+#define TEX(coord) COMPAT_SamplePoint(decal, coord).rgb
 
-float4 main_fragment(tex_coord co : TEXCOORD1, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 dot_effect(float4 c00_10, float4 c20_01, float4 c21_02, float4 c12_22, float2 c11, float2 pixel_no)
 {
-   float3 mid_color = lookup(co.pixel_no, 0.0, 0.0, TEX(c11));
+   float3 mid_color = lookup(pixel_no, 0.0, 0.0, TEX(c11));
    float3 color = float3(0.0, 0.0, 0.0);
-   color += lookup(co.pixel_no, -1.0, -1.0, TEX(c00_10.xy));
-   color += lookup(co.pixel_no,  0.0, -1.0, TEX(c00_10.zw));
-   color += lookup(co.pixel_no,  1.0, -1.0, TEX(c20_01.xy));
-   color += lookup(co.pixel_no, -1.0,  0.0, TEX(c20_01.zw));
+   color += lookup(pixel_no, -1.0, -1.0, TEX(c00_10.xy));
+   color += lookup(pixel_no,  0.0, -1.0, TEX(c00_10.zw));
+   color += lookup(pixel_no,  1.0, -1.0, TEX(c20_01.xy));
+   color += lookup(pixel_no, -1.0,  0.0, TEX(c20_01.zw));
    color += mid_color;
-   color += lookup(co.pixel_no,  1.0,  0.0, TEX(c21_02.xy));
-   color += lookup(co.pixel_no, -1.0,  1.0, TEX(c21_02.zw));
-   color += lookup(co.pixel_no,  0.0,  1.0, TEX(c12_22.xy));
-   color += lookup(co.pixel_no,  1.0,  1.0, TEX(c12_22.zw));
+   color += lookup(pixel_no,  1.0,  0.0, TEX(c21_02.xy));
+   color += lookup(pixel_no, -1.0,  1.0, TEX(c21_02.zw));
+   color += lookup(pixel_no,  0.0,  1.0, TEX(c12_22.xy));
+   color += lookup(pixel_no,  1.0,  1.0, TEX(c12_22.zw));
    float3 out_color = lerp(1.2 * mid_color, color, blend);
 
    return float4(out_color, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return dot_effect(VOUT.c00_10, VOUT.c20_01, VOUT.c21_02, VOUT.c12_22, VOUT.c11, VOUT.pixel_no);
+}
+COMPAT_END

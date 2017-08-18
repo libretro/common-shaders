@@ -1,3 +1,20 @@
+//	DS Hybrid View
+//	by hunterk
+//	license: public domain
+//
+//	This shader requires 16:9 aspect ratio
+//	and integer scaling OFF
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 #pragma parameter screen_toggle "Screen Toggle" 0.0 0.0 1.0 1.0
 #pragma parameter aspect_correction "Aspect Correction" 1.0 0.5 5.0 0.05
 #ifdef PARAMETER_UNIFORM
@@ -8,60 +25,38 @@ uniform float aspect_correction;
 #define aspect_correction 1.0
 #endif
 
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
-//	DS Hybrid View
-//	by hunterk
-//	license: public domain
-//
-//	This shader requires 16:9 aspect ratio
-//	and integer scaling OFF
-
-struct input
+struct out_vertex
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-	uniform input IN,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
 	float video_scale = floor(IN.output_size.y / IN.video_size.y);
 	float2 integer_scale = IN.video_size.xy * video_scale;
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord * (IN.output_size.xy / float2(integer_scale)) * float2(aspect_correction, 1.0);
+	OUT.texCoord = texCoord * (IN.output_size.xy / float2(integer_scale)) * float2(aspect_correction, 1.0);
+	
+	return OUT;
 }
 
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 ds_hybrid_view(float2 texCoord, COMPAT_Texture2D(decal))
 {
 	float2 bigCoord = texCoord * float2(0.35570) + float2(0.0, 0.0 + (0.375 * screen_toggle));
 	float2 smallCoord = texCoord * float2(1.065,1.00) + float2(-1.497, -0.175 / aspect_correction);
-	float4 final = tex2D(decal, bigCoord) + tex2D(decal, smallCoord);
-   output OUT;
-   OUT.color = final;
-   return OUT;
+	float4 final = COMPAT_Sample(decal, bigCoord) + COMPAT_Sample(decal, smallCoord);
+
+	return final;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return ds_hybrid_view(VOUT.texCoord, decal);
+}
+COMPAT_END
