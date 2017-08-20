@@ -55,15 +55,4 @@
 	#else
 		#define COMPAT_END
 	#endif
-	
-	#define COMPAT_DEFAULT_VS_SHADER \
-		out_vertex main_vertex(out_vertex VIN) \
-		{ \
-		  COMPAT_START_SHADER_DEFAULT \
-		  out_vertex OUT; \
-		  OUT.position = mul(modelViewProj, position); \
-		  OUT.texCoord = texCoord * 1.0004; \
-		  return OUT; \
-		}
-		
 #endif // COMPAT_MACROS

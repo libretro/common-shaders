@@ -50,6 +50,7 @@
  */
 
 #include "../../compat_includes.inc"
+
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
@@ -113,7 +114,7 @@ float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float
 
 struct out_vertex
 {
-	half4 position  : POSITION;
+	half4 position  : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
@@ -341,7 +342,6 @@ float4 xBR_hybrid_CRT(float2 texture_size, float2 texCoord, COMPAT_Texture2D(dec
             color *= float3( COLOR_BOOST, COLOR_BOOST, COLOR_BOOST );
 
 	return float4(clamp( GAMMA_OUT(color), 0.0, 1.0 ), 1.0);
-
 
 	return float4(res.x, res.y, res.z, 1.0);
 
