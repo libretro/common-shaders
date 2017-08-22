@@ -1,9 +1,3 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
-
 /*
 * Copyright (C) 2003 Maxim Stepin ( maxst@hiend3d.com )
 *
@@ -26,6 +20,17 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(LUT)   : TEXUNIT1;
+uniform float4x4 modelViewProj;
+
 #ifdef PARAMETER_UNIFORM
 uniform float trY;
 uniform float trU;
@@ -46,40 +51,27 @@ bool diff(float3 yuv1, float3 yuv2) {
 	return res.x || res.y || res.z;
 }
 
-struct input
-{
-	half2 video_size;
-	float2 texture_size;
-	half2 output_size;
-};
-
 struct out_vertex {
-	float4 position : POSITION;
-	float4 color    : COLOR;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1       : TEXCOORD1;
 	float4 t2       : TEXCOORD2;
 	float4 t3       : TEXCOORD3;
-	float2 ps;
+	float2 ps       : TEXCOORD4;
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform half4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
 
-	float2 ps = 1.0/IN.texture_size;
+	float2 ps = 1.0/COMPAT_texture_size;
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -105,30 +97,30 @@ out_vertex main_vertex
 
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
+float4 hqx(float2 texture_size, float2 texCoord, float4 t1, float4 t2, float4 t3, float2 ps, COMPAT_Texture2D(decal), COMPAT_Texture2D(LUT))
 {
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = frac(texCoord*texture_size);
 	half2 quad = sign(-0.5 + fp);
 
-	float dx = VAR.ps.x;
-	float dy = VAR.ps.y;
-	float3 p1 = tex2D(decal, VAR.texCoord).rgb;
-	float3 p2 = tex2D(decal, VAR.texCoord + float2(dx, dy) * quad).rgb;
-	float3 p3 = tex2D(decal, VAR.texCoord + float2(dx, 0) * quad).rgb;
-	float3 p4 = tex2D(decal, VAR.texCoord + float2(0, dy) * quad).rgb;
+	float dx = ps.x;
+	float dy = ps.y;
+	float3 p1 = COMPAT_SamplePoint(decal, texCoord).rgb;
+	float3 p2 = COMPAT_SamplePoint(decal, texCoord + float2(dx, dy) * quad).rgb;
+	float3 p3 = COMPAT_SamplePoint(decal, texCoord + float2(dx, 0) * quad).rgb;
+	float3 p4 = COMPAT_SamplePoint(decal, texCoord + float2(0, dy) * quad).rgb;
 	float4x3 pixels = float4x3(p1, p2, p3, p4);
 
-	float3 w1  = mul(yuv, tex2D(decal, VAR.t1.xw).rgb);
-	float3 w2  = mul(yuv, tex2D(decal, VAR.t1.yw).rgb);
-	float3 w3  = mul(yuv, tex2D(decal, VAR.t1.zw).rgb);
+	float3 w1  = mul(yuv, COMPAT_SamplePoint(decal, t1.xw).rgb);
+	float3 w2  = mul(yuv, COMPAT_SamplePoint(decal, t1.yw).rgb);
+	float3 w3  = mul(yuv, COMPAT_SamplePoint(decal, t1.zw).rgb);
 
-	float3 w4  = mul(yuv, tex2D(decal, VAR.t2.xw).rgb);
+	float3 w4  = mul(yuv, COMPAT_SamplePoint(decal, t2.xw).rgb);
 	float3 w5  = mul(yuv, p1);
-	float3 w6  = mul(yuv, tex2D(decal, VAR.t2.zw).rgb);
+	float3 w6  = mul(yuv, COMPAT_SamplePoint(decal, t2.zw).rgb);
 
-	float3 w7  = mul(yuv, tex2D(decal, VAR.t3.xw).rgb);
-	float3 w8  = mul(yuv, tex2D(decal, VAR.t3.yw).rgb);
-	float3 w9  = mul(yuv, tex2D(decal, VAR.t3.zw).rgb);
+	float3 w7  = mul(yuv, COMPAT_SamplePoint(decal, t3.xw).rgb);
+	float3 w8  = mul(yuv, COMPAT_SamplePoint(decal, t3.yw).rgb);
+	float3 w9  = mul(yuv, COMPAT_SamplePoint(decal, t3.zw).rgb);
 
 	bool3x3 pattern = bool3x3(diff(w5, w1), diff(w5, w2), diff(w5, w3),
 	                          diff(w5, w4), false       , diff(w5, w6),
@@ -144,9 +136,15 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
 	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
 	half2 offset = step / 2.0;
-	half4 weights = tex2D(LUT, index * step + offset);
-	half sum = dot(weights, half4(1));
+	half4 weights = COMPAT_SamplePoint(LUT, index * step + offset);
+	half sum = dot(weights, half4(1,1,1,1));
 	float3 res = mul(transpose(pixels), weights / sum);
 
 	return float4(res, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return hqx(COMPAT_texture_size, VOUT.texCoord, VOUT.t1, VOUT.t2, VOUT.t3, VOUT.ps, decal, LUT);
+}
+COMPAT_END

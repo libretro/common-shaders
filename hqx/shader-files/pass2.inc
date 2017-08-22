@@ -1,9 +1,3 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
-
 /*
 * Copyright (C) 2003 Maxim Stepin ( maxst@hiend3d.com )
 *
@@ -26,45 +20,39 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 */
 
-struct orig
-{
-	float2 tex_coord;
-	uniform float2 texture_size;
-	uniform sampler2D texture;
-};
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
 
-struct input
-{
-	half2 video_size;
-	float2 texture_size;
-	half2 output_size;
-};
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(LUT)   : TEXUNIT1;
+uniform float4x4 modelViewProj;
 
-struct out_vertex {
-	float4 position : POSITION;
-	float4 color    : COLOR;
+INITIALIZE_ORIG(0)
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+	float2 ps       : TEXCOORD1;
 };
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform half4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
-
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
-
-	float2 ps = 1.0/IN.texture_size;
-	float dx = ps.x;
-	float dy = ps.y;
+	OUT.ps = 1.0/COMPAT_texture_size;
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 	//   +----+----+----+
 	//   |    |    |    |
@@ -77,36 +65,37 @@ out_vertex main_vertex
 	//   | w7 | w8 | w9 |
 	//   +----+----+----+
 
-	OUT.texCoord = texCoord;
-
-	return OUT;
-}
-
-
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, orig ORIG, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
+float4 hqx(float2 Current_texture_size, float2 Original_texture_size, float2 ps,
+	float2 texCoord, COMPAT_Texture2D(Current), COMPAT_Texture2D(Original), COMPAT_Texture2D(LookupTexture))
 {
-	float2 fp = frac(VAR.texCoord*IN.texture_size);
+	float2 fp = frac(texCoord * Current_texture_size);
 	half2 quad = sign(-0.5 + fp);
 
-	float2 ps = 1.0/ORIG.texture_size;
 	float dx = ps.x;
 	float dy = ps.y;
 
-	float3 p1  = tex2D(ORIG.texture, VAR.texCoord).rgb;
-	float3 p2  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, dy) * quad).rgb;
-	float3 p3  = tex2D(ORIG.texture, VAR.texCoord + float2(dx, 0) * quad).rgb;
-	float3 p4  = tex2D(ORIG.texture, VAR.texCoord + float2(0, dy) * quad).rgb;
+	float3 p1  = COMPAT_SamplePoint(Original, texCoord).rgb;
+	float3 p2  = COMPAT_SamplePoint(Original, texCoord + float2(dx, dy) * quad).rgb;
+	float3 p3  = COMPAT_SamplePoint(Original, texCoord + float2(dx, 0) * quad).rgb;
+	float3 p4  = COMPAT_SamplePoint(Original, texCoord + float2(0, dy) * quad).rgb;
 	float4x3 pixels = half4x3(p1, p2, p3, p4);
 
-	half2 index = tex2D(decal, VAR.texCoord).xy * half2(255.0, 15.0 * (SCALE * SCALE));
+	half2 index = COMPAT_SamplePoint(Current, texCoord).xy * half2(255.0, 15.0 * (SCALE * SCALE));
 	index.y += dot(floor(fp * SCALE), half2(1, SCALE));
 
 	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
 	half2 offset = step / 2.0;
-	half4 weights = tex2D(LUT, index * step + offset);
-	half sum = dot(weights, half4(1));
+	half4 weights = COMPAT_SamplePoint(LookupTexture, index * step + offset);
+	half sum = dot(weights, half4(1,1,1,1));
 	float3 res = mul(transpose(pixels), weights / sum);
 
 	return float4(res, 1.0);
 }
+
+float4 main_fragment(in orig ORIG : TEXCOORD2, COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return hqx(COMPAT_texture_size, COMPAT_ORIG_texture_size, VOUT.ps,
+		VOUT.texCoord, decal, ORIG_texture, LUT);
+}
+COMPAT_END
