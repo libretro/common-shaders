@@ -1,5 +1,5 @@
 shaders = "5"
-shader0 = "shaders/fast-bilateral.cg"
+shader0 = "shaders/fast-bilateral-3d.cg"
 filter_linear0 = "false"
 wrap_mode0 = "clamp_to_edge"
 scale_type_x0 = "source"
