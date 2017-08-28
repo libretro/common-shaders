@@ -16,7 +16,7 @@ float reduce(float3 color)
 }
 
 struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float4 t1 : TEXCOORD0;
 	float4 t2 : TEXCOORD1;
 	float4 t3 : TEXCOORD2;
@@ -38,7 +38,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 	OUT.position = mul(modelViewProj, position);
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
