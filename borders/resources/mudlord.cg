@@ -18,6 +18,10 @@
 #pragma parameter R "Red" 0.0 0.0 1.0 0.1
 #pragma parameter G "Green" 0.3 0.0 1.0 0.1
 #pragma parameter B "Blue" 0.5 0.0 1.0 0.1
+#pragma parameter OS_MASK_TOP "OS Mask Top" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_BOTTOM "OS Mask Bottom" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_LEFT "OS Mask Left" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_RIGHT "OS Mask Right" 0.0 0.0 1.0 0.005
 #ifdef PARAMETER_UNIFORM
 uniform float aspect_x;
 uniform float aspect_y;
@@ -36,6 +40,10 @@ uniform float PARAM6;
 uniform float R;
 uniform float G;
 uniform float B;
+uniform float OS_MASK_TOP;
+uniform float OS_MASK_BOTTOM;
+uniform float OS_MASK_LEFT;
+uniform float OS_MASK_RIGHT;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
@@ -54,6 +62,10 @@ uniform float B;
 #define R 0.0
 #define G 0.3
 #define B 0.5
+#define OS_MASK_TOP 0.0
+#define OS_MASK_BOTTOM 0.0
+#define OS_MASK_LEFT 0.0
+#define OS_MASK_RIGHT 0.0
 #endif
 // END PARAMETERS //
 
@@ -156,7 +168,8 @@ float4 effect_border(float2 texture_size, float2 video_size, float2 output_size,
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
 	float4 frame = COMPAT_SamplePoint(decal, coord);
 	frame = scanlines(frame, tex, texture_size, video_size, output_size);
-	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0)
+	if (fragcoord.x < 1.0 - OS_MASK_RIGHT && fragcoord.x > 0.0 + OS_MASK_LEFT &&
+		fragcoord.y < 1.0 - OS_MASK_BOTTOM && fragcoord.y > 0.0 + OS_MASK_TOP)
 		return frame;
 	
 	else return effect;

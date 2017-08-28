@@ -5,37 +5,52 @@
 #pragma parameter aspect_x "Aspect Ratio Numerator" 64.0 1.0 256. 1.0
 #pragma parameter aspect_y "Aspect Ratio Denominator" 49.0 1.0 256. 1.0
 #pragma parameter ZOOM "Border Zoom" 1.5 0.5 10 0.5
+#pragma parameter BRIGHTNESS "Border Brightness Mod" 0.0 -1.0 1.0 0.05
 #pragma parameter integer_scale "Force Integer Scaling" 1.0 0.0 1.0 1.0
 #pragma parameter overscale "Integer Overscale" 0.0 0.0 1.0 1.0
 #pragma parameter scanline_toggle "Scanline Toggle" 0.0 0.0 1.0 1.0
 #pragma parameter interp_toggle "Sharpen Linear Scaling" 0.0 0.0 1.0 1.0
 #pragma parameter THICKNESS "Scanline Thickness" 2.0 1.0 12.0 1.0
 #pragma parameter DARKNESS "Scanline Darkness" 0.35 0.0 1.0 0.05
+#pragma parameter OS_MASK_TOP "OS Mask Top" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_BOTTOM "OS Mask Bottom" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_LEFT "OS Mask Left" 0.0 0.0 1.0 0.005
+#pragma parameter OS_MASK_RIGHT "OS Mask Right" 0.0 0.0 1.0 0.005
 #ifdef PARAMETER_UNIFORM
 uniform float aspect_x;
 uniform float aspect_y;
 uniform float ZOOM;
+uniform float BRIGHTNESS;
 uniform float integer_scale;
 uniform float overscale;
 uniform float scanline_toggle;
 uniform float THICKNESS;
 uniform float DARKNESS;
 uniform float interp_toggle;
+uniform float OS_MASK_TOP;
+uniform float OS_MASK_BOTTOM;
+uniform float OS_MASK_LEFT;
+uniform float OS_MASK_RIGHT;
 #else
 #define aspect_x 64.0
 #define aspect_y 49.0
 #define ZOOM 1.5
+#define BRIGHTNESS 0.0
 #define integer_scale 1.0
 #define overscale 0.0
 #define scanline_toggle 0.0
 #define THICKNESS 2.0
 #define DARKNESS 0.35
 #define interp_toggle 0.0
+#define OS_MASK_TOP 0.0
+#define OS_MASK_BOTTOM 0.0
+#define OS_MASK_LEFT 0.0
+#define OS_MASK_RIGHT 0.0
 #endif
 // END PARAMETERS //
 
 #include "../../compat_includes.inc"
-INITIALIZE_ORIG(1)
+INITIALIZE_PASSPREV(3, 0)
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
@@ -85,19 +100,19 @@ float4 scanlines(float4 frame, float2 coord, float2 texture_size, float2
 
 float2 interp_coord(float2 coord, float2 texture_size)
 {
-	vec2 p = coord.xy;
+	float2 p = coord.xy;
 
-	p = p * texture_size.xy + vec2(0.5, 0.5);
+	p = p * texture_size.xy + float2(0.5, 0.5);
 
-	vec2 i = floor(p);
-	vec2 f = p - i;
+	float2 i = floor(p);
+	float2 f = p - i;
 
 	// Smoothstep - amazingly, smoothstep() is slower than calculating directly the expression!
-	f = f * f * f * f * (f * (f * (-20.0 * f + vec2(70.0, 70.0)) - vec2(84.0, 84.0)) + vec2(35.0, 35.0));
+	f = f * f * f * f * (f * (f * (-20.0 * f + float2(70.0, 70.0)) - float2(84.0, 84.0)) + float2(35.0, 35.0));
 
 	p = i + f;
 
-	p = (p - vec2(0.5, 0.5)) * 1.0 / texture_size;
+	p = (p - float2(0.5, 0.5)) * 1.0 / texture_size;
 	return p;
 }
 
@@ -105,19 +120,21 @@ float4 border(float2 texture_size, float2 video_size, float2 output_size,
 	float frame_count, float2 tex, COMPAT_Texture2D(decal), float2 tex_border, COMPAT_Texture2D(ORIG))
 {
 	float4 effect = COMPAT_Sample(decal, tex_border);
+	effect += float4(float3(BRIGHTNESS), effect.w);
 	
 	float2 coord = (interp_toggle < 0.5) ? tex : interp_coord(tex, texture_size);
 	float4 frame = COMPAT_SamplePoint(ORIG, coord);
 	frame = scanlines(frame, tex, texture_size, video_size, output_size);
-	if (fragcoord.x < 1.0 && fragcoord.x > 0.0 && fragcoord.y < 1.0 && fragcoord.y > 0.0)
+	if (fragcoord.x < 1.0 - OS_MASK_RIGHT && fragcoord.x > 0.0 + OS_MASK_LEFT &&
+		fragcoord.y < 1.0 - OS_MASK_BOTTOM && fragcoord.y > 0.0 + OS_MASK_TOP)
 		return frame;
 	
 	else return effect;
 }
 
-float4 main_fragment(orig ORIG : TEXUNIT1, COMPAT_IN_FRAGMENT) : COMPAT_Output
+float4 main_fragment(prev PASSPREV3 : TEXUNIT1, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	return border(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size,
-		COMPAT_frame_count, VOUT.texCoord, decal, VOUT.tex_border, ORIG_texture);
+		COMPAT_frame_count, VOUT.texCoord, decal, VOUT.tex_border, PASSPREV_texture(3));
 }
 COMPAT_END
