@@ -34,7 +34,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
     OUT.position = mul(modelViewProj, position);
     OUT.texCoord = texCoord;
 
-    OUT.omega = 3.141592654 * 2 * IN.texture_size;
+    OUT.omega = 3.141592654 * 2 * COMPAT_texture_size;
 	return OUT;
 }
 
