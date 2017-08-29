@@ -1,3 +1,9 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
 /*
 	Scale2xSFX
 	by Sp00kyFox, 2015
@@ -8,7 +14,6 @@ Scale:	2x
 Scale2SFX improves upon the original Scale2x (aka EPX) by avoiding the occurence of artifacts.
 
 */
-
 
 #pragma parameter YTR "SCALE2xSFX Y Threshold" 48.0 0.0 255.0 1.0
 #pragma parameter UTR "SCALE2xSFX U Threshold"  7.0 0.0 255.0 1.0
@@ -22,29 +27,12 @@ Scale2SFX improves upon the original Scale2x (aka EPX) by avoiding the occurence
 	#define VTR  6.0
 #endif
 
-
-const static float3x3 YUV  = float3x3(0.299, -0.168736, 0.5, 0.587, -0.331264, -0.418688, 0.114, 0.5, -0.081312);	// transponed
-static float3 thresh = float3(YTR, UTR, VTR)/255.0;
-
-
-bool eq(float3 A, float3 B){
-	return all(abs(A-B) <= thresh);
-}
-
-bool neq(float3 A, float3 B){
-	return any(abs(A-B) > thresh);
-}
-
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-};
-
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -54,20 +42,16 @@ struct out_vertex {
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
 	out_vertex OUT;
-
 	OUT.position = mul(modelViewProj, position);
 
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -81,11 +65,23 @@ out_vertex main_vertex
 	return OUT;
 }
 
+const static float3x3 YUV  = float3x3(0.299, -0.168736, 0.5, 0.587, -0.331264, -0.418688, 0.114, 0.5, -0.081312);	// transposed
+static float3 thresh = float3(YTR, UTR, VTR)/255.0;
 
-float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+bool eq(float3 A, float3 B)
+{
+	return all(abs(A-B) <= thresh);
+}
+
+bool neq(float3 A, float3 B)
+{
+	return any(abs(A-B) > thresh);
+}
+
+float3 scale2xSFX(float2 texture_size, float4 t1, float4 t2, float4 t3, float4 t4, float4 t5, float2 texCoord, COMPAT_Texture2D(decal))
 {
 	// subpixel determination
-	float2 fp = floor(2.0 * frac(VAR.texCoord*IN.texture_size));
+	float2 fp = floor(2.0 * frac(texCoord*texture_size));
 
 	/*
 		    J
@@ -96,32 +92,30 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	*/
 
 	// reading the texels & colorspace conversion
-	float3 b = tex2D(decal, VAR.t1.yw).xyz;
-	float3 d = tex2D(decal, VAR.t2.xw).xyz;
-	float3 e = tex2D(decal, VAR.t2.yw).xyz;
-	float3 f = tex2D(decal, VAR.t2.zw).xyz;
-	float3 h = tex2D(decal, VAR.t3.yw).xyz;
+	float3 b = COMPAT_SamplePoint(decal, t1.yw).xyz;
+	float3 d = COMPAT_SamplePoint(decal, t2.xw).xyz;
+	float3 e = COMPAT_SamplePoint(decal, t2.yw).xyz;
+	float3 f = COMPAT_SamplePoint(decal, t2.zw).xyz;
+	float3 h = COMPAT_SamplePoint(decal, t3.yw).xyz;
 
 	float4x3 tmp = mul(float4x3(b,d,e,f), YUV);
 	float3 B = tmp[0], D = tmp[1], E = tmp[2], F = tmp[3], H = mul(h, YUV);
 
-	float3 A = tex2D(decal, VAR.t1.xw).xyz;
-	float3 C = tex2D(decal, VAR.t1.zw).xyz;
-	float3 G = tex2D(decal, VAR.t3.xw).xyz;
-	float3 I = tex2D(decal, VAR.t3.zw).xyz;
+	float3 A = COMPAT_SamplePoint(decal, t1.xw).xyz;
+	float3 C = COMPAT_SamplePoint(decal, t1.zw).xyz;
+	float3 G = COMPAT_SamplePoint(decal, t3.xw).xyz;
+	float3 I = COMPAT_SamplePoint(decal, t3.zw).xyz;
 
 	tmp = mul(float4x3(A,C,G,I), YUV);
 	A = tmp[0], C = tmp[1], G = tmp[2], I = tmp[3];
 
-	float3 J = tex2D(decal, VAR.t4.xy).xyz;
-	float3 K = tex2D(decal, VAR.t4.zw).xyz;
-	float3 L = tex2D(decal, VAR.t5.xy).xyz;
-	float3 M = tex2D(decal, VAR.t5.zw).xyz;
+	float3 J = COMPAT_SamplePoint(decal, t4.xy).xyz;
+	float3 K = COMPAT_SamplePoint(decal, t4.zw).xyz;
+	float3 L = COMPAT_SamplePoint(decal, t5.xy).xyz;
+	float3 M = COMPAT_SamplePoint(decal, t5.zw).xyz;
 
 	tmp = mul(float4x3(J,K,L,M), YUV);
 	J = tmp[0], K = tmp[1], L = tmp[2], M = tmp[3];
-
-
 
 	// parent condition
 	bool par0 = neq(B,F) && neq(D,H);
@@ -134,8 +128,6 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	bool art0 = CE || EG;
 	bool art1 = AE || EI;
 
-
-
 	// rules
 	float3 E0 = eq(B,D) && par0 && (!AE || art0 || eq(A,J) || eq(A,K)) ? 0.5*(b+d) : e;
 	float3 E1 = eq(B,F) && par1 && (!CE || art1 || eq(C,J) || eq(C,L)) ? 0.5*(b+f) : e;
@@ -145,3 +137,9 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	// subpixel output
 	return fp.y == 0 ? (fp.x == 0 ? E0 : E1) : (fp.x == 0 ? E2 : E3);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return float4(scale2xSFX(COMPAT_texture_size, VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.t5, VOUT.texCoord, decal), 1.0);
+}
+COMPAT_END
