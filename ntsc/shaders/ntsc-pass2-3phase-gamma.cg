@@ -7,7 +7,7 @@ uniform float4x4 modelViewProj;
 #include "ntsc-rgbyuv.inc"
 
 #define fetch_offset(offset, one_x) \
-   COMPAT_Sample(s0, tex + float2((offset) * (one_x), 0.0)).xyz
+   COMPAT_SamplePoint(s0, tex + float2((offset) * (one_x), 0.0)).xyz
 
 #pragma parameter NTSC_CRT_GAMMA "NTSC CRT Gamma" 2.5 0.0 10.0 0.1
 #pragma parameter NTSC_MONITOR_GAMMA "NTSC Monitor Gamma" 2.0 0.0 10.0 0.1
