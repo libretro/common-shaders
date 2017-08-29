@@ -3,7 +3,7 @@
    - Cg   compilers
    - FX11 compilers
 */
-#define HLSL_4
+
 /*
    Author: Themaister
    License: Public domain
