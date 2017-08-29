@@ -1,23 +1,15 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
-const static float3 dt = float3(1.0, 1.0, 1.0);
-
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-        float frame_count;
-        float frame_direction;
-	float frame_rotation;
-};
-
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -25,56 +17,51 @@ struct out_vertex {
 	float4 t4 : TEXCOORD4;
 };
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 tex      : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float x = 0.5 * (1.0 / IN.texture_size.x);
-   float y = 0.5 * (1.0 / IN.texture_size.y);
-   float2 dg1 = float2( x, y);
-   float2 dg2 = float2(-x, y);
-   float2 dx = float2(x, 0.0);
-   float2 dy = float2(0.0, y);
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	float x = 0.5 * (1.0 / COMPAT_texture_size.x);
+	float y = 0.5 * (1.0 / COMPAT_texture_size.y);
+	float2 dg1 = float2( x, y);
+	float2 dg2 = float2(-x, y);
+	float2 dx = float2(x, 0.0);
+	float2 dy = float2(0.0, y);
 
-	out_vertex OUT = { 
-		mul(modelViewProj, position),
-		tex,
-		float4(tex-dg1,tex-dy),
-		float4(tex-dg2,tex+dx),
-		float4(tex+dg1,tex+dy),
-		float4(tex+dg2,tex-dx)
-	};
-
-
+	OUT.t1 = float4(texCoord.xy - dg1, texCoord.xy - dy);
+	OUT.t2 = float4(texCoord.xy - dg2, texCoord.xy + dx);
+	OUT.t3 = float4(texCoord.xy + dg1, texCoord.xy + dy);
+	OUT.t4 = float4(texCoord.xy + dg2, texCoord.xy - dx);
+	
 	return OUT;
-}
+};
 
- const float mx = 0.325;      // start smoothing wt.
- const float k = -0.250;      // wt. decrease factor
- const float max_w = 0.25;    // max filter weigth
- const float min_w =-0.05;    // min filter weigth
- const float lum_add = 0.25;  // effects smoothing
+const static float3 dt = float3(1.0, 1.0, 1.0);
 
+const float mx = 0.325;      // start smoothing wt.
+const float k = -0.250;      // wt. decrease factor
+const float max_w = 0.25;    // max filter weigth
+const float min_w =-0.05;    // min filter weigth
+const float lum_add = 0.25;  // effects smoothing
 
+float4 TwoxScaleHQ(float4 t1, float4 t2, float4 t3, float4 t4, float2 texCoord, COMPAT_Texture2D(decal))
+{
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
- {
-
-   float3 c00 = tex2D(decal, VAR.t1.xy).xyz; 
-   float3 c10 = tex2D(decal, VAR.t1.zw).xyz; 
-   float3 c20 = tex2D(decal, VAR.t2.xy).xyz; 
-   float3 c01 = tex2D(decal, VAR.t4.zw).xyz; 
-   float3 c11 = tex2D(decal, VAR.texCoord).xyz; 
-   float3 c21 = tex2D(decal, VAR.t2.zw).xyz; 
-   float3 c02 = tex2D(decal, VAR.t4.xy).xyz; 
-   float3 c12 = tex2D(decal, VAR.t3.zw).xyz; 
-   float3 c22 = tex2D(decal, VAR.t3.xy).xyz; 
+   float3 c00 = COMPAT_SamplePoint(decal, t1.xy).xyz; 
+   float3 c10 = COMPAT_SamplePoint(decal, t1.zw).xyz; 
+   float3 c20 = COMPAT_SamplePoint(decal, t2.xy).xyz; 
+   float3 c01 = COMPAT_SamplePoint(decal, t4.zw).xyz; 
+   float3 c11 = COMPAT_SamplePoint(decal, texCoord).xyz; 
+   float3 c21 = COMPAT_SamplePoint(decal, t2.zw).xyz; 
+   float3 c02 = COMPAT_SamplePoint(decal, t4.xy).xyz; 
+   float3 c12 = COMPAT_SamplePoint(decal, t3.zw).xyz; 
+   float3 c22 = COMPAT_SamplePoint(decal, t3.xy).xyz; 
 
    float md1 = dot(abs(c00 - c22), dt);
    float md2 = dot(abs(c02 - c20), dt);
@@ -84,11 +71,11 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
    float w3 = dot(abs(c00 - c11), dt) * md2;
    float w4 = dot(abs(c20 - c11), dt) * md1;
 
-   float t1 = w1 + w3;
-   float t2 = w2 + w4;
-   float ww = max(t1, t2) + 0.0001;
+   float t1_ = w1 + w3;
+   float t2_ = w2 + w4;
+   float ww = max(t1_, t2_) + 0.0001;
 
-   c11 = (w1 * c00 + w2 * c20 + w3 * c22 + w4 * c02 + ww * c11) / (t1 + t2 + ww);
+   c11 = (w1 * c00 + w2 * c20 + w3 * c22 + w4 * c02 + ww * c11) / (t1_ + t2_ + ww);
 
    float lc1 = k / (0.12 * dot(c10 + c12 + c11, dt) + lum_add);
    float lc2 = k / (0.12 * dot(c01 + c21 + c11, dt) + lum_add);
@@ -100,3 +87,9 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 
    return float4(w1 * c10 + w2 * c21 + w3 * c12 + w4 * c01 + (1.0 - w1 - w2 - w3 - w4) * c11, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return TwoxScaleHQ(VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.texCoord, decal);
+}
+COMPAT_END

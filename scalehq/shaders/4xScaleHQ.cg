@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -24,22 +25,13 @@
 
 */
 
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 /* Default Vertex shader */
-const static float3 dt = float3(1.0, 1.0, 1.0);
-
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-	float frame_count;
-	float frame_direction;
-	float frame_rotation;
-};
-
-
 struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -50,61 +42,58 @@ struct out_vertex {
 };
 
 /*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 tex      : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float x = 0.5 * (1.0 / IN.texture_size.x);
-   float y = 0.5 * (1.0 / IN.texture_size.y);
-   float2 dg1 = float2( x, y);
-   float2 dg2 = float2(-x, y);
-   float2 sd1 = dg1*0.5;
-   float2 sd2 = dg2*0.5;
-   float2 ddx = float2(x,0.0);
-   float2 ddy = float2(0.0,y);
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
 
-	out_vertex OUT = { 
-		mul(modelViewProj, position),
-		tex,
-		float4(tex-sd1,tex-ddy),
-		float4(tex-sd2,tex+ddx),
-		float4(tex+sd1,tex+ddy),
-		float4(tex+sd2,tex-ddx),
-		float4(tex-dg1,tex-dg2),
-		float4(tex+dg1,tex+dg2)
-	};
+	float x = 0.5 * (1.0 / COMPAT_texture_size.x);
+	float y = 0.5 * (1.0 / COMPAT_texture_size.y);
+	float2 dg1 = float2( x, y);
+	float2 dg2 = float2(-x, y);
+	float2 sd1 = dg1*0.5;
+	float2 sd2 = dg2*0.5;
+	float2 ddx = float2(x,0.0);
+	float2 ddy = float2(0.0,y);
+
+	OUT.t1 = float4(texCoord-sd1,texCoord-ddy);
+	OUT.t2 = float4(texCoord-sd2,texCoord+ddx);
+	OUT.t3 = float4(texCoord+sd1,texCoord+ddy);
+	OUT.t4 = float4(texCoord+sd2,texCoord-ddx);
+	OUT.t5 = float4(texCoord-dg1,texCoord-dg2);
+	OUT.t6 = float4(texCoord+dg1,texCoord+dg2);
 
 	return OUT;
 }
 
+const static float3 dt = float3(1.0, 1.0, 1.0);
+const float mx = 1.0;      // start smoothing wt.
+const float k = -1.10;      // wt. decrease factor
+const float max_w = 0.75;    // max filter weigth
+const float min_w = 0.03;    // min filter weigth
+const float lum_add = 0.33;  // effects smoothing
 
- const float mx = 1.0;      // start smoothing wt.
- const float k = -1.10;      // wt. decrease factor
- const float max_w = 0.75;    // max filter weigth
- const float min_w = 0.03;    // min filter weigth
- const float lum_add = 0.33;  // effects smoothing
-
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+float4 FourxScaleHQ(float4 t1, float4 t2, float4 t3, float4 t4, float4 t5, float4 t6, float2 texCoord, COMPAT_Texture2D(decal))
  {
 
-   float3 c  = tex2D(decal, VAR.texCoord).xyz;
-   float3 i1 = tex2D(decal, VAR.t1.xy).xyz; 
-   float3 i2 = tex2D(decal, VAR.t2.xy).xyz; 
-   float3 i3 = tex2D(decal, VAR.t3.xy).xyz; 
-   float3 i4 = tex2D(decal, VAR.t4.xy).xyz; 
-   float3 o1 = tex2D(decal, VAR.t5.xy).xyz; 
-   float3 o3 = tex2D(decal, VAR.t6.xy).xyz; 
-   float3 o2 = tex2D(decal, VAR.t5.zw).xyz;
-   float3 o4 = tex2D(decal, VAR.t6.zw).xyz;
-   float3 s1 = tex2D(decal, VAR.t1.zw).xyz; 
-   float3 s2 = tex2D(decal, VAR.t2.zw).xyz; 
-   float3 s3 = tex2D(decal, VAR.t3.zw).xyz; 
-   float3 s4 = tex2D(decal, VAR.t4.zw).xyz;  
+   float3 c  = COMPAT_SamplePoint(decal, texCoord).xyz;
+   float3 i1 = COMPAT_SamplePoint(decal, t1.xy).xyz; 
+   float3 i2 = COMPAT_SamplePoint(decal, t2.xy).xyz; 
+   float3 i3 = COMPAT_SamplePoint(decal, t3.xy).xyz; 
+   float3 i4 = COMPAT_SamplePoint(decal, t4.xy).xyz; 
+   float3 o1 = COMPAT_SamplePoint(decal, t5.xy).xyz; 
+   float3 o3 = COMPAT_SamplePoint(decal, t6.xy).xyz; 
+   float3 o2 = COMPAT_SamplePoint(decal, t5.zw).xyz;
+   float3 o4 = COMPAT_SamplePoint(decal, t6.zw).xyz;
+   float3 s1 = COMPAT_SamplePoint(decal, t1.zw).xyz; 
+   float3 s2 = COMPAT_SamplePoint(decal, t2.zw).xyz; 
+   float3 s3 = COMPAT_SamplePoint(decal, t3.zw).xyz; 
+   float3 s4 = COMPAT_SamplePoint(decal, t4.zw).xyz;  
 
    float ko1=dot(abs(o1-c),dt);
    float ko2=dot(abs(o2-c),dt);
@@ -131,4 +120,10 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
    w4 = clamp(w4+mx,min_w,max_w);
 
    return float4((w1*(i1+i3)+w2*(i2+i4)+w3*(s1+s3)+w4*(s2+s4)+c)/(2.0*(w1+w2+w3+w4)+1.0), 1.0);
- }
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return FourxScaleHQ(VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.t5, VOUT.t6, VOUT.texCoord, decal);
+}
+COMPAT_END
