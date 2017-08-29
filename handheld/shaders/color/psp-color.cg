@@ -5,6 +5,10 @@
    License: Public domain
 */
 
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
 // Shader that replicates the LCD dynamics from PSP 1000 and PSP 2000
 #define target_gamma 2.21
 #define display_gamma 2.2
@@ -26,52 +30,55 @@
 #define overscan_percent_x 0.0
 #define overscan_percent_y 0.0
 
-struct input
+struct out_vertex
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD;
 };
 
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   uniform input IN,
-
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
-)
+/*
+	VERTEX_SHADER
+*/
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   oPosition = mul(modelViewProj, position);
-   float2 shift = 0.5 * IN.video_size / IN.texture_size;
-   float2 overscan_coord = (tex - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
-   oTex = overscan_coord;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+    OUT.position = mul(modelViewProj, position);
+    
+    float2 shift = 0.5 * COMPAT_video_size / COMPAT_texture_size;
+    float2 overscan_coord = (texCoord - shift) * (1.0 - float2(overscan_percent_x / 100.0, overscan_percent_y / 100.0)) + shift;
+    OUT.texCoord = overscan_coord;
+    return OUT;
 }
 
-float4 main_fragment(float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 gba_color(float2 texCoord : TEXCOORD)
 {
-float4 screen = pow(tex2D(s0, tex), target_gamma).rgba; //sample image in linear colorspace
-float4 avglum = float4(0.5);
-screen = lerp(screen, avglum, (1.0 - contrast));
+    float4 screen = pow(COMPAT_SamplePoint(decal, texCoord), target_gamma).rgba; //sample image in linear colorspace
+    float4 avglum = float4(0.5,0.5,0.5,0.5);
+    screen = lerp(screen, avglum, (1.0 - contrast));
 
-//				r   g    b   black
-mat4x4 color = {r,  gr,  br, blr,  //red channel
-			   rg,   g,  bg, blg,  //green channel
-			   rb,  gb,   b, blb,  //blue channel
-			  0.0, 0.0, 0.0,    1.0}; //alpha channel; these numbers do nothing for our purposes.
-			  
-mat4x4 adjust = {(1.0 - sat) * 0.3086 + sat, (1.0 - sat) * 0.6094,          (1.0 - sat) * 0.0820,          0.0,
-			    (1.0 - sat) * 0.3086,          (1.0 - sat) * 0.6094 + sat, (1.0 - sat) * 0.0820,          0.0,
-			    (1.0 - sat) * 0.3086,          (1.0 - sat) * 0.6094,          (1.0 - sat) * 0.0820 + sat, 0.0,
-			     1.0, 1.0, 1.0, 1.0};
+    //				r   g    b   black
+    float4x4 color = {r,  gr,  br, blr,  //red channel
+                   rg,   g,  bg, blg,  //green channel
+                   rb,  gb,   b, blb,  //blue channel
+                  0.0, 0.0, 0.0,    1.0}; //alpha channel; these numbers do nothing for our purposes.
+                  
+    float4x4 adjust = {(1.0 - sat) * 0.3086 + sat, (1.0 - sat) * 0.6094,          (1.0 - sat) * 0.0820,          0.0,
+                    (1.0 - sat) * 0.3086,          (1.0 - sat) * 0.6094 + sat, (1.0 - sat) * 0.0820,          0.0,
+                    (1.0 - sat) * 0.3086,          (1.0 - sat) * 0.6094,          (1.0 - sat) * 0.0820 + sat, 0.0,
+                     1.0, 1.0, 1.0, 1.0};
 
-color = mul(color, adjust);
-screen = saturate(screen * lum);
-screen = mul(color, screen);
-return pow(screen, 1.0 / display_gamma);
+    color = mul(color, adjust);
+    screen = saturate(screen * lum);
+    screen = mul(color, screen);
+    return pow(screen, 1.0 / display_gamma);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+    return gba_color(VOUT.texCoord);
+}
+COMPAT_END
