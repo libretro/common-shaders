@@ -77,12 +77,12 @@ uniform float BGR;
 
 #define outgamma 2.2
 
-#define fetch_offset(coord,offset) (pow(float3(gain) * texelFetchOffset(decal, (coord), 0, (offset)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))
+#define fetch_offset(coord,offset) (pow(float3(gain) * texelFetchOffset(decal, (coord), 0, (offset)).rgb + blacklevel3, float3(gamma)) + ambient3)
  
 // integral of (1 - x^2 - x^4 + x^6)^2
-const float coeffs_x[] = float[](1.0, -2.0/3.0, -1.0/5.0, 4.0/7.0, -1.0/9.0, -2.0/11.0, 1.0/13.0);
+const float coeffs_x[] = { 1.0, -2.0/3.0, -1.0/5.0, 4.0/7.0, -1.0/9.0, -2.0/11.0, 1.0/13.0 };
 // integral of (1 - 2x^4 + x^6)^2
-const float coeffs_y[] = float[](1.0,      0.0, -4.0/5.0, 2.0/7.0,  4.0/9.0, -4.0/11.0, 1.0/13.0);
+const float coeffs_y[] = { 1.0,      0.0, -4.0/5.0, 2.0/7.0,  4.0/9.0, -4.0/11.0, 1.0/13.0 };
 float intsmear_func(float z, float coeffs[7])
 {
   float z2 = z*z;
@@ -107,12 +107,12 @@ float4 lcd_grid_v2(float2 texture_size, float2 video_size, float2 output_size, f
   float2 texelSize = 1.0 / texture_size;
   float2 range;
   range = video_size / (output_size * texture_size);
+  float3 outgamma3 = float3(outgamma, outgamma, outgamma);
+  float3 cred   = pow(float3(RSUBPIX_R, RSUBPIX_G, RSUBPIX_B), outgamma3);
+  float3 cgreen = pow(float3(GSUBPIX_R, GSUBPIX_G, GSUBPIX_B), outgamma3);
+  float3 cblue  = pow(float3(BSUBPIX_R, BSUBPIX_G, BSUBPIX_B), outgamma3);
  
-  float3 cred   = pow(float3(RSUBPIX_R, RSUBPIX_G, RSUBPIX_B), float3(outgamma));
-  float3 cgreen = pow(float3(GSUBPIX_R, GSUBPIX_G, GSUBPIX_B), float3(outgamma));
-  float3 cblue  = pow(float3(BSUBPIX_R, BSUBPIX_G, BSUBPIX_B), float3(outgamma));
- 
-  int2 tli = int2(floor(texCoord/texelSize-float2(0.4999)));
+  int2 tli = int2(floor(texCoord/texelSize-float2(0.4999, 0.4999)));
  
   float3 lcol, rcol;
   float subpix = (texCoord.x/texelSize.x - 0.4999 - float(tli.x))*3.0;
@@ -132,17 +132,23 @@ float4 lcd_grid_v2(float2 texture_size, float2 video_size, float2 output_size, f
   rsubpix = range.y/texelSize.y;
   tcol = intsmear(subpix    ,rsubpix, 0.63, coeffs_y);
   bcol = intsmear(subpix-1.0,rsubpix, 0.63, coeffs_y);
- 
-  float3 topLeftColor     = ((pow(float3(gain) * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(0,0)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * lcol * float3(tcol);
-  float3 bottomRightColor = ((pow(float3(gain) * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(1,1)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * rcol * float3(bcol);
-  float3 bottomLeftColor  = ((pow(float3(gain) * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(0,1)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * lcol * float3(bcol);
-  float3 topRightColor    = ((pow(float3(gain) * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(1,0)).rgb + float3(blacklevel), float3(gamma)) + float3(ambient))) * rcol * float3(tcol);
+  const float3 gain3 = float3(gain, gain, gain);
+  const float3 gamma3 = float3(gamma, gamma, gamma);
+  const float3 blacklevel3 = float3(blacklevel, blacklevel, blacklevel);
+  const float3 ambient3 = float3(ambient, ambient, ambient);
+  const float3 tcol3 = float3(tcol, tcol, tcol);
+  const float3 bcol3 = float3(bcol, bcol, bcol);
+  const float3 topLeftColor     = ((pow(gain3 * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(0,0)).rgb + blacklevel3, gamma3) + ambient3)) * lcol * tcol3;
+  const float3 bottomRightColor = ((pow(gain3 * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(1,1)).rgb + blacklevel3, gamma3) + ambient3)) * rcol * bcol3;
+  const float3 bottomLeftColor  = ((pow(gain3 * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(0,1)).rgb + blacklevel3, gamma3) + ambient3)) * lcol * bcol3;
+  const float3 topRightColor    = ((pow(gain3 * COMPAT_SamplePoint(decal, texCoord - 0.25 * texelSize * int2(1,0)).rgb + blacklevel3, gamma3) + ambient3)) * rcol * tcol3;
  
   float3 averageColor = topLeftColor + bottomRightColor + bottomLeftColor + topRightColor;
  
-  averageColor = mul(averageColor, mat3x3(cred, cgreen, cblue));
- 
-  return float4(pow(averageColor,float3(1.0/outgamma)),0.0);
+  averageColor = mul(averageColor, float3x3(cred, cgreen, cblue));
+  const float inv_outgamma = 1.0/outgamma;
+  const float3 inv_outgamma3 = float3(inv_outgamma, inv_outgamma, inv_outgamma);
+  return float4(pow(averageColor,inv_outgamma3),0.0);
 }
 
 float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
