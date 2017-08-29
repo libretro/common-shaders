@@ -1,5 +1,7 @@
-/* COMPATIBILITY
-	- Cg compilers
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -24,7 +26,46 @@
 	Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex {
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float4 xyp_1_2_3 : TEXCOORD1;
+	float4 xyp_5_10_15 : TEXCOORD2;
+	float4 xyp_6_7_8 : TEXCOORD3;
+	float4 xyp_9_14_9 : TEXCOORD4;
+	float4 xyp_11_12_13 : TEXCOORD5;
+	float4 xyp_16_17_18 : TEXCOORD6;
+	float4 xyp_21_22_23 : TEXCOORD7;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	float x = 1.0 / COMPAT_texture_size.x;
+	float y = 1.0 / COMPAT_texture_size.y;
+
+	OUT.texCoord = texCoord * 1.000001;
+	OUT.xyp_1_2_3    = texCoord.xxxy + float4(      -x, 0.0,   x, -2.0 * y);
+	OUT.xyp_6_7_8    = texCoord.xxxy + float4(      -x, 0.0,   x,       -y);
+	OUT.xyp_11_12_13 = texCoord.xxxy + float4(      -x, 0.0,   x,      0.0);
+	OUT.xyp_16_17_18 = texCoord.xxxy + float4(      -x, 0.0,   x,        y);
+	OUT.xyp_21_22_23 = texCoord.xxxy + float4(      -x, 0.0,   x,  2.0 * y);
+	OUT.xyp_5_10_15  = texCoord.xyyy + float4(-2.0 * x,  -y, 0.0,        y);
+	OUT.xyp_9_14_9   = texCoord.xyyy + float4( 2.0 * x,  -y, 0.0,        y);
 	
+	return OUT;
+}
+
 const static float4 Ai  = float4( 1.0, -1.0, -1.0,  1.0);
 const static float4 B45 = float4( 1.0,  1.0, -1.0, -1.0);
 const static float4 C45 = float4( 1.5,  0.5, -0.5,  0.5);
@@ -70,65 +111,9 @@ float4 lum_wd(float4 a, float4 b, float4 c, float4 d, float4 e, float4 f, float4
 	return lum_df(a, b) + lum_df(a, c) + lum_df(d, e) + lum_df(d, f) + 4.0 * lum_df(g, h);
 }
 
-struct input {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-	float frame_count;
-	float frame_direction;
-	float frame_rotation;
-};
-
-struct out_vertex {
-	float4 pos : POSITION;
-	float4 color : COLOR;
-	float2 tc : TEXCOORD0;
-	float4 xyp_1_2_3;
-	float4 xyp_5_10_15;
-	float4 xyp_6_7_8;
-	float4 xyp_9_14_9;
-	float4 xyp_11_12_13;
-	float4 xyp_16_17_18;
-	float4 xyp_21_22_23;
-};
-
-/* VERTEX SHADER */
-out_vertex main_vertex
-(
-		float4 position   : POSITION,
-		float4 color : COLOR,
-		float2 texCoord1 : TEXCOORD0,
-		uniform float4x4 modelViewProj,
-		uniform input IN
-)
-{
-	out_vertex OUT;
-	
-	OUT.pos = mul(modelViewProj, position);
-	
-	float x = 1.0 / IN.texture_size.x;
-	float y = 1.0 / IN.texture_size.y;
-
-	// This line fix a bug in ATI cards.
-	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
-	
-	OUT.tc = texCoord;
-	OUT.xyp_1_2_3    = OUT.tc.xxxy + float4(      -x, 0.0,   x, -2.0 * y);
-	OUT.xyp_6_7_8    = OUT.tc.xxxy + float4(      -x, 0.0,   x,       -y);
-	OUT.xyp_11_12_13 = OUT.tc.xxxy + float4(      -x, 0.0,   x,      0.0);
-	OUT.xyp_16_17_18 = OUT.tc.xxxy + float4(      -x, 0.0,   x,        y);
-	OUT.xyp_21_22_23 = OUT.tc.xxxy + float4(      -x, 0.0,   x,  2.0 * y);
-	OUT.xyp_5_10_15  = OUT.tc.xyyy + float4(-2.0 * x,  -y, 0.0,        y);
-	OUT.xyp_9_14_9   = OUT.tc.xyyy + float4( 2.0 * x,  -y, 0.0,        y);
-	
-	return OUT;
-}
-
 /* FRAGMENT SHADER */
-float4 main_fragment(
-		in out_vertex VAR,
-		uniform sampler2D decal : TEXUNIT0,
-		uniform input IN) : COLOR
+float4 sabr_v1_1(float2 texture_size, float2 tc, float4 xyp_1_2_3, float4 xyp_6_7_8, float4 xyp_11_12_13, float4 xyp_16_17_18,
+	float4 xyp_21_22_23, float4 xyp_5_10_15, float4 xyp_9_14_9, COMPAT_Texture2D(decal))
 {
 	
 	/*
@@ -146,33 +131,33 @@ float4 main_fragment(
 		+-----+-----+-----+-----+-----+
 	*/
 	// Store mask values
-	float3 P1  = tex2D(decal, VAR.xyp_1_2_3.xw   ).rgb;
-	float3 P2  = tex2D(decal, VAR.xyp_1_2_3.yw   ).rgb;
-	float3 P3  = tex2D(decal, VAR.xyp_1_2_3.zw   ).rgb;
+	float3 P1  = COMPAT_SamplePoint(decal, xyp_1_2_3.xw   ).rgb;
+	float3 P2  = COMPAT_SamplePoint(decal, xyp_1_2_3.yw   ).rgb;
+	float3 P3  = COMPAT_SamplePoint(decal, xyp_1_2_3.zw   ).rgb;
 	
-	float3 P6  = tex2D(decal, VAR.xyp_6_7_8.xw   ).rgb;
-	float3 P7  = tex2D(decal, VAR.xyp_6_7_8.yw   ).rgb;
-	float3 P8  = tex2D(decal, VAR.xyp_6_7_8.zw   ).rgb;
+	float3 P6  = COMPAT_SamplePoint(decal, xyp_6_7_8.xw   ).rgb;
+	float3 P7  = COMPAT_SamplePoint(decal, xyp_6_7_8.yw   ).rgb;
+	float3 P8  = COMPAT_SamplePoint(decal, xyp_6_7_8.zw   ).rgb;
 	
-	float3 P11 = tex2D(decal, VAR.xyp_11_12_13.xw).rgb;
-	float3 P12 = tex2D(decal, VAR.xyp_11_12_13.yw).rgb;
-	float3 P13 = tex2D(decal, VAR.xyp_11_12_13.zw).rgb;
+	float3 P11 = COMPAT_SamplePoint(decal, xyp_11_12_13.xw).rgb;
+	float3 P12 = COMPAT_SamplePoint(decal, xyp_11_12_13.yw).rgb;
+	float3 P13 = COMPAT_SamplePoint(decal, xyp_11_12_13.zw).rgb;
 	
-	float3 P16 = tex2D(decal, VAR.xyp_16_17_18.xw).rgb;
-	float3 P17 = tex2D(decal, VAR.xyp_16_17_18.yw).rgb;
-	float3 P18 = tex2D(decal, VAR.xyp_16_17_18.zw).rgb;
+	float3 P16 = COMPAT_SamplePoint(decal, xyp_16_17_18.xw).rgb;
+	float3 P17 = COMPAT_SamplePoint(decal, xyp_16_17_18.yw).rgb;
+	float3 P18 = COMPAT_SamplePoint(decal, xyp_16_17_18.zw).rgb;
 	
-	float3 P21 = tex2D(decal, VAR.xyp_21_22_23.xw).rgb;
-	float3 P22 = tex2D(decal, VAR.xyp_21_22_23.yw).rgb;
-	float3 P23 = tex2D(decal, VAR.xyp_21_22_23.zw).rgb;
+	float3 P21 = COMPAT_SamplePoint(decal, xyp_21_22_23.xw).rgb;
+	float3 P22 = COMPAT_SamplePoint(decal, xyp_21_22_23.yw).rgb;
+	float3 P23 = COMPAT_SamplePoint(decal, xyp_21_22_23.zw).rgb;
 	
-	float3 P5  = tex2D(decal, VAR.xyp_5_10_15.xy ).rgb;
-	float3 P10 = tex2D(decal, VAR.xyp_5_10_15.xz ).rgb;
-	float3 P15 = tex2D(decal, VAR.xyp_5_10_15.xw ).rgb;
+	float3 P5  = COMPAT_SamplePoint(decal, xyp_5_10_15.xy ).rgb;
+	float3 P10 = COMPAT_SamplePoint(decal, xyp_5_10_15.xz ).rgb;
+	float3 P15 = COMPAT_SamplePoint(decal, xyp_5_10_15.xw ).rgb;
 	
-	float3 P9  = tex2D(decal, VAR.xyp_9_14_9.xy  ).rgb;
-	float3 P14 = tex2D(decal, VAR.xyp_9_14_9.xz  ).rgb;
-	float3 P19 = tex2D(decal, VAR.xyp_9_14_9.xw  ).rgb;
+	float3 P9  = COMPAT_SamplePoint(decal, xyp_9_14_9.xy  ).rgb;
+	float3 P14 = COMPAT_SamplePoint(decal, xyp_9_14_9.xz  ).rgb;
+	float3 P19 = COMPAT_SamplePoint(decal, xyp_9_14_9.xw  ).rgb;
 	
 	// Store luminance values of each point 
 	float4 p7  = lum_to(P7,  P11, P17, P13);
@@ -188,7 +173,7 @@ float4 main_fragment(
 	float4 p22 = p14.wxyz;                     // P22, P14, P2,  P10
 	float4 p23 = lum_to(P23, P9,  P1,  P15);
 	
-	float2 fp = frac(VAR.tc * IN.texture_size);
+	float2 fp = frac(tc * texture_size);
 	
 	float4 t45   = float4(Ai * fp.y + B45 * fp.x);
 	float4 t15   = float4(Ai * fp.y + B15 * fp.x);
@@ -240,3 +225,10 @@ float4 main_fragment(
 	
 	return float4(res, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return sabr_v1_1(COMPAT_texture_size, VOUT.texCoord, VOUT.xyp_1_2_3, VOUT.xyp_6_7_8, VOUT.xyp_11_12_13, VOUT.xyp_16_17_18,
+		VOUT.xyp_21_22_23, VOUT.xyp_5_10_15, VOUT.xyp_9_14_9, decal);
+}
+COMPAT_END
