@@ -9,6 +9,6 @@ for (int i = 0; i < TAPS; i++)
 
    signal += sums * float3(luma_filter[i], chroma_filter[i], chroma_filter[i]);
 }
-signal += COMPAT_Sample(s0, tex).xyz *
+signal += COMPAT_SamplePoint(s0, tex).xyz *
    float3(luma_filter[TAPS], chroma_filter[TAPS], chroma_filter[TAPS]);
 
