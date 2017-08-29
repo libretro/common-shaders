@@ -1,15 +1,34 @@
 // AntiAliased Nearest Neighbor
 // by jimbo1qaz and wareya
 
-struct input
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 #define NOT(fl) (1-fl)
 #define YES(fl) fl
@@ -49,41 +68,21 @@ float3 percent(float ssize, float tsize, float coord) {
         );
 }
 
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 texCoord : TEXCOORD,
-   out float2 oTexCoord : TEXCOORD,
-
-   uniform input IN
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-   oTexCoord = texCoord;
-}
-
-float4 main_fragment (in float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0, uniform input IN) : COLOR
+float4 aann(float2 texture_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
     float cheapsrgb = 2.1;
     float gamma = 3.0;
-    vec3 xstuff = percent(IN.texture_size.x, IN.output_size.x, texCoord.x);
-    vec3 ystuff = percent(IN.texture_size.y, IN.output_size.y, texCoord.y);
+    float3 xstuff = percent(texture_size.x, output_size.x, texCoord.x);
+    float3 ystuff = percent(texture_size.y, output_size.y, texCoord.y);
 
     float xkeep = xstuff[0];
     float ykeep = ystuff[0];
     
     // get points to interpolate across, in linear rgb
-    float4 a = getLQV(vpow(tex2D(s0,float2(xstuff[1],ystuff[1])), cheapsrgb).rgb);
-    float4 b = getLQV(vpow(tex2D(s0,float2(xstuff[2],ystuff[1])), cheapsrgb).rgb);
-    float4 c = getLQV(vpow(tex2D(s0,float2(xstuff[1],ystuff[2])), cheapsrgb).rgb);
-    float4 d = getLQV(vpow(tex2D(s0,float2(xstuff[2],ystuff[2])), cheapsrgb).rgb);
+    float4 a = getLQV(vpow(COMPAT_SamplePoint(decal,float2(xstuff[1],ystuff[1])), cheapsrgb).rgb);
+    float4 b = getLQV(vpow(COMPAT_SamplePoint(decal,float2(xstuff[2],ystuff[1])), cheapsrgb).rgb);
+    float4 c = getLQV(vpow(COMPAT_SamplePoint(decal,float2(xstuff[1],ystuff[2])), cheapsrgb).rgb);
+    float4 d = getLQV(vpow(COMPAT_SamplePoint(decal,float2(xstuff[2],ystuff[2])), cheapsrgb).rgb);
     
     // use perceptual gamma for luminance component
     a.w = pow(a.w, 1/gamma);
@@ -106,3 +105,9 @@ float4 main_fragment (in float2 texCoord : TEXCOORD, in sampler2D s0 : TEXUNIT0,
     float4 c1 = vpow(float4(fromLQV(LQVresult), 1), 1/cheapsrgb);
       return c1;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return aann(COMPAT_texture_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

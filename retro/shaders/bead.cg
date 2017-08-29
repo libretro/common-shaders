@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -10,7 +11,6 @@
 
 #pragma parameter BEAD_HIGH "Bead High" 0.35 0.0 1.0 0.01
 #pragma parameter BEAD_LOW  "Bead Low"  0.2  0.0 1.0 0.01
-
 #ifdef PARAMETER_UNIFORM
 uniform float BEAD_HIGH;
 uniform float BEAD_LOW;
@@ -19,42 +19,29 @@ uniform float BEAD_LOW;
 #define BEAD_LOW  0.2
 #endif
 
-struct tex_coord
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float2 c11;
-   float2 pixel_no;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float2 pixel_no : TEXCOORD1;
 };
 
-struct input
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
-};
-
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-
-   float4 color : COLOR,
-   out float4 oColor : COLOR,
-
-   float2 tex : TEXCOORD0,
-
-   uniform input IN,
-   out tex_coord coords : TEXCOORD1
-)
-{
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-
-   coords.c11 = tex;
-   coords.pixel_no = tex * IN.texture_size;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	OUT.pixel_no = texCoord * COMPAT_texture_size;
+	
+	return OUT;
 }
 
 float dist(float2 coord, float2 source)
@@ -67,7 +54,6 @@ float rolloff(float len)
 {
    return exp(-6.0 * len);
 }
-
 
 float3 lookup(float2 pixel_no, float3 color)
 {
@@ -83,11 +69,16 @@ float3 lookup(float2 pixel_no, float3 color)
       return float3(0.0, 0.0, 0.0);
 }
 
-#define TEX(coord) tex2D(s0, co.coord).rgb
+#define TEX(coord) COMPAT_Sample(decal, coord).rgb
 
-float4 main_fragment(in tex_coord co : TEXCOORD1, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 bead(float2 pixel_no, float2 texCoord, COMPAT_Texture2D(decal))
 {
-   float3 mid_color = lookup(co.pixel_no, TEX(c11));
+   float3 mid_color = lookup(pixel_no, TEX(texCoord));
    return float4(mid_color, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return bead(VOUT.pixel_no, VOUT.texCoord, decal);
+}
+COMPAT_END

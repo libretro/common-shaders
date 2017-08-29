@@ -1,55 +1,43 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 
 /*
-
 	Fragment shader based on "Improved texture interpolation" by Iñigo Quílez
 	Original description: http://www.iquilezles.org/www/articles/texture/texture.htm
-
 */
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
-struct output 
+float4 smootheststep(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-  float4 color    : COLOR;
-};
+	float2 p = texCoord.xy;
 
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
-
-
-output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
-{
-	float2 p = tex.xy;
-
-	p = p * IN.texture_size + float2(0.5, 0.5);
+	p = p * texture_size + float2(0.5, 0.5);
 
 	float2 i = floor(p);
 	float2 f = p - i;
@@ -66,10 +54,14 @@ output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2
 
 	p = i + f;
 
-	p = (p - float2(0.5, 0.5)) / IN.texture_size;
+	p = (p - float2(0.5, 0.5)) / texture_size;
 
 	// final sum and weight normalization
-	output OUT;
-	OUT.color = tex2D(s_p, p);
-	return OUT;
+	return COMPAT_Sample(decal, p);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return smootheststep(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END

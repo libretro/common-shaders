@@ -1,3 +1,9 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
 //    Pixellate Shader
 //    Copyright (c) 2011, 2012 Fes
 //    Permission to use, copy, modify, and/or distribute this software for any
@@ -14,48 +20,47 @@
 //    licence in this forum post:
 //        http://board.byuu.org/viewtopic.php?p=57295#p57295
 
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
-)
+struct out_vertex
 {
-   oPosition = mul(modelViewProj, position);
-   oTex = tex;
-}
-
-struct input
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   float2 texelSize = 1.0 / IN.texture_size;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
-   float2 range = float2(abs(IN.video_size.x / (IN.output_size.x * IN.texture_size.x)), abs(IN.video_size.y / (IN.output_size.y * IN.texture_size.y)));
+float4 pixellate(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
+{
+   float2 texelSize = 1.0 / texture_size;
+
+   float2 range = float2(abs(video_size.x / (output_size.x * texture_size.x)), abs(video_size.y / (output_size.y * texture_size.y)));
    range = range / 2.0 * 0.999;
 
-   float left   = coords.x - range.x;
-   float top    = coords.y + range.y;
-   float right  = coords.x + range.x;
-   float bottom = coords.y - range.y;
+   float left   = texCoord.x - range.x;
+   float top    = texCoord.y + range.y;
+   float right  = texCoord.x + range.x;
+   float bottom = texCoord.y - range.y;
 
-   float3 topLeftColor     = tex2D(tex, (floor(float2(left, top)     / texelSize) + 0.5) * texelSize).rgb;
-   float3 bottomRightColor = tex2D(tex, (floor(float2(right, bottom) / texelSize) + 0.5) * texelSize).rgb;
-   float3 bottomLeftColor  = tex2D(tex, (floor(float2(left, bottom)  / texelSize) + 0.5) * texelSize).rgb;
-   float3 topRightColor    = tex2D(tex, (floor(float2(right, top)    / texelSize) + 0.5) * texelSize).rgb;
+   float3 topLeftColor     = COMPAT_SamplePoint(decal, (floor(float2(left, top)     / texelSize) + 0.5) * texelSize).rgb;
+   float3 bottomRightColor = COMPAT_SamplePoint(decal, (floor(float2(right, bottom) / texelSize) + 0.5) * texelSize).rgb;
+   float3 bottomLeftColor  = COMPAT_SamplePoint(decal, (floor(float2(left, bottom)  / texelSize) + 0.5) * texelSize).rgb;
+   float3 topRightColor    = COMPAT_SamplePoint(decal, (floor(float2(right, top)    / texelSize) + 0.5) * texelSize).rgb;
 
-   float2 border = clamp(round(coords / texelSize) * texelSize, float2(left, bottom), float2(right, top));
+   float2 border = clamp(round(texCoord / texelSize) * texelSize, float2(left, bottom), float2(right, top));
 
    float totalArea = 4.0 * range.x * range.y;
 
@@ -68,3 +73,8 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
    return float4(averageColor, 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return pixellate(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END

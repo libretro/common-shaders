@@ -1,3 +1,9 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
 /*
    Hyllian - Retro Shader - 2013
 
@@ -27,7 +33,6 @@ struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD;
-	float2 t1 : TEXCOORD1;
 };
 /*
 	VERTEX_SHADER
@@ -37,12 +42,10 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
-	float2 t1 = VIN.t1;
 #endif
 	out_vertex OUT;
     OUT.position = mul(modelViewProj, position);
     OUT.texCoord = texCoord;
-    OUT.t1 = t1;
     return OUT;
 }
 
@@ -51,23 +54,20 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 */
 // This value must be between 0.0 (totally black) and 1.0 (nearest neighbor)
 #pragma parameter RETRO_PIXEL_SIZE "Retro Pixel Size" 0.84 0.0 1.0 0.01
-
 #ifdef PARAMETER_UNIFORM
 uniform float RETRO_PIXEL_SIZE;
 #else
 #define RETRO_PIXEL_SIZE  0.84
 #endif
 
-float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+float4 retro_v2(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-	float2 texCoord = VOUT.texCoord;
-
     // Reading the texel
     float power = 2.4;
     float3 E = pow(COMPAT_SamplePoint(decal, texCoord).xyz, float3(power, power, power));
 
-    float2 fp = frac(texCoord*COMPAT_texture_size);
-    float2 ps = COMPAT_video_size/COMPAT_output_size;
+    float2 fp = frac(texCoord*texture_size);
+    float2 ps = video_size/output_size;
 
     float2 f = clamp(clamp(fp + 0.5*ps, 0.0, 1.0) - float2(RETRO_PIXEL_SIZE, RETRO_PIXEL_SIZE), 0.0, ps)/ps;
 
@@ -78,5 +78,10 @@ float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
     // Product interpolation
     float pwr = 1.0 / 2.2;
     return float4(clamp( pow(res, float3(pwr, pwr, pwr)), 0.0, 1.0 ), 1.0);
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return retro_v2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
 }
 COMPAT_END

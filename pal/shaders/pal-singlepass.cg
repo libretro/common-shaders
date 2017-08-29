@@ -1,10 +1,10 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
-    pal-singlepass.slang
     svo's PAL single pass shader, ported to libretro
     ------------------------------------------------
     "Software composite video modulation/demodulation experiments
@@ -53,38 +53,28 @@ uniform float PHASE_NOISE;
 #define PHASE_NOISE 1.0
 #endif
 
-struct input
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
 
 /* Subcarrier frequency */
 #define FSC          4433618.75
@@ -112,7 +102,7 @@ struct output
                             0.0,     -0.39465,   2.03211,\
                             1.13983, -0.58060,   0.0)
                             
-#define fetch(ofs,center,invx) tex2D(tex, float2((ofs) * (invx) + center.x, center.y))
+#define fetch(ofs,center,invx) COMPAT_Sample(decal, float2((ofs) * (invx) + center.x, center.y))
 
 #define FIRTAPS 20.
 float FIR1 = -0.008030271;
@@ -140,9 +130,6 @@ float FIR20 = 0.003107906;
 /* We save the reciprocal of this only to optimize it */
 float counts_per_scanline_reciprocal = 1.0 / (FSC/FLINE);
 
-float width_ratio;
-float height_ratio;
-float altv;
 float invx;
 
 /* http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/ */
@@ -157,7 +144,7 @@ float rand(float2 co)
     return fract(sin(sn) * c);
 }
 
-float modulated(float2 xy, float sinwt, float coswt, sampler2D tex) 
+float modulated(float2 xy, float sinwt, float coswt, COMPAT_Texture2D(decal), float invx) 
 {
     float3 rgb = fetch(0., xy, invx).xyz;
     float3 yuv = mul(rgb, RGB_to_YUV);
@@ -165,7 +152,8 @@ float modulated(float2 xy, float sinwt, float coswt, sampler2D tex)
     return clamp(yuv.x + yuv.y * sinwt + yuv.z * coswt, 0.0, 1.0);    
 }
 
-float2 modem_uv(float2 xy, float ofs, float2 texsize, float framecount, sampler2D tex) {
+float2 modem_uv(float2 xy, float ofs, float2 texsize, float framecount, COMPAT_Texture2D(decal), float width_ratio, float altv, float invx)
+{
     float t  = (xy.x + ofs * invx) * texsize.x;
     float wt = t * 2. * PI / width_ratio;
 
@@ -188,20 +176,20 @@ float2 modem_uv(float2 xy, float ofs, float2 texsize, float framecount, sampler2
     return float2(signal * sinwt, signal * coswt);
 }
 
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float4 svo_PAL(float2 texCoord, float2 texture_size, float frame_count, COMPAT_Texture2D(decal))
 {
-    float2 xy      = texCoord;
-    width_ratio  = IN.texture_size.x * (counts_per_scanline_reciprocal);
-    height_ratio = IN.texture_size.y / VISIBLELINES;
-    altv         = fmod(floor(xy.y * VISIBLELINES + 0.5), 2.0) * PI;
-    invx         = 0.25 * (counts_per_scanline_reciprocal); // equals 4 samples per Fsc period
+    float2 xy    = texCoord;
+    float width_ratio  = texture_size.x * (counts_per_scanline_reciprocal);
+    float height_ratio = texture_size.y / VISIBLELINES;
+    float altv         = fmod(floor(xy.y * VISIBLELINES + 0.5), 2.0) * PI;
+    float invx         = 0.25 * (counts_per_scanline_reciprocal); // equals 4 samples per Fsc period
 
     // lowpass U/V at baseband
     float2 filtered = float2(0.0, 0.0);
 
 	float2 uv;
 	
-	#define macro_loopz(c)	uv = modem_uv(xy, float(c) - FIRTAPS*0.5, IN.texture_size, IN.frame_count, decal); \
+	#define macro_loopz(c)	uv = modem_uv(xy, float(c) - FIRTAPS*0.5, texture_size, frame_count, decal, width_ratio, altv, invx); \
         filtered += FIR_GAIN * uv * FIR##c;
 		
 	macro_loopz(1)
@@ -225,17 +213,20 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	macro_loopz(19)
 	macro_loopz(20)
 
-    float t  = xy.x * IN.texture_size.x;
+    float t  = xy.x * texture_size.x;
     float wt = t * 2. * PI / width_ratio;
 
     float sinwt = sin(wt);
     float coswt = cos(wt + altv);
 
-    float luma = modulated(xy, sinwt, coswt, decal) - FIR_INVGAIN * (filtered.x * sinwt + filtered.y * coswt);
+    float luma = modulated(xy, sinwt, coswt, decal, invx) - FIR_INVGAIN * (filtered.x * sinwt + filtered.y * coswt);
     float3 yuv_result = float3(luma, filtered.x, filtered.y);
 
-   output OUT;
-   OUT.color = float4(mul(yuv_result, YUV_to_RGB), 1.0);
-   return OUT;
+	return float4(mul(yuv_result, YUV_to_RGB), 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return svo_PAL(VOUT.texCoord, COMPAT_texture_size, COMPAT_frame_count, decal);
+}
+COMPAT_END
