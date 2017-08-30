@@ -12,9 +12,10 @@ uniform float JINC2_AR_STRENGTH;
 #endif
 // END PARAMETERS //
 
-/* COMPATIBILITY
+/* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -38,11 +39,34 @@ uniform float JINC2_AR_STRENGTH;
 
 */
 
-      /*
-         This is an approximation of Jinc(x)*Jinc(x*r1/r2) for x < 2.5,
-         where r1 and r2 are the first two zeros of jinc function.
-         For a jinc 2-lobe best approximation, use A=0.5 and B=0.825.
-      */  
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
+
+	/*
+	   This is an approximation of Jinc(x)*Jinc(x*r1/r2) for x < 2.5,
+	   where r1 and r2 are the first two zeros of jinc function.
+	   For a jinc 2-lobe best approximation, use A=0.5 and B=0.825.
+	*/  
 
 // A=0.5, B=0.825 is the best jinc approximation for x<2.5. if B=1.0, it's a lanczos filter.
 // Increase A to get more blur. Decrease it to get a sharper picture. 
@@ -70,115 +94,77 @@ float3 max4(float3 a, float3 b, float3 c, float3 d)
 }
 
      
-    struct input
-    {
-        float2 video_size;
-        float2 texture_size;
-        float2 output_size;
-            float  frame_count;
-            float  frame_direction;
-        float frame_rotation;
-    };
-     
-     
-    struct out_vertex {
-        float4 position : POSITION;
-        float4 color    : COLOR;
-        float2 texCoord : TEXCOORD0;
-    };
-     
-    /*    VERTEX_SHADER    */
-    out_vertex main_vertex
-    (
-        float4 position    : POSITION,
-        float4 color    : COLOR,
-        float2 texCoord1   : TEXCOORD0,
-     
-           uniform float4x4 modelViewProj,
-        uniform input IN
-    )
-    {
+float4 resampler(float4 x)
+{
+	float4 res;
 
-	// This line fix a bug in ATI cards.
-	float2 tex = texCoord1;
+	res = (x==float4(0.0, 0.0, 0.0, 0.0)) ?  float4(wa*wb,wa*wb,wa*wb,wa*wb)  :  sin(x*wa)*sin(x*wb)/(x*x);
 
-        out_vertex OUT = {
-            mul(modelViewProj, position),
-            color,
-            tex
-        };
+	return res;
+}
      
-        return OUT;
-    }
+float4 jinc2(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal))
+{
+	float3 color;
+	float4x4 weights;
+
+	float2 dx = float2(1.0, 0.0);
+	float2 dy = float2(0.0, 1.0);
+
+	float2 pc = texCoord*texture_size;
+
+	float2 tc = (floor(pc-float2(0.5,0.5))+float2(0.5,0.5));
      
-    float4 resampler(float4 x)
-    {
-      float4 res;
+	weights[0] = resampler(float4(d(pc, tc    -dx    -dy), d(pc, tc	     -dy), d(pc, tc    +dx    -dy), d(pc, tc+2.0*dx    -dy)));
+	weights[1] = resampler(float4(d(pc, tc    -dx	 ), d(pc, tc		  ), d(pc, tc    +dx	 ), d(pc, tc+2.0*dx	 )));
+	weights[2] = resampler(float4(d(pc, tc    -dx    +dy), d(pc, tc	     +dy), d(pc, tc    +dx    +dy), d(pc, tc+2.0*dx    +dy)));
+	weights[3] = resampler(float4(d(pc, tc    -dx+2.0*dy), d(pc, tc	 +2.0*dy), d(pc, tc    +dx+2.0*dy), d(pc, tc+2.0*dx+2.0*dy)));
 
-      res = (x==float4(0.0, 0.0, 0.0, 0.0)) ?  float4(wa*wb)  :  sin(x*wa)*sin(x*wb)/(x*x);
-
-      return res;
-    }
-     
-    float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
-    {
-      float3 color;
-      float4x4 weights;
-
-      float2 dx = float2(1.0, 0.0);
-      float2 dy = float2(0.0, 1.0);
-
-      float2 pc = VAR.texCoord*IN.texture_size;
-
-      float2 tc = (floor(pc-float2(0.5,0.5))+float2(0.5,0.5));
-     
-      weights[0] = resampler(float4(d(pc, tc    -dx    -dy), d(pc, tc           -dy), d(pc, tc    +dx    -dy), d(pc, tc+2.0*dx    -dy)));
-      weights[1] = resampler(float4(d(pc, tc    -dx       ), d(pc, tc              ), d(pc, tc    +dx       ), d(pc, tc+2.0*dx       )));
-      weights[2] = resampler(float4(d(pc, tc    -dx    +dy), d(pc, tc           +dy), d(pc, tc    +dx    +dy), d(pc, tc+2.0*dx    +dy)));
-      weights[3] = resampler(float4(d(pc, tc    -dx+2.0*dy), d(pc, tc       +2.0*dy), d(pc, tc    +dx+2.0*dy), d(pc, tc+2.0*dx+2.0*dy)));
-
-      dx = dx/IN.texture_size;
-      dy = dy/IN.texture_size;
-      tc = tc/IN.texture_size;
+	dx = dx/texture_size;
+	dy = dy/texture_size;
+	tc = tc/texture_size;
      
      // reading the texels
      
-      float3 c00 = tex2D(s_p, tc    -dx    -dy).xyz;
-      float3 c10 = tex2D(s_p, tc           -dy).xyz;
-      float3 c20 = tex2D(s_p, tc    +dx    -dy).xyz;
-      float3 c30 = tex2D(s_p, tc+2.0*dx    -dy).xyz;
-      float3 c01 = tex2D(s_p, tc    -dx       ).xyz;
-      float3 c11 = tex2D(s_p, tc              ).xyz;
-      float3 c21 = tex2D(s_p, tc    +dx       ).xyz;
-      float3 c31 = tex2D(s_p, tc+2.0*dx       ).xyz;
-      float3 c02 = tex2D(s_p, tc    -dx    +dy).xyz;
-      float3 c12 = tex2D(s_p, tc           +dy).xyz;
-      float3 c22 = tex2D(s_p, tc    +dx    +dy).xyz;
-      float3 c32 = tex2D(s_p, tc+2.0*dx    +dy).xyz;
-      float3 c03 = tex2D(s_p, tc    -dx+2.0*dy).xyz;
-      float3 c13 = tex2D(s_p, tc       +2.0*dy).xyz;
-      float3 c23 = tex2D(s_p, tc    +dx+2.0*dy).xyz;
-      float3 c33 = tex2D(s_p, tc+2.0*dx+2.0*dy).xyz;
+	float3 c00 = COMPAT_SamplePoint(decal, tc    -dx    -dy).xyz;
+	float3 c10 = COMPAT_SamplePoint(decal, tc	     -dy).xyz;
+	float3 c20 = COMPAT_SamplePoint(decal, tc    +dx    -dy).xyz;
+	float3 c30 = COMPAT_SamplePoint(decal, tc+2.0*dx    -dy).xyz;
+	float3 c01 = COMPAT_SamplePoint(decal, tc    -dx	 ).xyz;
+	float3 c11 = COMPAT_SamplePoint(decal, tc		  ).xyz;
+	float3 c21 = COMPAT_SamplePoint(decal, tc    +dx	 ).xyz;
+	float3 c31 = COMPAT_SamplePoint(decal, tc+2.0*dx	 ).xyz;
+	float3 c02 = COMPAT_SamplePoint(decal, tc    -dx    +dy).xyz;
+	float3 c12 = COMPAT_SamplePoint(decal, tc	     +dy).xyz;
+	float3 c22 = COMPAT_SamplePoint(decal, tc    +dx    +dy).xyz;
+	float3 c32 = COMPAT_SamplePoint(decal, tc+2.0*dx    +dy).xyz;
+	float3 c03 = COMPAT_SamplePoint(decal, tc    -dx+2.0*dy).xyz;
+	float3 c13 = COMPAT_SamplePoint(decal, tc	 +2.0*dy).xyz;
+	float3 c23 = COMPAT_SamplePoint(decal, tc    +dx+2.0*dy).xyz;
+	float3 c33 = COMPAT_SamplePoint(decal, tc+2.0*dx+2.0*dy).xyz;
 
-      //  Get min/max samples
-      float3 min_sample = min4(c11, c21, c12, c22);
-      float3 max_sample = max4(c11, c21, c12, c22);
+	//  Get min/max samples
+	float3 min_sample = min4(c11, c21, c12, c22);
+	float3 max_sample = max4(c11, c21, c12, c22);
 
-      color = mul(weights[0], float4x3(c00, c10, c20, c30));
-      color+= mul(weights[1], float4x3(c01, c11, c21, c31));
-      color+= mul(weights[2], float4x3(c02, c12, c22, c32));
-      color+= mul(weights[3], float4x3(c03, c13, c23, c33));
-      color = color/(dot(mul(weights, float4(1)), 1));
+	color = mul(weights[0], float4x3(c00, c10, c20, c30));
+	color+= mul(weights[1], float4x3(c01, c11, c21, c31));
+	color+= mul(weights[2], float4x3(c02, c12, c22, c32));
+	color+= mul(weights[3], float4x3(c03, c13, c23, c33));
+	color = color/(dot(mul(weights, float4(1,1,1,1)), 1));
 
-      // Anti-ringing
-      float3 aux = color;
-      color = clamp(color, min_sample, max_sample);
+	// Anti-ringing
+	float3 aux = color;
+	color = clamp(color, min_sample, max_sample);
 
-      color = lerp(aux, color, JINC2_AR_STRENGTH);
+	color = lerp(aux, color, JINC2_AR_STRENGTH);
  
-      // final sum and weight normalization
-      return float4(color, 1);
-     
-    }
+	// final sum and weight normalization
+	return float4(color, 1);
+}
 
-
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return jinc2(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END

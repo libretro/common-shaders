@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -29,39 +30,28 @@ http://www.gnu.org/copyleft/gpl.html
 
 */
 
-/* Default Vertex shader */
-void main_vertex
-(
- float4 position	: POSITION,
- float4 color	: COLOR,
- float2 texCoord : TEXCOORD0,
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
- uniform float4x4 modelViewProj,
-
- out float4 oPosition : POSITION,
- out float4 oColor    : COLOR,
- out float2 otexCoord : TEXCOORD
- )
+struct out_vertex
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-   otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct output
-{
-   float4 color : COLOR;
-};
-
-struct input
-{
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float frame_count;
-   float frame_direction;
-   float frame_rotation;
-};
 
 #define FIX(c) max(abs(c), 1e-5);
 
@@ -78,12 +68,12 @@ float4 weight4(float x)
    return ret / dot(ret, float4(1.0, 1.0, 1.0, 1.0));
 }         
 
-float3 pixel(float xpos, float ypos, uniform sampler2D s_p)
+float3 pixel(float xpos, float ypos, COMPAT_Texture2D(s_p))
 {
-   return tex2D(s_p, float2(xpos, ypos)).rgb;
+   return COMPAT_SamplePoint(s_p, float2(xpos, ypos)).rgb;
 }
 
-float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
+float3 line_run(float ypos, float4 xpos, float4 linetaps, COMPAT_Texture2D(s_p))
 {         
    return mul(linetaps, float4x3(
             pixel(xpos.x, ypos, s_p),
@@ -92,11 +82,10 @@ float3 line_run(float ypos, float4 xpos, float4 linetaps, uniform sampler2D s_p)
             pixel(xpos.w, ypos, s_p)));
 }
 
-
-output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+float4 lanczos4(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-   float2 stepxy = 1.0 / IN.texture_size.xy;
-   float2 pos = tex.xy + stepxy * 0.5;
+   float2 stepxy = 1.0 / texture_size.xy;
+   float2 pos = texCoord.xy + stepxy * 0.5;
    float2 f = frac(pos / stepxy);
 
    float2 xystart = (-1.5 - f) * stepxy + pos;
@@ -109,13 +98,16 @@ output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2
    float4 linetaps   = weight4(f.x);
    float4 columntaps = weight4(f.y);   
 
-
    // final sum and weight normalization
-   output OUT;
-   OUT.color = float4(mul(columntaps, float4x3(
-               line_run(xystart.y                 , xpos, linetaps, s_p),
-               line_run(xystart.y + stepxy.y      , xpos, linetaps, s_p),
-               line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, s_p),
-               line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, s_p))),1.0);
-   return OUT;
+   return float4(mul(columntaps, float4x3(
+               line_run(xystart.y                 , xpos, linetaps, decal),
+               line_run(xystart.y + stepxy.y      , xpos, linetaps, decal),
+               line_run(xystart.y + stepxy.y * 2.0, xpos, linetaps, decal),
+               line_run(xystart.y + stepxy.y * 3.0, xpos, linetaps, decal))),1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lanczos4(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END
