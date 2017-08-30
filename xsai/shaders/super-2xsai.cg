@@ -1,45 +1,36 @@
-/*
-	VERTEX_SHADER
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
 */
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
 
-    uniform float4x4 modelViewProj,
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
-}
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
 
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 /* 
 	FRAGMENT SHADER
 */
 const float3 dtt = float3(65536,255,1);
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
-
 
 /*  GET_RESULT function                            */
 /*  Copyright (c) 1999-2001 by Derek Liauw Kie Fa  */
@@ -54,19 +45,15 @@ int GET_RESULT(float A, float B, float C, float D)
 	return r;
 } 
 
-
 float reduce(float3 color)
 { 
 	return dot(color, dtt);
 }
 
-
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN)
+float4 super_2xsai(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-	output OUT;
-
 	// get texel size   	
-	float2 ps = float2(0.999/IN.texture_size.x, 0.999/IN.texture_size.y);
+	float2 ps = float2(0.999/texture_size.x, 0.999/texture_size.y);
   	
 	// calculating offsets, coordinates
 
@@ -80,29 +67,25 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	float2 pC4       = texCoord-fp*ps;
 	float2 pC8       = pC4+g1;
 
-	
-
 	// Reading the texels
-
-	float3 C0 = tex2D(decal,pC4-g1).xyz; 
-	float3 C1 = tex2D(decal,pC4-dy).xyz;
-	float3 C2 = tex2D(decal,pC4-g2).xyz;
-	float3 D3 = tex2D(decal,pC4-g2+dx).xyz;
-	float3 C3 = tex2D(decal,pC4-dx).xyz;
-	float3 C4 = tex2D(decal,pC4   ).xyz;
-	float3 C5 = tex2D(decal,pC4+dx).xyz;
-	float3 D4 = tex2D(decal,pC8-g2).xyz;
-	float3 C6 = tex2D(decal,pC4+g2).xyz;
-	float3 C7 = tex2D(decal,pC4+dy).xyz;
-	float3 C8 = tex2D(decal,pC4+g1).xyz;
-	float3 D5 = tex2D(decal,pC8+dx).xyz;
-	float3 D0 = tex2D(decal,pC4+g2+dy).xyz;
-	float3 D1 = tex2D(decal,pC8+g2).xyz;
-	float3 D2 = tex2D(decal,pC8+dy).xyz;
-	float3 D6 = tex2D(decal,pC8+g1).xyz;
+	float3 C0 = COMPAT_SamplePoint(decal, pC4-g1).xyz; 
+	float3 C1 = COMPAT_SamplePoint(decal, pC4-dy).xyz;
+	float3 C2 = COMPAT_SamplePoint(decal, pC4-g2).xyz;
+	float3 D3 = COMPAT_SamplePoint(decal, pC4-g2+dx).xyz;
+	float3 C3 = COMPAT_SamplePoint(decal, pC4-dx).xyz;
+	float3 C4 = COMPAT_SamplePoint(decal, pC4   ).xyz;
+	float3 C5 = COMPAT_SamplePoint(decal, pC4+dx).xyz;
+	float3 D4 = COMPAT_SamplePoint(decal, pC8-g2).xyz;
+	float3 C6 = COMPAT_SamplePoint(decal, pC4+g2).xyz;
+	float3 C7 = COMPAT_SamplePoint(decal, pC4+dy).xyz;
+	float3 C8 = COMPAT_SamplePoint(decal, pC4+g1).xyz;
+	float3 D5 = COMPAT_SamplePoint(decal, pC8+dx).xyz;
+	float3 D0 = COMPAT_SamplePoint(decal, pC4+g2+dy).xyz;
+	float3 D1 = COMPAT_SamplePoint(decal, pC8+g2).xyz;
+	float3 D2 = COMPAT_SamplePoint(decal, pC8+dy).xyz;
+	float3 D6 = COMPAT_SamplePoint(decal, pC8+g1).xyz;
 
 	float3 p00,p10,p01,p11;
-
 
 	// reducing float3 to float
 	
@@ -114,9 +97,6 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	float d1 = reduce(D1);float d2 = reduce(D2);
 	float d3 = reduce(D3);float d4 = reduce(D4);
 	float d5 = reduce(D5);float d6 = reduce(D6);
-
-
-
 
     /*              Super2xSaI code               */
     /*  Copied from the Dosbox source code        */
@@ -181,9 +161,12 @@ output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXU
 	else
 		{ if (fp.y < 0.50) p10 = p01; else p10 = p11;}
 
-
 	// OUTPUT
-	OUT.color = float4(p10, 1);
-	return OUT;
+	return float4(p10, 1);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return super_2xsai(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END

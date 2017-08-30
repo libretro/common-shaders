@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -21,68 +22,54 @@
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-/* Default Vertex shader */
-void main_vertex
-(
- float4 position	: POSITION,
- float2 texCoord : TEXCOORD0,
-
- uniform float4x4 modelViewProj,
-
- out float4 oPosition : POSITION,
- out float2 otexCoord : TEXCOORD
- )
+struct out_vertex
 {
-   oPosition = mul(modelViewProj, position);
-   otexCoord = texCoord + float2(0.0000001, 0.0000001); 
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
-struct output
+float4 two_xsal(float2 texture_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
-   float4 color : COLOR;
-};
+	float2 texsize = texture_size;
+	float dx = pow(texsize.x, -1.0) * 0.25;
+	float dy = pow(texsize.y, -1.0) * 0.25;
+	float3 dt = float3(1.0, 1.0, 1.0);
 
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
+	float2 UL = texCoord + float2(-dx, -dy);
+	float2 UR = texCoord + float2(dx, -dy);
+	float2 DL = texCoord + float2(-dx, dy);
+	float2 DR = texCoord + float2(dx, dy);
 
-struct deltas
-{
-   float2 UL, UR, DL, DR;
-};
+	float3 c00 = COMPAT_SamplePoint(decal, UL).xyz;
+	float3 c20 = COMPAT_SamplePoint(decal, UR).xyz;
+	float3 c02 = COMPAT_SamplePoint(decal, DL).xyz;
+	float3 c22 = COMPAT_SamplePoint(decal, DR).xyz;
 
+	float m1=dot(abs(c00-c22),dt)+0.001;
+	float m2=dot(abs(c02-c20),dt)+0.001;
 
-output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
-{
-   float2 texsize = IN.texture_size;
-   float dx = pow(texsize.x, -1.0) * 0.25;
-   float dy = pow(texsize.y, -1.0) * 0.25;
-   float3 dt = float3(1.0, 1.0, 1.0);
-
-   deltas VAR = { 
-      tex + float2(-dx, -dy),
-      tex + float2(dx, -dy),
-      tex + float2(-dx, dy),
-      tex + float2(dx, dy)
-   };
-
-   float3 c00 = tex2D(s_p, VAR.UL).xyz;
-   float3 c20 = tex2D(s_p, VAR.UR).xyz;
-   float3 c02 = tex2D(s_p, VAR.DL).xyz;
-   float3 c22 = tex2D(s_p, VAR.DR).xyz;
-
-   float m1=dot(abs(c00-c22),dt)+0.001;
-   float m2=dot(abs(c02-c20),dt)+0.001;
-
-   output OUT;
-   OUT.color = float4((m1*(c02+c20)+m2*(c22+c00))/(2.0*(m1+m2)),1.0);
-   return OUT;
+	return float4((m1*(c02+c20)+m2*(c22+c00))/(2.0*(m1+m2)),1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return two_xsal(COMPAT_texture_size, VOUT.texCoord, decal);
+}
+COMPAT_END
