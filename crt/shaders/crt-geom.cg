@@ -110,7 +110,7 @@ uniform float4x4 modelViewProj;
         #define PI 3.141592653589
 
         #ifdef LINEAR_PROCESSING
-        #       define TEX2D(c) pow(COMPAT_SamplePoint(s0, (c)), float4(CRTgamma))
+        #       define TEX2D(c) pow(COMPAT_SamplePoint(s0, (c)), float4(CRTgamma,CRTgamma,CRTgamma,CRTgamma))
         #else
         #       define TEX2D(c) COMPAT_SamplePoint(s0, (c))
         #endif
@@ -119,48 +119,48 @@ uniform float4x4 modelViewProj;
         static float2 aspect = float2(1.0, 0.75);
 
 
-        float intersect(float2 xy, float2 sinangle, float2 cosangle)
+        float intersect(float2 xy, float4 sin_cos_angle)
         {
                 float A = dot(xy,xy)+d*d;
-                float B = 2.0*(R*(dot(xy,sinangle)-d*cosangle.x*cosangle.y)-d*d);
-                float C = d*d + 2.0*R*d*cosangle.x*cosangle.y;
+                float B = 2.0*(R*(dot(xy,sin_cos_angle.xy)-d*sin_cos_angle.zw.x*sin_cos_angle.zw.y)-d*d);
+                float C = d*d + 2.0*R*d*sin_cos_angle.zw.x*sin_cos_angle.zw.y;
                 return (-B-sqrt(B*B-4.0*A*C))/(2.0*A);
         }
 
-        float2 bkwtrans(float2 xy, float2 sinangle, float2 cosangle)
+        float2 bkwtrans(float2 xy, float4 sin_cos_angle)
         {
-                float c = intersect(xy, sinangle, cosangle);
-                float2 point = float2(c)*xy;
-                point -= float2(-R)*sinangle;
-                point /= float2(R);
-                float2 tang = sinangle/cosangle;
-                float2 poc = point/cosangle;
+                float c = intersect(xy, sin_cos_angle);
+                float2 point_ = float2(c,c)*xy;
+                point_ -= float2(-R,-R)*sin_cos_angle.xy;
+                point_ /= float2(R,R);
+                float2 tang = sin_cos_angle.xy/sin_cos_angle.zw;
+                float2 poc = point_/sin_cos_angle.zw;
                 float A = dot(tang,tang)+1.0;
                 float B = -2.0*dot(poc,tang);
                 float C = dot(poc,poc)-1.0;
                 float a = (-B+sqrt(B*B-4.0*A*C))/(2.0*A);
-                float2 uv = (point-a*sinangle)/cosangle;
+                float2 uv = (point_-a*sin_cos_angle.xy)/sin_cos_angle.zw;
                 float r = FIX(R*acos(a));
                 return uv*r/sin(r/R);
         }
 
-        float2 fwtrans(float2 uv, float2 sinangle, float2 cosangle)
+        float2 fwtrans(float2 uv, float4 sin_cos_angle)
         {
                 float r = FIX(sqrt(dot(uv,uv)));
                 uv *= sin(r/R)/r;
                 float x = 1.0-cos(r/R);
-                float D = d/R + x*cosangle.x*cosangle.y+dot(uv,sinangle);
-                return d*(uv*cosangle-x*sinangle)/D;
+                float D = d/R + x*sin_cos_angle.z*sin_cos_angle.w+dot(uv,sin_cos_angle.xy);
+                return d*(uv*sin_cos_angle.zw-x*sin_cos_angle.xy)/D;
         }
 
-        float3 maxscale(float2 sinangle, float2 cosangle)
+        float3 maxscale(float4 sin_cos_angle)
         {
-                float2 c = bkwtrans(-R * sinangle / (1.0 + R/d*cosangle.x*cosangle.y), sinangle, cosangle);
+                float2 c = bkwtrans(-R * sin_cos_angle.xy / (1.0 + R/d*sin_cos_angle.z*sin_cos_angle.w), sin_cos_angle);
                 float2 a = float2(0.5,0.5)*aspect;
-                float2 lo = float2(fwtrans(float2(-a.x,c.y), sinangle, cosangle).x,
-                             fwtrans(float2(c.x,-a.y), sinangle, cosangle).y)/aspect;
-                float2 hi = float2(fwtrans(float2(+a.x,c.y), sinangle, cosangle).x,
-                             fwtrans(float2(c.x,+a.y), sinangle, cosangle).y)/aspect;
+                float2 lo = float2(fwtrans(float2(-a.x,c.y), sin_cos_angle).x,
+                             fwtrans(float2(c.x,-a.y), sin_cos_angle).y)/aspect;
+                float2 hi = float2(fwtrans(float2(+a.x,c.y), sin_cos_angle).x,
+                             fwtrans(float2(c.x,+a.y), sin_cos_angle).y)/aspect;
                 return float3((hi+lo)*aspect*0.5,max(hi.x-lo.x,hi.y-lo.y));
         }
 
@@ -183,12 +183,14 @@ uniform float4x4 modelViewProj;
                 // "weights" should have a higher peak at the center of the
                 // scanline than for a wider beam.
         #ifdef USEGAUSSIAN
-                float4 wid = 0.3 + 0.1 * pow(color, float4(3.0));
-                float4 weights = float4(distance / (wid * scanline_weight/0.3));
+                float4 wid = 0.3 + 0.1 * pow(color, float4(3.0, 3.0, 3.0, 3.0));
+                float v = distance / (wid * scanline_weight/0.3);
+                float4 weights = float4(v,v,v,v);
                 return (lum + 0.4) * exp(-weights * weights) / wid;
         #else
-                float4 wid = 2.0 + 2.0 * pow(color, float4(4.0));
-                float4 weights = float4(distance / scanline_weight);
+                float4 wid = 2.0 + 2.0 * pow(color, float4(4.0, 4.0, 4.0, 4.0));
+                float v = distance / scanline_weight;
+                float4 weights = float4(v,v,v,v);
                 return (lum + 1.4) * exp(-pow(weights * rsqrt(0.5 * wid), wid)) / (0.6 + 0.2 * wid);
         #endif
         }
@@ -196,14 +198,23 @@ uniform float4x4 modelViewProj;
 struct out_vertex {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+#ifdef HLSL_4
+	float2 one : VAR0;
+	float  mod_factor : VAR1;
+	float2 ilfac : VAR2;
+	float3 stretch : VAR3;
+	float4 sin_cos_angle : VAR4;
+	float2 TextureSize : VAR5;
+#else
 	float2 one;
 	float  mod_factor;
 	float2 ilfac;
 	float3 stretch;
-	float2 sinangle;
-	float2 cosangle;
+	float4 sin_cos_angle;
 	float2 TextureSize;
+#endif
 };
+
 
 /* VERTEX_SHADER */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
@@ -218,9 +229,10 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
     // Precalculate a bunch of useful values we'll need in the fragment
     // shader.
-    OUT.sinangle = sin(float2(x_tilt, y_tilt));
-    OUT.cosangle = cos(float2(x_tilt, y_tilt));
-    OUT.stretch = maxscale(OUT.sinangle, OUT.cosangle);
+    float2 sinangle = sin(float2(x_tilt, y_tilt));
+    float2 cosangle = cos(float2(x_tilt, y_tilt));
+    OUT.sin_cos_angle = float4(sinangle.x, sinangle.y, cosangle.x, cosangle.y);
+    OUT.stretch = maxscale(OUT.sin_cos_angle);
 	OUT.texCoord = texCoord;
     OUT.TextureSize = float2(SHARPER * COMPAT_texture_size.x, COMPAT_texture_size.y);
 
@@ -236,7 +248,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 }
 
 /* FRAGMENT SHADER */
-float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, float frame_count, float2 sinangle, float2 cosangle, float3 stretch,
+float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, float frame_count, float4 sin_cos_angle, float3 stretch,
 	float2 ilfac, float2 one, float mod_factor, float2 TextureSize, float2 texCoord, COMPAT_Texture2D(s0))
 {
                 // Here's a helpful diagram to keep in mind while trying to
@@ -267,7 +279,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
                 float2 cd = texCoord;
                 cd *= texture_size / video_size;
                 cd = (cd-float2(0.5, 0.5))*aspect*stretch.z+stretch.xy;
-                xy =  (bkwtrans(cd, sinangle, cosangle)/float2(overscan_x / 100.0, overscan_y / 100.0)/aspect+float2(0.5, 0.5)) * video_size / texture_size;
+                xy =  (bkwtrans(cd, sin_cos_angle)/float2(overscan_x / 100.0, overscan_y / 100.0)/aspect+float2(0.5, 0.5)) * video_size / texture_size;
 		}
       else
                {
@@ -276,19 +288,19 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
 
                 float2 cd2 = xy;
                 cd2 *= texture_size / video_size;
-                cd2 = (cd2 - float2(0.5)) * float2(overscan_x / 100.0, overscan_y / 100.0) + float2(0.5);
-                cd2 = min(cd2, float2(1.0)-cd2) * aspect;
-                float2 cdist = float2(cornersize);
+                cd2 = (cd2 - float2(0.5, 0.5)) * float2(overscan_x / 100.0, overscan_y / 100.0) + float2(0.5, 0.5);
+                cd2 = min(cd2, float2(1.0, 1.0)-cd2) * aspect;
+                float2 cdist = float2(cornersize, cornersize);
                 cd2 = (cdist - min(cd2,cdist));
                 float dist = sqrt(dot(cd2,cd2));
                 float cval = clamp((cdist.x-dist)*cornersmooth,0.0, 1.0);
 
-                float2 xy2 = ((xy*TextureSize/video_size-float2(0.5))*float2(1.0,1.0)+float2(0.5))*video_size/TextureSize;
+                float2 xy2 = ((xy*TextureSize/video_size-float2(0.5, 0.5))*float2(1.0,1.0)+float2(0.5, 0.5))*video_size/TextureSize;
                 // Of all the pixels that are mapped onto the texel we are
                 // currently rendering, which pixel are we currently rendering?
                 float2 ilfloat = float2(0.0,ilfac.y > 1.5 ? mod(float(frame_count),2.0) : 0.0);
 
-            float2 ratio_scale = (xy * TextureSize - float2(0.5) + ilfloat)/ilfac;
+            float2 ratio_scale = (xy * TextureSize - float2(0.5,0.5) + ilfloat)/ilfac;
       
       #ifdef OVERSAMPLE
                 float filter = video_size.y / output_size.y;
@@ -297,7 +309,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
 
                 // Snap to the center of the underlying texel.
 
-            xy = (floor(ratio_scale)*ilfac + float2(0.5) - ilfloat) / TextureSize;
+            xy = (floor(ratio_scale)*ilfac + float2(0.5, 0.5) - ilfloat) / TextureSize;
 
                 // Calculate Lanczos scaling coefficients describing the effect
                 // of various neighbour texels in a scanline on the current
@@ -311,7 +323,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
                 coeffs = 2.0 * sin(coeffs) * sin(coeffs / 2.0) / (coeffs * coeffs);
 
                 // Normalize.
-                coeffs /= dot(coeffs, float4(1.0));
+                coeffs /= dot(coeffs, float4(1.0, 1.0, 1.0, 1.0));
 
                 // Calculate the effective colour of the current and next
                 // scanlines at the horizontal location of the current pixel,
@@ -368,7 +380,7 @@ float4 crt_geom(float2 texture_size, float2 video_size, float2 output_size, floa
 
 float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return crt_geom(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, VOUT.sinangle, VOUT.cosangle, VOUT.stretch,
+	return crt_geom(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, COMPAT_frame_count, VOUT.sin_cos_angle, VOUT.stretch,
 	VOUT.ilfac, VOUT.one, VOUT.mod_factor, VOUT.TextureSize, VOUT.texCoord, decal);
 }
 COMPAT_END
