@@ -1,11 +1,3 @@
-#pragma parameter frequency "CMYK HalfTone Dot Density" 400.0 50.0 1000.0 50.0
-
-#ifdef PARAMETER_UNIFORM
-uniform float frequency;
-#else
-#define frequency 400.0 // controls the density of the dot pattern
-#endif
-
 /*
 CMYK Halftone Dot Shader
 
@@ -22,47 +14,42 @@ Note: the MIT-licensed noise functions have been purposely removed.
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
-// VERTEX SHADER //
+#pragma parameter frequency "CMYK HalfTone Dot Density" 550.0 50.0 1000.0 50.0
+#ifdef PARAMETER_UNIFORM
+uniform float frequency;
+#else
+#define frequency 550.0 // controls the density of the dot pattern
+#endif
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float2 texCoord : TEXCOORD0,
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float2 otexCoord : TEXCOORD
-)
+struct out_vertex
 {
-	oPosition = mul(modelViewProj, position);
-	otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
-
-struct input
-{
-  float2 video_size;
-  float2 texCoord_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-  float texture_size;
-};
-
-struct output 
-{
-  float4 col    : COLOR;
-};
 
 // FRAGMENT SHADER //
 
-output main_fragment(in float2 texCoord : TEXCOORD0,
-uniform input IN,
-uniform sampler2D s0 : TEXUNIT0
-)
+float4 cmyk_halftone_dot(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
 {
     // Distance to nearest point in a grid of
 	// (frequency x frequency) points over the unit square
@@ -70,7 +57,7 @@ uniform sampler2D s0 : TEXUNIT0
 	float2 st2 = mul(rotation_matrix , texCoord);
     float2 nearest = 2.0 * fract(frequency * st2) - 1.0;
     float dist = length(nearest);
-    float3 texcolor = tex2D(s0, texCoord).rgb; // Unrotated coords
+    float3 texcolor = COMPAT_SamplePoint(decal, texCoord).rgb; // Unrotated coords
     float3 black = float3(0.0);
 	
 	// Perform a rough RGB-to-CMYK conversion
@@ -79,30 +66,35 @@ uniform sampler2D s0 : TEXUNIT0
     cmyk.w = min(cmyk.x, min(cmyk.y, cmyk.z)); // Create K
 	
 	float2x2 k_matrix = float2x2(0.707, 0.707, -0.707, 0.707);
-	float2 Kst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(k_matrix , texCoord);
+	float2 Kst = frequency * (0.48 * (texture_size / video_size)) * mul(k_matrix , texCoord);
     float2 Kuv = 2.0 * fract(Kst) - 1.0;
     float k = step(0.0, sqrt(cmyk.w) - length(Kuv));
 	float2x2 c_matrix = float2x2(0.966, 0.259, -0.259, 0.966);
-    float2 Cst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(c_matrix , texCoord);
+    float2 Cst = frequency * (0.48 * (texture_size / video_size)) * mul(c_matrix , texCoord);
     float2 Cuv = 2.0 * fract(Cst) - 1.0;
     float c = step(0.0, sqrt(cmyk.x) - length(Cuv));
 	float2x2 m_matrix = float2x2(0.966, -0.259, 0.259, 0.966);
-    float2 Mst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * mul(m_matrix , texCoord);
+    float2 Mst = frequency * (0.48 * (texture_size / video_size)) * mul(m_matrix , texCoord);
     float2 Muv = 2.0 * fract(Mst) - 1.0;
     float m = step(0.0, sqrt(cmyk.y) - length(Muv));
-    float2 Yst = frequency * (0.48 * (IN.texture_size / IN.video_size)) * texCoord; // 0 deg
+    float2 Yst = frequency * (0.48 * (texture_size / video_size)) * texCoord; // 0 deg
     float2 Yuv = 2.0 * fract(Yst) - 1.0;
     float y = step(0.0, sqrt(cmyk.z) - length(Yuv));
 	
 	float3 rgbscreen = 1.0 - 0.9 * float3(c,m,y);
 	rgbscreen = mix(rgbscreen, black, 0.85 * k);
 	
-	float afwidth = 2.0 * frequency * max(length(IN.video_size / (IN.output_size * IN.texture_size)), length(IN.video_size / (IN.output_size * IN.texture_size)));
-	float blend = smoothstep(0.7, 1.4, afwidth);
+	float afwidth = 2.0 * frequency * max(length(video_size / (output_size * texture_size)), length(video_size / (output_size * texture_size)));
+	float blend = smoothstep(0.0, 1.0, afwidth);
 	
     float4 color = float4(mix(rgbscreen , texcolor, blend), 1.0);
+	color = (max(texcolor.r, max(texcolor.g, texcolor.b)) < 0.01) ? float4(0.0) : color; // make blacks actually black
 
-   output OUT;
-   OUT.col = color;
-   return OUT;
+	return color;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return cmyk_halftone_dot(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+}
+COMPAT_END
