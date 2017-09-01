@@ -1,6 +1,7 @@
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 /*
@@ -9,19 +10,12 @@
    Port from SimoneT implementation - 2012
 */
 
-struct input
-{
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-	float frame_count;
-	float frame_direction;
-	float frame_rotation;
-};
-
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
 struct out_vertex {
-	float4 position : POSITION;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -41,17 +35,15 @@ float3 Var(float3 c0, float3 c1, float3 c2)
 }
 
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float2 tex      : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -60,43 +52,39 @@ out_vertex main_vertex
 	//c6 c7 c8 c9
 	//   ca cb
 
-	out_vertex OUT = { 
-		mul(modelViewProj, position),
-		tex,
-		float4(tex,tex) + float4(   0.0,    -dy,     dx,    -dy), 
-		float4(tex,tex) + float4(   -dx,    0.0,     dx,    0.0),
-		float4(tex,tex) + float4(2.0*dx,    0.0,    -dx,     dy), 
-		float4(tex,tex) + float4(   0.0,     dy,     dx,     dy),
-		float4(tex,tex) + float4(2.0*dx,     dy,    0.0, 2.0*dy), 
-		tex             + float2(    dx, 2.0*dy)
-	};
-
+	OUT.texCoord = texCoord;
+	OUT.t1 = float4(texCoord,texCoord)	+	float4(	0.0,		-dy,	dx,		-dy); 
+	OUT.t2 = float4(texCoord,texCoord)	+	float4(	-dx,		0.0,	dx,		0.0);
+	OUT.t3 = float4(texCoord,texCoord)	+	float4(	2.0 * dx,	0.0,	-dx,	dy); 
+	OUT.t4 = float4(texCoord,texCoord)	+	float4(	0.0,		dy,		dx,		dy);
+	OUT.t5 = float4(texCoord,texCoord)	+	float4(	2.0 * dx,	dy,		0.0,	2.0 * dy);
+	OUT.t6 = texCoord					+	float2(	dx,			2.0 * dy);
 
 	return OUT;
 }
 
 
-float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
+float4 nohalo(float2 texture_size, float4 t1, float4 t2, float4 t3, float4 t4, float4 t5, float2 t6, float2 texCoord, COMPAT_Texture2D(decal))
 {
-	float2 coord = frac(VAR.texCoord*IN.texture_size);
+	float2 coord = frac(texCoord*texture_size);
 
 	//   c0 c1
 	//c2 c3 c4 c5
 	//c6 c7 c8 c9
 	//   ca cb
 
-	float3 c0 = tex2D(s_p, VAR.t1.xy).xyz;
-	float3 c1 = tex2D(s_p, VAR.t1.zw).xyz;
-	float3 c2 = tex2D(s_p, VAR.t2.xy).xyz;
-	float3 c3 = tex2D(s_p, VAR.texCoord).xyz;
-	float3 c4 = tex2D(s_p, VAR.t2.zw).xyz;
-	float3 c5 = tex2D(s_p, VAR.t3.xy).xyz;
-	float3 c6 = tex2D(s_p, VAR.t3.zw).xyz;
-	float3 c7 = tex2D(s_p, VAR.t4.xy).xyz;
-	float3 c8 = tex2D(s_p, VAR.t4.zw).xyz;
-	float3 c9 = tex2D(s_p, VAR.t5.xy).xyz;
-	float3 ca = tex2D(s_p, VAR.t5.zw).xyz;
-	float3 cb = tex2D(s_p, VAR.t6.xy).xyz;
+	float3 c0 = COMPAT_Sample(decal, t1.xy).xyz;
+	float3 c1 = COMPAT_Sample(decal, t1.zw).xyz;
+	float3 c2 = COMPAT_Sample(decal, t2.xy).xyz;
+	float3 c3 = COMPAT_Sample(decal, texCoord).xyz;
+	float3 c4 = COMPAT_Sample(decal, t2.zw).xyz;
+	float3 c5 = COMPAT_Sample(decal, t3.xy).xyz;
+	float3 c6 = COMPAT_Sample(decal, t3.zw).xyz;
+	float3 c7 = COMPAT_Sample(decal, t4.xy).xyz;
+	float3 c8 = COMPAT_Sample(decal, t4.zw).xyz;
+	float3 c9 = COMPAT_Sample(decal, t5.xy).xyz;
+	float3 ca = COMPAT_Sample(decal, t5.zw).xyz;
+	float3 cb = COMPAT_Sample(decal, t6.xy).xyz;
 
  
 	float3 Varc3 = c3+Var(c3,c2,c4)* coord.x     +Var(c3,c0,c7)* coord.y     ;
@@ -110,3 +98,8 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 	return float4(lerp(Varc34,Varc78,coord.y), 1.0);
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return nohalo(COMPAT_texture_size, VOUT.t1, VOUT.t2, VOUT.t3, VOUT.t4, VOUT.t5, VOUT.t6, VOUT.texCoord, decal);
+}
+COMPAT_END

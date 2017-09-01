@@ -9,15 +9,34 @@
    Use with Nestopia or FCEUmm libretro cores with the palette set to 'raw'.
 */
 
-struct input
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 // Parameter lines go here:
 #pragma parameter nes_saturation "Saturation" 1.0 0.0 5.0 0.05
@@ -142,8 +161,8 @@ float3 MakeRGBColor(int emphasis, int level, int color)
    float black = 0.518;
    float white = 1.962;
    float attenuation = 0.746;
-   const float levels[8] = float[] (   0.350 , 0.518, 0.962, 1.550,
-                                       1.094, 1.506, 1.962, 1.962);
+   const float levels[8] = {   0.350 , 0.518, 0.962, 1.550,
+                                       1.094, 1.506, 1.962, 1.962};
    
    float low  = levels[level + 4 * int(color == 0)];
    float high = levels[level + 4 * int(color < 13)];
@@ -242,23 +261,9 @@ float3 MakeRGBColor(int emphasis, int level, int color)
    return corrected_rgb;
 }
 
-void main_vertex
-(
-   uniform input IN,
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
-)
+float4 NES_color_decode(float2 texCoord, COMPAT_Texture2D(decal))
 {
-   oPosition = mul(modelViewProj, position);
-   oTex = tex;
-}
-
-float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD) : COLOR
-{
-   float4 c = tex2D(s0, tex.xy);
+   float4 c = COMPAT_Sample(decal, texCoord.xy);
 
    // Extract the chroma, level, and emphasis from the normalized RGB triplet
    int color =    int(floor((c.r * 15.0) + 0.5));
@@ -268,3 +273,9 @@ float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD) : 
    float3 out_color = MakeRGBColor(emphasis, level, color);
    return float4(out_color, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return NES_color_decode(VOUT.texCoord, decal);
+}
+COMPAT_END

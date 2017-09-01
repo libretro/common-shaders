@@ -1,8 +1,3 @@
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-*/
-
 /*
    ShadX's Natural Vision Shader
 
@@ -11,6 +6,34 @@
 
 */
 
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 #pragma parameter GIN	"NaturalVision Gamma In"	2.2 0.0 10.0 0.05
 #pragma parameter GOUT	"NaturalVision Gamma Out"	2.2 0.0 10.0 0.05
@@ -40,49 +63,9 @@ const static float3x3 YIQtoRGB = float3x3(1,  0.95629572,  0.62102442,
 const static float3 YIQ_lo = float3(0, -0.595716, -0.522591);
 const static float3 YIQ_hi = float3(1,  0.595716,  0.522591);
 
-struct input
+float3 natural_vision(float2 texCoord, COMPAT_Texture2D(decal))
 {
-	float2 video_size;
-	float2 texture_size;
-	float2 output_size;
-        float  frame_count;
-        float  frame_direction;
-	float  frame_rotation;
-};
-
-
-struct out_vertex {
-	float2 texCoord : TEXCOORD0;
-};
-
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-    out float4 oPosition : POSITION,
-	float2 texCoord1 : TEXCOORD0,
-
-   	uniform float4x4 modelViewProj,
-	uniform input IN
-)
-{
-
-   oPosition = mul(modelViewProj, position);
-
-	// This line fix a bug in ATI cards.
-	float2 tex = texCoord1 + float2(0.0000001, 0.0000001);
-
-	out_vertex OUT = { 
-		tex
-	};
-
-	return OUT;
-}
-
-
-float3 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, uniform input IN) : COLOR
-{
-	float3 c = tex2D(s_p, VAR.texCoord).xyz;
+	float3 c = COMPAT_Sample(decal, texCoord).xyz;
 
 	c = pow(c, GIN);
 	c = mul(RGBtoYIQ, c);
@@ -93,3 +76,9 @@ float3 main_fragment(in out_vertex VAR, uniform sampler2D s_p : TEXUNIT0, unifor
 
 	return c;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return float4(natural_vision(VOUT.texCoord, decal), 1.0);
+}
+COMPAT_END

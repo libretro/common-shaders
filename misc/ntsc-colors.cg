@@ -8,50 +8,37 @@ uniform float intensity;
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
+
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 #include "colorspace-tools.h"
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = texCoord;
+	float3 color = COMPAT_Sample(decal, VOUT.texCoord).rgb;
+	color = lerp(color.rgb, NTSCtoSRGB(color.rgb), intensity);
+	return float4(color, 1.0);
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
-};
-
-
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
-{
-float3 color = tex2D(decal, texCoord).rgb;
-color = lerp(color.rgb, NTSCtoSRGB(color.rgb), intensity);
-   output OUT;
-   OUT.color = float4(color, 1.0);
-   return OUT;
-}
-

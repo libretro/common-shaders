@@ -4,15 +4,34 @@
    http://drag.wootest.net/misc/palgen.html
 */
 
-struct input
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-   float2 video_size;
-   float2 texture_size;
-   float2 output_size;
-   float  frame_count;
-   float  frame_direction;
-   float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
+}
 
 #pragma parameter color_mode "Colorimetry mode" 0.0 0.0 2.0 1.0
 #pragma parameter white_point_d93 "Use D93 white point" 1.0 0.0 1.0 1.0
@@ -174,7 +193,7 @@ float3 ApplyColorimetry(float3 color)
 
    // This should be the completed RGB -> XYZ matrix.
    // Multiply each of the first three members by R, then add them together to get X
-   float convMatrix[9] = float[] (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+   float convMatrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
    convMatrix[0] = Sr*Xr;
    convMatrix[1] = Sg*Xg;
@@ -195,7 +214,7 @@ float3 ApplyColorimetry(float3 color)
    // http://www.brucelindbloom.com/Eqn_RGB_XYZ_Matrix.html
    // and I know it's right because when you use the sRGB colorimetry, this matrix produces identical results to
    // just using the raw R, G, and B above.
-   float xyztorgb[9] = float[] (3.2404, -1.5371, -0.4985, -0.9693, 1.876, 0.0416, 0.0556, -0.204, 1.0572);
+   float xyztorgb[9] = {3.2404, -1.5371, -0.4985, -0.9693, 1.876, 0.0416, 0.0556, -0.204, 1.0572};
 
    // Convert back to RGB using the XYZ->sRGB matrix.
    R = (xyztorgb[0]*X) + (xyztorgb[1]*Y) + (xyztorgb[2]*Z);
@@ -227,25 +246,17 @@ float3 ApplyColorimetry(float3 color)
    return corrected_rgb;
 }
 
-void main_vertex
-(
-   uniform input IN,
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
-)
+float4 colorimetry(float2 texCoord, COMPAT_Texture2D(decal))
 {
-   oPosition = mul(modelViewProj, position);
-   oTex = tex;
-}
-
-float4 main_fragment (uniform sampler2D s0 : TEXUNIT0, float2 tex : TEXCOORD) : COLOR
-{
-   float4 c = tex2D(s0, tex.xy);
+   float4 c = COMPAT_Sample(decal, texCoord.xy);
    float3 rgb = float3(c.r, c.g, c.b);
 
    float3 out_color = ApplyColorimetry(rgb);
    return float4(out_color, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return colorimetry(VOUT.texCoord, decal);
+}
+COMPAT_END

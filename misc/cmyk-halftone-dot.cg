@@ -10,7 +10,6 @@ This shader is licensed in the public domain, as per S. Gustavson's original lic
 Note: the MIT-licensed noise functions have been purposely removed.
 */
 
-
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
@@ -58,7 +57,7 @@ float4 cmyk_halftone_dot(float2 texture_size, float2 video_size, float2 output_s
     float2 nearest = 2.0 * fract(frequency * st2) - 1.0;
     float dist = length(nearest);
     float3 texcolor = COMPAT_SamplePoint(decal, texCoord).rgb; // Unrotated coords
-    float3 black = float3(0.0);
+    float3 black = float3(0,0,0);
 	
 	// Perform a rough RGB-to-CMYK conversion
     float4 cmyk;
@@ -82,13 +81,13 @@ float4 cmyk_halftone_dot(float2 texture_size, float2 video_size, float2 output_s
     float y = step(0.0, sqrt(cmyk.z) - length(Yuv));
 	
 	float3 rgbscreen = 1.0 - 0.9 * float3(c,m,y);
-	rgbscreen = mix(rgbscreen, black, 0.85 * k);
+	rgbscreen = lerp(rgbscreen, black, 0.85 * k);
 	
 	float afwidth = 2.0 * frequency * max(length(video_size / (output_size * texture_size)), length(video_size / (output_size * texture_size)));
 	float blend = smoothstep(0.0, 1.0, afwidth);
 	
-    float4 color = float4(mix(rgbscreen , texcolor, blend), 1.0);
-	color = (max(texcolor.r, max(texcolor.g, texcolor.b)) < 0.01) ? float4(0.0) : color; // make blacks actually black
+    float4 color = float4(lerp(rgbscreen , texcolor, blend), 1.0);
+	color = (max(texcolor.r, max(texcolor.g, texcolor.b)) < 0.01) ? float4(0,0,0,0) : color; // make blacks actually black
 
 	return color;
 }

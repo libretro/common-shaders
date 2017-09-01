@@ -4,6 +4,7 @@
     by RiskyJumps
 	license: public domain
 */
+
 #pragma parameter amp          "Amplitude"      1.2500  0.000 2.000 0.05
 #pragma parameter phase        "Phase"          0.5000  0.000 2.000 0.05
 #pragma parameter lines_black  "Lines Blacks"   0.0000  0.000 1.000 0.05
@@ -25,45 +26,37 @@ uniform float lines_white;
 #define offset           0.000000
 #define pi               3.141592654
  
-struct input
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-    float2 video_size;
-    float2 texture_size;
-    float2 output_size;
-    float frame_count;
-    float frame_direction;
-    float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float  angle    : TEXCOORD1;
 };
- 
-void main_vertex
-(
-    uniform input IN,
-    float4 position         : POSITION,
-    float4 color            : COLOR,
-    float2 tex              : TEXCOORD0,
- 
-    uniform float4x4 modelViewProj,
- 
-    out float4 oPosition    : POSITION,
-    out float4 oColor       : COLOR,
-    out float2 otexCoord    : TEXCOORD0,
-    out float angle         : TEXCOORD2
-)
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-    oPosition = mul(modelViewProj, position);
-    oColor = color;
-    otexCoord = tex;
- 
-    //float2 texsize = IN.texture_size;
-    //float2 delta = 0.5 / texsize;
-    //float dx = delta.x;
-    //float dy = delta.y;
- 
-    float omega = 2.0 * pi * freq;  // Angular frequency
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	float omega = 2.0 * pi * freq;  // Angular frequency
  
     // NOTE: I can't calculate lines on vertex, because of sin()
     /*
-    lines = tex.y * omega * IN.texture_size.y + phase;
+    lines = texCoord.y * omega * COMPAT_texture_size.y + phase;
     lines = sin(lines);                     // The use of sin() in here
                                             // yields a black screen...
     lines *= amp;
@@ -71,19 +64,14 @@ void main_vertex
     lines = abs(lines);
     */
  
-    angle = tex.y * omega * IN.texture_size.y + phase;
-}
+    OUT.angle = texCoord.y * omega * COMPAT_texture_size.y + phase;
+	
+	return OUT;
+} 
  
- 
- 
-float4 main_fragment (
-    uniform input IN,
-    in float2 tex           : TEXCOORD0,
-    in float angle          : TEXCOORD2,
-    uniform sampler2D s0    : TEXUNIT0
-) : COLOR
+float4 scanline_sine_abs(float angle, float2 texCoord, COMPAT_Texture2D(decal))
 {
-    float3 color = tex2D(s0, tex).xyz;
+    float3 color = COMPAT_Sample(decal, texCoord).xyz;
     float grid;
  
     float lines;
@@ -96,3 +84,9 @@ float4 main_fragment (
  
     return color.xyzz;
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return scanline_sine_abs(VOUT.angle, VOUT.texCoord, decal);
+}
+COMPAT_END

@@ -24,56 +24,48 @@
    The final numbers of colors can be set to produce a final reduced color look while still emulating an "advanced" gfx. chipset.
 */
 
-#pragma parameter MCGREEN_COLOR "McGreen Color" 256.0 0.0 256.0 1.0
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
 
+#pragma parameter MCGREEN_COLOR "McGreen Color" 256.0 0.0 256.0 1.0
 #ifdef PARAMETER_UNIFORM
 uniform float MCGREEN_COLOR;
 #else
 #define MCGREEN_COLOR 256.0
 #endif
 
-/* Default Vertex shader */
-void main_vertex
-(
- float4 position	: POSITION,
- float4 color	: COLOR,
- float2 texCoord : TEXCOORD0,
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
- uniform float4x4 modelViewProj,
-
- out float4 oPosition : POSITION,
- out float4 oColor    : COLOR,
- out float2 otexCoord : TEXCOORD
- )
+struct out_vertex
 {
-   oPosition = mul(modelViewProj, position);
-   oColor = color;
-   otexCoord = texCoord;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+	
+	return OUT;
 }
 
-struct output
-{
-   float4 color : COLOR;
-};
-
-struct input
-{
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float frame_count;
-  float frame_direction;
-  float frame_rotation;
-};
-
-output main_fragment (float2 tex : TEXCOORD0, uniform input IN, uniform sampler2D s_p : TEXUNIT0)
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
 	float3 ink = float3(0.32, 0.50, 0.0);  
-	float3 c11 = tex2D(s_p, tex).xyz;
+	float3 c11 = COMPAT_Sample(decal, VOUT.texCoord).xyz;
 	float lct = floor(MCGREEN_COLOR * length(c11)) / MCGREEN_COLOR;
 
-	output OUT;
-	OUT.color = float4(lct*ink,1);
-   	return OUT;
+	return float4(lct*ink,1);
 }
-
+COMPAT_END

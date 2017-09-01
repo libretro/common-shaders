@@ -39,76 +39,72 @@ uniform float warpY;
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
-struct input
+#include "../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
 {
-  float2 video_size;
-  float2 texture_size;
-  float2 output_size;
-  float  frame_count;
-  float  frame_direction;
-  float frame_rotation;
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
 };
 
-void main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-    uniform float4x4 modelViewProj,
-	uniform input IN,
-
-	out float4 oPosition : POSITION,
-	out float4 oColor    : COLOR,
-	out float2 otexCoord : TEXCOORD
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-	float2 shift = 0.5 * IN.video_size / IN.texture_size;
-	oPosition = mul(modelViewProj, position);
-	oColor = color;
-	otexCoord = ((texCoord - shift) * ana_zoom + shift) * float2(WIDTH, HEIGHT) - float2(BOTH, 0.0);
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#endif
+	out_vertex OUT;
+	float2 shift = 0.5 * COMPAT_video_size / COMPAT_texture_size;
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = ((texCoord - shift) * ana_zoom + shift) * float2(WIDTH, HEIGHT) - float2(BOTH, 0.0);
+	
+	return OUT;
 }
-
-struct output 
-{
-  float4 color    : COLOR;
-};
 
 //warp function from Lottes' scanline shader
-float2 Warp(float2 pos){
-  pos=pos*2.0-1.0;    
-  pos*=float2(1.0+(pos.y*pos.y)*warpX,1.0+(pos.x*pos.x)*warpY);
-  return pos*0.5+0.5;}
-
-output main_fragment(float2 texCoord : TEXCOORD0, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
+float2 Warp(float2 pos)
 {
-float2 warpCoord1 = Warp((texCoord.xy - float2(eye_sep, y_loc))*(IN.texture_size.xy / IN.video_size.xy))*(IN.video_size.xy / IN.texture_size.xy);
-float2 warpCoord2 = Warp((texCoord.xy + float2(eye_sep, -y_loc))*(IN.texture_size.xy / IN.video_size.xy))*(IN.video_size.xy / IN.texture_size.xy);
-
-float2 fragCoord1 = warpCoord1 * IN.video_size / IN.texture_size;
-float2 fragCoord2 = warpCoord2 * IN.video_size / IN.texture_size;
-
-//ghetto imitation of CLAMP_TO_BORDER
-float4 frame1 = float4(0.0);
-if ( fragCoord1.x < 1.0 && fragCoord1.x > 0.0 && fragCoord1.y < 1.0 && fragCoord1.y > 0.0 )
-frame1 = tex2D(decal, warpCoord1);
-
-float4 frame2 = float4(0.0);
-if ( fragCoord2.x < 1.0 && fragCoord2.x > 0.0 && fragCoord2.y < 1.0 && fragCoord2.y > 0.0 )
-frame2 = tex2D(decal, warpCoord2);
-
-frame1.gb = float2(frame1.r);
-frame2.r = frame2.g;
-
-float4 final = float4(0.0);
-if (palette > 0.5)
-final = frame1 + frame2;
-else
-final = float4(frame1.r + frame2.r, 0.0, 0.0, 1.0);
-
-   output OUT;
-   OUT.color = final;
-   return OUT;
+	pos = pos*2.0 - 1.0;    
+	pos *= float2(1.0 + (pos.y * pos.y) * warpX, 1.0 + (pos.x * pos.x) * warpY);
+	return pos * 0.5 + 0.5;
 }
+
+float4 anaglyph_to_sbs(float2 texture_size, float2 video_size, float2 texCoord, COMPAT_Texture2D(decal))
+{
+	float2 warpCoord1 = Warp((texCoord.xy - float2(eye_sep, y_loc))*(texture_size.xy / video_size.xy))*(video_size.xy / texture_size.xy);
+	float2 warpCoord2 = Warp((texCoord.xy + float2(eye_sep, -y_loc))*(texture_size.xy / video_size.xy))*(video_size.xy / texture_size.xy);
+
+	float2 fragCoord1 = warpCoord1 * video_size / texture_size;
+	float2 fragCoord2 = warpCoord2 * video_size / texture_size;
+
+	//ghetto imitation of CLAMP_TO_BORDER
+	float4 frame1 = float4(0,0,0,0);
+	if ( fragCoord1.x < 1.0 && fragCoord1.x > 0.0 && fragCoord1.y < 1.0 && fragCoord1.y > 0.0 )
+	frame1 = COMPAT_Sample(decal, warpCoord1);
+
+	float4 frame2 = float4(0,0,0,0);
+	if ( fragCoord2.x < 1.0 && fragCoord2.x > 0.0 && fragCoord2.y < 1.0 && fragCoord2.y > 0.0 )
+	frame2 = COMPAT_Sample(decal, warpCoord2);
+
+	frame1.gb = frame1.rr;
+	frame2.r = frame2.g;
+
+	float4 final = float4(0,0,0,0);
+	if (palette > 0.5)
+		final = frame1 + frame2;
+	else
+		final = float4(frame1.r + frame2.r, 0.0, 0.0, 1.0);
+	
+	return final;
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return anaglyph_to_sbs(COMPAT_texture_size, COMPAT_video_size, VOUT.texCoord, decal);
+}
+COMPAT_END
