@@ -52,11 +52,8 @@ BACKGROUND_linear = true
 BORDER = resources/dmg-border-square-4x.png
 BORDER_linear = true
 
-parameters = "video_scale;SCALE;OUT_X;OUT_Y;adjacent_texel_alpha_blending;pixel_opacity;shadow_opacity"
+parameters = "video_scale;SCALE;OUT_X;OUT_Y"
 video_scale = "4.0"
 SCALE = "1.5"
 OUT_X = "4800.0"
 OUT_Y = "2400.0"
-adjacent_texel_alpha_blending = "0.34"
-pixel_opacity = "0.80"
-shadow_opacity = "0.80"
