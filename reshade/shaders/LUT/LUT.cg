@@ -10,7 +10,7 @@ uniform float LUT_Size;
    - Cg   compilers
    - FX11 compilers
 */
-#define HLSL_4
+
 #include "../../../compat_includes.inc"
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform COMPAT_Texture2D(SamplerLUT) : TEXUNIT1;
