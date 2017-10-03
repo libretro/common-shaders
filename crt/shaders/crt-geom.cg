@@ -212,6 +212,7 @@ struct out_vertex {
 	float3 stretch;
 	float4 sin_cos_angle;
 	float2 TextureSize;
+	float4 Color    : COLOR;
 #endif
 };
 
@@ -219,11 +220,13 @@ struct out_vertex {
 /* VERTEX_SHADER */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-    out_vertex OUT;
 
     OUT.position = mul(modelViewProj, position);
 
@@ -243,7 +246,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
     // Resulting X pixel-coordinate of the pixel we're drawing.
     OUT.mod_factor = texCoord.x * COMPAT_texture_size.x * COMPAT_output_size.x / COMPAT_video_size.x;
-
+	OUT.Color = color;
     return OUT;
 }
 

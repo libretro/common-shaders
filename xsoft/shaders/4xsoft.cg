@@ -61,19 +61,25 @@ struct out_vertex
 	float4 t4 : TEXCOORD4;
 	float4 t5 : TEXCOORD5;
 	float4 t6 : TEXCOORD6;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
-   /* messy I know but we need to make it possible to have it default to input resolution x/y in case RESOLUTION_X is 0.0 */
-	float2 ps = float2(1.0/((RESOLUTION_X == 0) ? RESOLUTION_X_DEF : RESOLUTION_X), 1.0/((RESOLUTION_Y == 0) ? RESOLUTION_Y_DEF : RESOLUTION_Y));
+	/* messy I know but we need to make it possible to have it default to input resolution x/y in case RESOLUTION_X is 0.0 */
+	float2 resfallback = (COMPAT_texture_size > float2(512.0)) ? COMPAT_texture_size : float2(512.0);
+	float2 ps = float2(1.0/((RESOLUTION_X == 0.0) ? COMPAT_texture_size.x : RESOLUTION_X), 1.0/((RESOLUTION_Y == 0.0) ? COMPAT_texture_size.y : RESOLUTION_Y));
 
 	float dx = ps.x;
 	float dy = ps.y;
@@ -87,6 +93,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 	OUT.t4 = float4(texCoord,texCoord) + float4(sx, sy, -sx, sy);
 	OUT.t5 = float4(texCoord,texCoord) + float4(-dx, 0, dx, 0); // inner hor/vert texels
 	OUT.t6 = float4(texCoord,texCoord) + float4(0, -dy, 0, dy);
+	OUT.Color = color;
 
 	return OUT;
 }
