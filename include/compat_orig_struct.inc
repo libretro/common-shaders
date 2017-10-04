@@ -30,5 +30,8 @@
 		#define ORIG_Sample(coord) tex2D(ORIG, coord)
 		#define ORIG_SamplePoint(coord) tex2D(ORIG, coord)
 		#define ORIG_texture ORIG.texture
+		#define ORIG_video_size ORIG.video_size
+		#define ORIG_texture_size ORIG.texture_size
+		#define ORIG_output_size ORIG.output_size
 	#endif
 #endif // COMPAT_ORIG_STRUCT

@@ -38,15 +38,20 @@ struct out_vertex
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 	float2 ps       : TEXCOORD1;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.ps = 1.0/COMPAT_texture_size;
 	OUT.texCoord = texCoord;
@@ -70,7 +75,7 @@ float4 hqx(float2 Current_texture_size, float2 Original_texture_size, float2 ps,
 	float2 texCoord, COMPAT_Texture2D(Current), COMPAT_Texture2D(Original), COMPAT_Texture2D(LookupTexture))
 {
 	float2 fp = frac(texCoord * Current_texture_size);
-	half2 quad = sign(-0.5 + fp);
+	float2 quad = sign(-0.5 + fp);
 
 	float dx = ps.x;
 	float dy = ps.y;
@@ -79,15 +84,15 @@ float4 hqx(float2 Current_texture_size, float2 Original_texture_size, float2 ps,
 	float3 p2  = COMPAT_SamplePoint(Original, texCoord + float2(dx, dy) * quad).rgb;
 	float3 p3  = COMPAT_SamplePoint(Original, texCoord + float2(dx, 0) * quad).rgb;
 	float3 p4  = COMPAT_SamplePoint(Original, texCoord + float2(0, dy) * quad).rgb;
-	float4x3 pixels = half4x3(p1, p2, p3, p4);
+	float4x3 pixels = float4x3(p1, p2, p3, p4);
 
-	half2 index = COMPAT_SamplePoint(Current, texCoord).xy * half2(255.0, 15.0 * (SCALE * SCALE));
-	index.y += dot(floor(fp * SCALE), half2(1, SCALE));
+	float2 index = COMPAT_SamplePoint(Current, texCoord).xy * float2(255.0, 15.0 * (SCALE * SCALE));
+	index.y += dot(floor(fp * SCALE), float2(1, SCALE));
 
-	half2 step = 1.0 / half2(256.0, 16.0 * (SCALE * SCALE));
-	half2 offset = step / 2.0;
-	half4 weights = COMPAT_SamplePoint(LookupTexture, index * step + offset);
-	half sum = dot(weights, half4(1,1,1,1));
+	float2 step = 1.0 / float2(256.0, 16.0 * (SCALE * SCALE));
+	float2 offset = step / 2.0;
+	float4 weights = COMPAT_SamplePoint(LookupTexture, index * step + offset);
+	float sum = dot(weights, float4(1,1,1,1));
 	float3 res = mul(transpose(pixels), weights / sum);
 
 	return float4(res, 1.0);
@@ -95,7 +100,7 @@ float4 hqx(float2 Current_texture_size, float2 Original_texture_size, float2 ps,
 
 float4 main_fragment(in orig ORIG : TEXCOORD2, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return hqx(COMPAT_texture_size, COMPAT_ORIG_texture_size, VOUT.ps,
+	return hqx(COMPAT_texture_size, ORIG_texture_size, VOUT.ps,
 		VOUT.texCoord, decal, ORIG_texture, LUT);
 }
 COMPAT_END

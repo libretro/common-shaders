@@ -58,16 +58,21 @@ struct out_vertex {
 	float4 t2       : TEXCOORD2;
 	float4 t3       : TEXCOORD3;
 	float2 ps       : TEXCOORD4;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
 

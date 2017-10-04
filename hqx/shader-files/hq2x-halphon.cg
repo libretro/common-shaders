@@ -42,6 +42,9 @@ struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
@@ -93,7 +96,7 @@ float4 scale(COMPAT_Texture2D(decal), float2 coord, float2 textureDimensions)
     /* We always calculate the top left pixel.  If we need a different pixel, we flip the image */
 
     // p = the position within a pixel [0...1]
-    float2 p = fract(texCoord * textureDimensions);
+    float2 p = frac(texCoord * textureDimensions);
 
     if (p.x > 0.5) o.x = -o.x;
     if (p.y > 0.5) o.y = -o.y;

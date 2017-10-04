@@ -40,49 +40,45 @@ uniform float trV;
 #define trV 6.0
 #endif
 
-static half3 yuv_threshold = half3(trY/255.0, trU/255.0, trV/255.0);
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
 
-const static half3x3 yuv = half3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.5, 0.5, -0.419, -0.081);
-const static half3 yuv_offset = half3(0, 0.5, 0.5);
+static float3 yuv_threshold = float3(trY/255.0, trU/255.0, trV/255.0);
+
+const static float3x3 yuv = float3x3(0.299, 0.587, 0.114, -0.169, -0.331, 0.5, 0.5, -0.419, -0.081);
+const static float3 yuv_offset = float3(0, 0.5, 0.5);
 
 bool diff(float3 yuv1, float3 yuv2) {
 	bool3 res = abs((yuv1 + yuv_offset) - (yuv2 + yuv_offset)) > yuv_threshold;
 	return res.x || res.y || res.z;
 }
 
-struct input
+struct out_vertex
 {
-	half2 video_size;
-	float2 texture_size;
-	half2 output_size;
-};
-
-struct out_vertex {
-	float4 position : POSITION;
-	float4 color    : COLOR;
+	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
-	float4 t1       : TEXCOORD1;
-	float4 t2       : TEXCOORD2;
-	float4 t3       : TEXCOORD3;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
-/*    VERTEX_SHADER    */
-out_vertex main_vertex
-(
-	float4 position	: POSITION,
-	float4 color	: COLOR,
-	float2 texCoord : TEXCOORD0,
-
-   	uniform half4x4 modelViewProj,
-	uniform input IN
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
 	out_vertex OUT;
-
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
 	OUT.position = mul(modelViewProj, position);
-	OUT.color = color;
+	OUT.texCoord = texCoord;
 
-	float2 ps = 1.0/IN.texture_size;
+	float2 ps = 1.0/COMPAT_texture_size;
 	float dx = ps.x;
 	float dy = ps.y;
 
@@ -98,39 +94,45 @@ out_vertex main_vertex
 	//   +----+----+----+
 
 	OUT.texCoord = texCoord;
-	OUT.t1 = texCoord.xxxy + half4(-dx, 0, dx, -dy); //  w1 | w2 | w3
-	OUT.t2 = texCoord.xxxy + half4(-dx, 0, dx,   0); //  w4 | w5 | w6
-	OUT.t3 = texCoord.xxxy + half4(-dx, 0, dx,  dy); //  w7 | w8 | w9
+	OUT.t1 = texCoord.xxxy + float4(-dx, 0, dx, -dy); //  w1 | w2 | w3
+	OUT.t2 = texCoord.xxxy + float4(-dx, 0, dx,   0); //  w4 | w5 | w6
+	OUT.t3 = texCoord.xxxy + float4(-dx, 0, dx,  dy); //  w7 | w8 | w9
 
 	return OUT;
 }
 
 
 /*    FRAGMENT SHADER    */
-float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN, uniform sampler2D LUT : TEXUNIT1) : COLOR
+float4 pass1(float4 t1, float4 t2, float4 t3, COMPAT_Texture2D(decal))
 {
-	float3 w1  = mul(yuv, tex2D(decal, VAR.t1.xw).rgb);
-	float3 w2  = mul(yuv, tex2D(decal, VAR.t1.yw).rgb);
-	float3 w3  = mul(yuv, tex2D(decal, VAR.t1.zw).rgb);
+	float3 w1  = mul(yuv, COMPAT_SamplePoint(decal, t1.xw).rgb);
+	float3 w2  = mul(yuv, COMPAT_SamplePoint(decal, t1.yw).rgb);
+	float3 w3  = mul(yuv, COMPAT_SamplePoint(decal, t1.zw).rgb);
 
-	float3 w4  = mul(yuv, tex2D(decal, VAR.t2.xw).rgb);
-	float3 w5  = mul(yuv, tex2D(decal, VAR.t2.yw).rgb);
-	float3 w6  = mul(yuv, tex2D(decal, VAR.t2.zw).rgb);
+	float3 w4  = mul(yuv, COMPAT_SamplePoint(decal, t2.xw).rgb);
+	float3 w5  = mul(yuv, COMPAT_SamplePoint(decal, t2.yw).rgb);
+	float3 w6  = mul(yuv, COMPAT_SamplePoint(decal, t2.zw).rgb);
 
-	float3 w7  = mul(yuv, tex2D(decal, VAR.t3.xw).rgb);
-	float3 w8  = mul(yuv, tex2D(decal, VAR.t3.yw).rgb);
-	float3 w9  = mul(yuv, tex2D(decal, VAR.t3.zw).rgb);
+	float3 w7  = mul(yuv, COMPAT_SamplePoint(decal, t3.xw).rgb);
+	float3 w8  = mul(yuv, COMPAT_SamplePoint(decal, t3.yw).rgb);
+	float3 w9  = mul(yuv, COMPAT_SamplePoint(decal, t3.zw).rgb);
 
 	bool3x3 pattern = bool3x3(diff(w5, w1), diff(w5, w2), diff(w5, w3),
 	                          diff(w5, w4), false       , diff(w5, w6),
 	                          diff(w5, w7), diff(w5, w8), diff(w5, w9));
 	bool4 cross = bool4(diff(w4, w2), diff(w2, w6), diff(w8, w4), diff(w6, w8));
 
-	half2 index;
-	index.x = dot(pattern[0], half3(1, 2, 4)) +
-	          dot(pattern[1], half3(8, 0, 16)) +
-	          dot(pattern[2], half3(32, 64, 128));
-	index.y = dot(cross, half4(1, 2, 4, 8));
+	float2 index;
+	index.x = dot(pattern[0], float3(1, 2, 4)) +
+	          dot(pattern[1], float3(8, 0, 16)) +
+	          dot(pattern[2], float3(32, 64, 128));
+	index.y = dot(cross, float4(1, 2, 4, 8));
 
-	return float4(index / half2(255.0, 15.0), 0.0, 1.0);
+	return float4(index / float2(255.0, 15.0), 0.0, 1.0);
 }
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return pass1(VOUT.t1, VOUT.t2, VOUT.t3, decal);
+}
+COMPAT_END
