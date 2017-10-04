@@ -53,6 +53,9 @@ uniform float AA_RESOLUTION_Y;
 
 struct out_vertex
 {
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 	float4 position : COMPAT_POS;
 	float4 t1 : TEXCOORD1;
 	float4 t2 : TEXCOORD2;
@@ -63,11 +66,13 @@ struct out_vertex
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 
 	OUT.position = mul(modelViewProj, position);
 

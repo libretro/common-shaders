@@ -55,15 +55,18 @@ uniform float REVERSEAA_SHARPNESS;
 
 struct out_vertex
 {
-    float4 position : COMPAT_POS;
-    float2 texCoord : TEXCOORD0;
-    float4 t1       : TEXCOORD1;
-    float4 t2       : TEXCOORD2;
-    float4 t3       : TEXCOORD3;
-    float4 t4       : TEXCOORD4;
-    float4 t5       : TEXCOORD5;
-    float4 t6       : TEXCOORD6;
-    float4 t7       : TEXCOORD7;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+	float4 t1       : TEXCOORD1;
+	float4 t2       : TEXCOORD2;
+	float4 t3       : TEXCOORD3;
+	float4 t4       : TEXCOORD4;
+	float4 t5       : TEXCOORD5;
+	float4 t6       : TEXCOORD6;
+	float4 t7       : TEXCOORD7;
 };
 
 float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
@@ -84,11 +87,13 @@ float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
 /*    VERTEX_SHADER    */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-    out_vertex OUT;
 
     OUT.position = mul(modelViewProj, position);
 

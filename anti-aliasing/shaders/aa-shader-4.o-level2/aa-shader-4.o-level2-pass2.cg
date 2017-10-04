@@ -36,17 +36,22 @@ uniform float4x4 modelViewProj;
 
 struct out_vertex
 {
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord + float2(0.0000001, 0.0000001);
 	

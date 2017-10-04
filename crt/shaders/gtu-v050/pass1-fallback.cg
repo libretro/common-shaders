@@ -6,27 +6,46 @@
 #pragma parameter compositeConnection "Composite Connection Enable" 0.0 0.0 1.0 1.0
 
 #include "config.h"
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+};
 
 #define RGB_to_YIQ   transpose(float3x3( 0.299 , 0.595716 , 0.211456 , 0.587 , -0.274453 , -0.522591 , 0.114 , -0.321263 , 0.311135 ))
 
-void main_vertex
-(
-   float4 position : POSITION,
-   out float4 oPosition : POSITION,
-   uniform float4x4 modelViewProj,
-   float2 tex : TEXCOORD,
-   out float2 oTex : TEXCOORD
-)
+out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-   oPosition = mul(modelViewProj, position);
-   oTex = tex;
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+
+	return OUT;
 }
 
-float4 main_fragment (float2 tex : TEXCOORD, uniform sampler2D s0 : TEXUNIT0) : COLOR
+float4 pass_1_fallback(float2 texCoord, COMPAT_Texture2D(decal))
 {
-   float4 c=tex2D(s0, tex);
+   float4 c = COMPAT_Sample(decal, texCoord);
    if(compositeConnection)
-      c.rgb=mul(RGB_to_YIQ,c.rgb);
+      c.rgb = mul(RGB_to_YIQ,c.rgb);
    return c;
 }
 
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return pass_1_fallback(VOUT.texCoord, decal);
+}
+COMPAT_END

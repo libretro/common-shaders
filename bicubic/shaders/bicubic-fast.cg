@@ -58,16 +58,21 @@ struct out_vertex
 	float4 t6       : TEXCOORD6;
 	float4 t7       : TEXCOORD7;
 	float2 t8;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	float2 ps = float2(1.0/COMPAT_texture_size.x, 1.0/COMPAT_texture_size.y);
 	float dx = ps.x;
 	float dy = ps.y;

@@ -8,7 +8,7 @@ Scale:    1x
 The original shader has the problem that it blends every horizontal pair of adjacent pixels where it should only blend pairwise disjointed pixel pairs instead.
 
 */
-#define HLSL_4
+
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
@@ -24,15 +24,20 @@ struct out_vertex
     float4 position : POSITION;
     float2 texCoord : TEXCOORD0;
     float4 t1 : TEXCOORD1;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
 	
