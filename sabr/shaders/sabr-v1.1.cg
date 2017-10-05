@@ -41,15 +41,20 @@ struct out_vertex {
 	float4 xyp_11_12_13 : TEXCOORD5;
 	float4 xyp_16_17_18 : TEXCOORD6;
 	float4 xyp_21_22_23 : TEXCOORD7;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	float x = 1.0 / COMPAT_texture_size.x;
 	float y = 1.0 / COMPAT_texture_size.y;
