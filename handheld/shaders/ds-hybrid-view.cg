@@ -29,26 +29,31 @@ struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
-	float video_scale = floor(IN.output_size.y / IN.video_size.y);
-	float2 integer_scale = IN.video_size.xy * video_scale;
-	OUT.texCoord = texCoord * (IN.output_size.xy / float2(integer_scale)) * float2(aspect_correction, 1.0);
+	float video_scale = floor(COMPAT_output_size.y / COMPAT_video_size.y);
+	float2 integer_scale = COMPAT_video_size.xy * video_scale;
+	OUT.texCoord = texCoord * (COMPAT_output_size.xy / float2(integer_scale)) * float2(aspect_correction, 1.0);
 	
 	return OUT;
 }
 
 float4 ds_hybrid_view(float2 texCoord, COMPAT_Texture2D(decal))
 {
-	float2 bigCoord = texCoord * float2(0.35570) + float2(0.0, 0.0 + (0.375 * screen_toggle));
+	float2 bigCoord = texCoord * float2(0.35570,0.35570) + float2(0.0, 0.0 + (0.375 * screen_toggle));
 	float2 smallCoord = texCoord * float2(1.065,1.00) + float2(-1.497, -0.175 / aspect_correction);
 	float4 final = COMPAT_Sample(decal, bigCoord) + COMPAT_Sample(decal, smallCoord);
 

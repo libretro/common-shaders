@@ -23,15 +23,20 @@ struct out_vertex
 	float4 c12_22   : TEXCOORD4;
 	float2 c11      : TEXCOORD5;
 	float2 pixel_no : TEXCOORD6;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 
 	float dx = 1.0 / IN.texture_size.x;
