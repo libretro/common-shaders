@@ -40,15 +40,20 @@ struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
 	
@@ -132,7 +137,7 @@ float Lowpass(float Fc, float Fs, int N, int i)
         lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx); \
         chroma += sample2D(decal, texture_size.xy, uv - float2(float(i) - FIR_SIZE / 2., 0.)).yz * lp;
 
-float4 artifact_colors2(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(original_texture)) 
+float4 artifact_colors2(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))//, COMPAT_Texture2D(original_texture)) 
 {
     float4 final;
 	float Fs = texture_size.x;
@@ -208,7 +213,7 @@ float4 artifact_colors2(float2 texture_size, float2 video_size, float2 output_si
     #elif(VIEW_MODE == SPLIT)
     	if(texCoord.x < 0.25)
         {
-            final = ORIG_Sample(texCoord.xy);
+ //           final = ORIG_Sample(texCoord.xy);
         }
         else
         {
@@ -221,6 +226,6 @@ float4 artifact_colors2(float2 texture_size, float2 video_size, float2 output_si
 
 float4 main_fragment(orig ORIG : TEXUNIT1, COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-	return artifact_colors2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal, ORIG_texture);
+	return artifact_colors2(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);//, ORIG_texture);
 }
 COMPAT_END
