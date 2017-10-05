@@ -18,6 +18,7 @@ uniform float XBR_LV2_COEFFICIENT;
 /* COMPATIBILITY 
    - HLSL compilers
    - Cg   compilers
+   - FX11 compilers
 */
 
 
@@ -105,16 +106,21 @@ struct out_vertex {
 	float4 t1        : TEXCOORD1;
 	float4 t2        : TEXCOORD2;
 	float4 t3        : TEXCOORD3;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 /*    VERTEX_SHADER    */
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
-#ifdef HLSL_4
-    float4 position = VIN.position;
-    float2 texCoord = VIN.texCoord;
-#endif
 	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
 
 	OUT.position = mul(modelViewProj, position);
 
