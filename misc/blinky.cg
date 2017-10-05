@@ -18,15 +18,20 @@ struct out_vertex
 	float2 tex_180 : TEXCOORD4;
 	float2 tex_240 : TEXCOORD5;
 	float2 tex_300 : TEXCOORD6;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	float2 one = 1.0 / COMPAT_texture_size;
 	float angle = COMPAT_frame_count / 20.0;

@@ -99,15 +99,20 @@ struct out_vertex
 	float3 stretch  : TEXCOORD1;
 	float2 sinangle : TEXCOORD2;
 	float2 cosangle : TEXCOORD3;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord * float2(WIDTH, HEIGHT) - float2(BOTH, VERT);
 	float2 sin_angle = sin(float2(x_tilt, y_tilt));

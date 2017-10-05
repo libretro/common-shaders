@@ -50,15 +50,20 @@ struct out_vertex
 {
 	float4 position : COMPAT_POS;
 	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
 };
 
 out_vertex main_vertex(COMPAT_IN_VERTEX)
 {
+	out_vertex OUT;
 #ifdef HLSL_4
 	float4 position = VIN.position;
 	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
 #endif
-	out_vertex OUT;
 	float2 shift = 0.5 * COMPAT_video_size / COMPAT_texture_size;
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = ((texCoord - shift) * ana_zoom + shift) * float2(WIDTH, HEIGHT) - float2(BOTH, 0.0);
