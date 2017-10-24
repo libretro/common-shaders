@@ -39,10 +39,12 @@ struct input
   float frame_rotation;
 };
 
+#ifndef HLSL_4
 struct output 
 {
-  float4 color    : COLOR;
+  float4 color : COLOR;
 };
+#endif
 
 output main_fragment( in float2 Tex : TEXCOORD0, uniform input IN, uniform sampler2D s0 : TEXUNIT0 )
 {
@@ -52,7 +54,11 @@ output main_fragment( in float2 Tex : TEXCOORD0, uniform input IN, uniform sampl
    Color += tex2D( s0, Tex.xy-0.0001) * SHARPEN_FACTOR;
 
    Color.a = 1.0;
-   output OUT;
-   OUT.color = Color;
-   return OUT;
+#ifdef HLSL_4
+    return Color;
+#else
+	output OUT;
+	OUT.color = Color;
+	return OUT;
+#endif
 }

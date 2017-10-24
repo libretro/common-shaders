@@ -36,11 +36,12 @@ VERTEX_OUTPUT main_vertex
 	return OUT;
 }
 
+#ifndef HLSL_4
 struct output 
 {
   float4 color : COLOR;
 };
-
+#endif
 
 struct VERTEX_INPUT
 {
@@ -51,8 +52,6 @@ struct VERTEX_INPUT
 
 output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) 
 {
-	output OUT;
-
 	float4 Color = tex2D( decal, VAR.CT );
         Color.a = 1.0f;
         Color.rgb = 0.5f;
@@ -60,6 +59,11 @@ output main_fragment(in VERTEX_INPUT VAR, uniform sampler2D decal : TEXUNIT0, un
         Color += tex2D( decal, VAR.CT.xy+0.001)*2.0f;
         Color.rgb = (Color.r+Color.g+Color.b)/3.0f;
 
+#ifdef HLSL_4
+    return Color;
+#else
+	output OUT;
 	OUT.color = Color;
 	return OUT;
+#endif
 }

@@ -246,7 +246,6 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
     // Resulting X pixel-coordinate of the pixel we're drawing.
     OUT.mod_factor = texCoord.x * COMPAT_texture_size.x * COMPAT_output_size.x / COMPAT_video_size.x;
-	OUT.Color = color;
     return OUT;
 }
 
