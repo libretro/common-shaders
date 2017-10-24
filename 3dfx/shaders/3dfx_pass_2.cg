@@ -28,7 +28,6 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 #endif
 	OUT.position = mul(modelViewProj, position);
 	OUT.texCoord = texCoord;
-	OUT.Color = color;
 	
 	return OUT;
 }
