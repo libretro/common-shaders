@@ -1,0 +1,56 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(COLOR_PALETTE) : TEXUNIT1;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+
+	return OUT;
+}
+
+float4 gb_palette(float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(COLOR_PALETTE)) 
+{
+     //sample the input textures
+
+     fixed4 out_color = COMPAT_SamplePoint(decal, texCoord.xy);
+
+     //input grayscale values:
+     //0.000 black - 0.333 medium gray - 0.667 light gray - 1.000 white
+     //multiply grayscale value by 3 to obtain int value in range [0, 3], acts as index for arrays storing custom palette UV coordinates and alpha value
+     fixed2 palette_coordinate = fixed2(0.5, (abs(1 - out_color.r) * 0.75) + 0.125);	//directly map input grayscale value to color palette y coordinate
+
+     out_color = fixed4(COMPAT_SamplePoint(COLOR_PALETTE, palette_coordinate).rgb, ceil(abs(1.0 - out_color.r)));	//sample color from palette, alpha = 1 if color is not transparent
+
+     return out_color;
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return gb_palette(VOUT.texCoord, decal, COLOR_PALETTE);
+}
+COMPAT_END
