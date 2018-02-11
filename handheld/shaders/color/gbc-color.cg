@@ -12,6 +12,13 @@
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
+#pragma parameter darken_screen "Darken Screen" 0.0 -0.25 2.0 0.05
+#ifdef PARAMETER_UNIFORM
+uniform float darken_screen;
+#else
+#define darken_screen 0.0
+#endif
+
 #define target_gamma 2.2
 #define display_gamma 2.2
 #define blr 0.0
@@ -56,7 +63,7 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 float4 gbc_color(float2 texCoord : TEXCOORD)
 {
-     float4 screen = pow(COMPAT_SamplePoint(decal, texCoord), target_gamma).rgba;
+     float4 screen = pow(COMPAT_SamplePoint(decal, texCoord), target_gamma + darken_screen).rgba;
      //                r    g     b    black
      float4x4 color = {r,   gr,   br,  blr,   //red channel
                        rg,  g,    bg,  blg,   //green channel
