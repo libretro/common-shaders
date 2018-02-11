@@ -1,0 +1,114 @@
+/*
+   Gambatte Color
+   A Cg port of the color correction option on Gambatte emulator
+   Ported by: RiskyJumps
+   License: Public domain
+*/
+
+/* COMPATIBILITY
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+/*
+OPTIONS:
+
+INT_OPS (default: Disabled)
+It's supposed to be more "accurate" but it's a waste. Not recommended
+*/
+//#define INT_OPS
+
+/*
+SIMULATE_INT (default: Disabled)
+Only meaningful if INT_OPS is disabled. It truncates floats. Then
+again, it's supposed to be more "accurate" but it looks just
+too similar. It's still a waste. Not recommended.
+*/
+//#define SIMULATE_INT
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+     float4 position : COMPAT_POS;
+     float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+     float4 Color    : COLOR;
+#endif
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+     out_vertex OUT;
+#ifdef HLSL_4
+     float4 position = VIN.position;
+     float2 texCoord = VIN.texCoord;
+#else
+     OUT.Color = color;
+#endif
+     OUT.position = mul(modelViewProj, position);
+     OUT.texCoord = texCoord;
+
+     return OUT;
+}
+
+float4 gambatte_color(float2 texCoord, COMPAT_Texture2D(decal))
+{
+     float4 color = COMPAT_Sample(decal, texCoord);
+
+#ifdef INT_OPS
+     color.rgb *= 255.0;
+
+     int r = (int)color.r;
+     int g = (int)color.g;
+     int b = (int)color.b;
+
+     int R = (r * 13 + g * 2 + b) >> 4;
+     int G = (g * 3 + b) >> 2;
+     int B = (r * 3 + g * 2 + b * 11) >> 4;
+
+     color.rgb = float3((float)R, (float)G, (float)B);
+     color.rgb /= 255.0;
+
+     return color;
+
+#else
+     mat3x3 color_correction = {
+          13.0,  2.0,   1.0,
+           0.0,  3.0,   1.0,
+           3.0,  2.0,  11.0
+     };
+
+     mat3x3 scale = {
+          1.0/16.0,      0.0,       0.0,
+               0.0,  1.0/4.0,       0.0,
+               0.0,      0.0,  1.0/16.0
+     };
+
+     color_correction = mul(scale, color_correction);
+
+#ifdef SIMULATE_INT
+     color.rgb *= 255.0;
+     color.rgb = floor(color.rgb);
+     color.rgb = mul(color_correction, color.rgb);
+     color.rgb = floor(color.rgb);
+     color.rgb /= 255.0;
+     return color;
+
+#else
+     color.rgb  = mul(color_correction, color.rgb);
+     return color;
+
+#endif
+
+#endif
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+     return gambatte_color(VOUT.texCoord, decal);
+}
+COMPAT_END
