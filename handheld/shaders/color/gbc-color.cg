@@ -19,13 +19,13 @@ uniform float4x4 modelViewProj;
 #define blb 0.0
 #define r 0.78824
 #define g 0.72941
-#define b 0.66667
-#define rg 0.00
-#define rb 0.18039
+#define b 0.82
+#define rg 0.025
+#define rb 0.12039
 #define gr 0.12157
 #define gb 0.12157
-#define br 0.05882
-#define bg 0.24314
+#define br 0.0
+#define bg 0.275000
 
 struct out_vertex
 {
