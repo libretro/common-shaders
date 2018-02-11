@@ -12,6 +12,8 @@
 uniform COMPAT_Texture2D(decal) : TEXUNIT0;
 uniform float4x4 modelViewProj;
 
+#define target_gamma 2.2
+#define display_gamma 2.2
 #define blr 0.0
 #define blg 0.0
 #define blb 0.0
@@ -52,9 +54,9 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
      return OUT;
 }
 
-float4 gba_color(float2 texCoord : TEXCOORD)
+float4 gbc_color(float2 texCoord : TEXCOORD)
 {
-     float4 screen = COMPAT_SamplePoint(decal, texCoord);
+     float4 screen = pow(COMPAT_SamplePoint(decal, texCoord), target_gamma).rgba;
      //                r    g     b    black
      float4x4 color = {r,   gr,   br,  blr,   //red channel
                        rg,  g,    bg,  blg,   //green channel
@@ -62,11 +64,11 @@ float4 gba_color(float2 texCoord : TEXCOORD)
                        0.0, 0.0,  0.0, 1.0};  //alpha channel; these numbers do nothing for our purposes.
                   
      screen = mul(color, screen);
-     return screen;
+     return pow(screen, 1.0 / display_gamma);
 }
 
 float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-     return gba_color(VOUT.texCoord);
+     return gbc_color(VOUT.texCoord);
 }
 COMPAT_END
