@@ -1,5 +1,5 @@
 shaders = "3"
-shader0 = "../motionblur/shaders/motionblur-simple.cg"
+shader0 = "../motionblur/shaders/response-time.cg"
 shader1 = "shaders/lcd_cgwg/lcd-grid-v2.cg"
 shader2 = "shaders/color/nds-color.cg"
 
