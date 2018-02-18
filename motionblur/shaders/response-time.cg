@@ -1,0 +1,116 @@
+/*
+    Response Time
+    Based on the response time function from Harlequin's Game Boy and LCD shaders
+ 
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+*/
+
+#pragma parameter response_time "LCD Response Time" 0.333 0.0 0.777 0.111
+#ifdef PARAMETER_UNIFORM
+uniform float response_time;
+#else
+#define response_time 0.333   //simulate response time, higher values result in longer color transition periods - [0, 1]
+#endif
+
+struct previous
+{
+   uniform sampler2D texture;
+   float2 tex_coord;
+};
+
+struct input
+{
+   float2 video_size;
+   float2 texture_size;
+   float2 output_size;
+   float frame_count;
+   float frame_direction;
+   float frame_rotation;
+   sampler2D texture : TEXUNIT0;
+};
+
+struct tex_coords
+{
+   float2 tex;
+   float2 prev;
+   float2 prev1;
+   float2 prev2;
+   float2 prev3;
+   float2 prev4;
+   float2 prev5;
+   float2 prev6;
+};
+
+void main_vertex
+(
+   float4 position : POSITION,
+   out float4 oPosition : POSITION,
+   uniform float4x4 modelViewProj,
+   float2 tex : TEXCOORD,
+
+   previous PREV,
+   previous PREV1,
+   previous PREV2,
+   previous PREV3,
+   previous PREV4,
+   previous PREV5,
+   previous PREV6,
+   out tex_coords coords
+)
+{
+   oPosition = mul(modelViewProj, position);
+   coords = tex_coords(tex, PREV.tex_coord,
+      PREV1.tex_coord,
+      PREV2.tex_coord,
+      PREV3.tex_coord,
+      PREV4.tex_coord,
+      PREV5.tex_coord,
+      PREV6.tex_coord);
+}
+
+struct output 
+{
+  float4 col    : COLOR;
+};
+
+// Frame sampling definitions
+#define curr_rgb  tex2D(IN.texture, coords.tex).rgb
+#define prev0_rgb tex2D(PREV.texture, coords.prev).rgb
+#define prev1_rgb tex2D(PREV1.texture, coords.prev1).rgb
+#define prev2_rgb tex2D(PREV2.texture, coords.prev2).rgb
+#define prev3_rgb tex2D(PREV3.texture, coords.prev3).rgb
+#define prev4_rgb tex2D(PREV4.texture, coords.prev4).rgb
+#define prev5_rgb tex2D(PREV5.texture, coords.prev5).rgb
+#define prev6_rgb tex2D(PREV6.texture, coords.prev6).rgb
+
+output main_fragment(tex_coords coords,
+uniform input IN,
+      previous PREV,
+      previous PREV1,
+      previous PREV2,
+      previous PREV3,
+      previous PREV4,
+      previous PREV5,
+      previous PREV6
+)
+{
+
+   //sample color from the current and previous frames, apply response time modifier
+   //response time effect implemented through an exponential dropoff algorithm
+
+   float3 input_rgb = curr_rgb;
+   input_rgb += (prev0_rgb - input_rgb) * response_time;
+   input_rgb += (prev1_rgb - input_rgb) * pow(response_time, 2.0);
+   input_rgb += (prev2_rgb - input_rgb) * pow(response_time, 3.0);
+   input_rgb += (prev3_rgb - input_rgb) * pow(response_time, 4.0);
+   input_rgb += (prev4_rgb - input_rgb) * pow(response_time, 5.0);
+   input_rgb += (prev5_rgb - input_rgb) * pow(response_time, 6.0);
+   input_rgb += (prev6_rgb - input_rgb) * pow(response_time, 7.0);
+
+   output OUT;
+   OUT.col = float4(input_rgb, 0.0);
+   return OUT;
+}
