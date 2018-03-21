@@ -62,7 +62,7 @@ float4 interlacing(float2 texture_size, float2 video_size, float frame_count, fl
    // assume anything with a vertical resolution greater than 400 lines is interlaced
    if (video_size.y > 400.0) y = texture_size.y * texCoord.y + (frame_count * !force_240p) + top_field_first;
    else
-      y = 2.0 * texture_size.y * texCoord.y + top_field_first;
+      y = 2.000001 * texture_size.y * texCoord.y + top_field_first;
 
    if (fmod(y, 2.0) > 0.99999) return res;
    else

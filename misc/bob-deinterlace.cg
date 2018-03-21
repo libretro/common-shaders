@@ -51,7 +51,7 @@ float4 bob(float2 texture_size, float2 video_size, float frame_count, float2 tex
    // assume anything with a vertical resolution greater than 400 lines is interlaced
    if (video_size.y > 400.0) y = texture_size.y * texCoord.y + frame_count;
    else
-      y = 2.0 * texture_size.y * texCoord.y;
+      y = 2.000001 * texture_size.y * texCoord.y;
 
    if (fmod(y, 2.0) > 0.99999) return float4(COMPAT_Sample(decal, texCoord + float2(0.0, one_pixel.y)));
    else

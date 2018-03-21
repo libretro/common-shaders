@@ -111,7 +111,7 @@ float4 interlacing_phosphor(float2 texture_size, float2 video_size, float2 outpu
 		res *= BRIGHTBOOST;
 	}
 	else
-		y = 2.0 * texture_size.y * texCoord.y;
+		y = 2.000001 * texture_size.y * texCoord.y;
 
 	if (fmod(y, 2.0) > 0.99999) return res * dotMaskWeights * lotte_mask * 1.15;
 	else
