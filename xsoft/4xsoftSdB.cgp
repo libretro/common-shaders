@@ -1,11 +1,17 @@
-shaders = 2
+shaders = 3
 
-shader0 = shaders/4xsoftSdB.cg
+shader0 = ../stock.cg
 filter_linear0 = false
 scale_type0 = source
 scale_x0 = 2.0
 scale_y0 = 2.0
 
-shader1 = ../stock.cg
-filter_linear1 = true
-scale_type_1 = source
+shader1 = shaders/4xsoftSdB.cg
+filter_linear1 = false
+scale_type1 = source
+scale_x1 = 2.0
+scale_y1 = 2.0
+
+shader2 = ../stock.cg
+filter_linear2 = true
+scale_type_2 = source
