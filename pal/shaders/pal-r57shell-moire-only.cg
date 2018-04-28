@@ -1,0 +1,120 @@
+// NES CRT simulation
+// by r57shell
+// thanks to feos & HardWareMan
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+ 
+#include "../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord * 1.0001;
+	
+	return OUT;
+}
+ 
+const float pi = 3.142;
+ 
+float3 monitor(COMPAT_Texture2D(decal), float2 p, float2 texture_size)
+{
+        float2 size = texture_size;
+        float2 pos = floor(p*size);
+        float2 uv = floor(pos)/size;
+        float4 res = COMPAT_Sample(decal, uv);
+        float3 yuv = mul(float3x3(
+                0.2126, 0.7152, 0.0722,
+                -0.09991, -0.33609, 0.436,
+                0.615, -0.55861, -0.05639), res.xyz);
+        float alpha = (floor(p.x*size.x*4.)/2.0)*pi;
+        float2 sincv = float2(cos(alpha), sin(alpha));
+        if (mod(pos.y + 5.,4.) < 2.)
+                sincv.x = -sincv.x;
+        if (mod(pos.y, 4.) >= 2.)
+                sincv.y = -sincv.y;
+        float mc = 1.+dot(sincv, yuv.zy)/yuv.x;
+ 
+        /*float3 rgb = float3(
+                yuv.x + 1.28033 * yuv.z,
+                yuv.x - 0.21482 * yuv.y - 0.38059 * yuv.z,
+                yuv.x + 2.12798 * yuv.y);*/
+    return res.xyz*mc;
+}
+ 
+// pos (left corner, sample size)
+float4 monitor_sample(COMPAT_Texture2D(decal), float2 p, float2 sample, float2 texture_size)
+{
+        // linear interpolation was...
+        // now other thing.
+        // http://imgur.com/m8Z8trV
+        // AT LAST IT WORKS!!!!
+        // going to check in retroarch...
+        float2 size = texture_size;
+        float2 next = float2(.25,1.)/size;
+        float2 f = fract(float2(4.,1.)*size*p);
+        sample *= float2(4.,1.)*size;
+        float2 l;
+        float2 r;
+        if (f.x+sample.x < 1.)
+        {
+                l.x = f.x+sample.x;
+                r.x = 0.;
+        }
+        else
+        {
+                l.x = 1.-f.x;
+                r.x = min(1.,f.x+sample.x-1.);
+        }
+        if (f.y+sample.y < 1.)
+        {
+                l.y = f.y+sample.y;
+                r.y = 0.;
+        }
+        else
+        {
+                l.y = 1.-f.y;
+                r.y = min(1.,f.y+sample.y-1.);
+        }
+        float3 top = lerp(monitor(decal, p, texture_size), monitor(decal, p+float2(next.x,0.), texture_size), r.x/(l.x+r.x));
+        float3 bottom = lerp(monitor(decal, p+float2(0.,next.y), texture_size), monitor(decal, p+next, texture_size), r.x/(l.x+r.x));
+        return float4(lerp(top,bottom, r.y/(l.y+r.y)),1.0);
+}
+ 
+float4 r57shell_PAL(COMPAT_Texture2D(decal), float2 coords, float2 texture_size, float2 output_size)
+{
+        return monitor_sample(decal, coords, 1./output_size, texture_size);
+ 
+        // difference
+        //float zoom = 8;
+        //float4 sampled = monitor_sample(decal, coords, 1./zoom/output_size, texture_size);
+        //float4 simple = float4(monitor(decal, coords, texture_size),1.);
+        //return float4(length(sampled - simple)*5*sin(frame_count/30.))+simple;
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return r57shell_PAL(decal, VOUT.texCoord, COMPAT_texture_size, COMPAT_output_size);
+}
+COMPAT_END

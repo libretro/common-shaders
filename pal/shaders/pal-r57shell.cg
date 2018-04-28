@@ -1,120 +1,572 @@
-// NES CRT simulation
-// by r57shell
-// thanks to feos & HardWareMan
+// NES PAL composite signal simulation for RetroArch
+// shader by r57shell
+// thanks to feos & HardWareMan & NewRisingSun
 
-/* COMPATIBILITY 
-   - HLSL compilers
-   - Cg   compilers
-   - FX11 compilers
-*/
- 
-#include "../../compat_includes.inc"
-uniform COMPAT_Texture2D(decal) : TEXUNIT0;
-uniform float4x4 modelViewProj;
+// also TV subpixels and scanlines
 
-struct out_vertex
-{
-	float4 position : COMPAT_POS;
-	float2 texCoord : TEXCOORD0;
-#ifndef HLSL_4
-	float4 Color    : COLOR;
+// LICENSE: PUBLIC DOMAIN
+
+// NOTE: for nice TV subpixels and scanlines I recommend to
+// disable this features here and apply CRT-specialized shader.
+
+// Quality considerations
+
+// there are three main options:
+// USE_RAW (R), USE_DELAY_LINE (D), USE_COLORIMETRY (C)
+// here is table of quality in decreasing order:
+// RDC, RD, RC, DC, D, C
+
+// TWEAKS start
+
+// uncomment this to disable dynamic settings, and use static.
+// if you unable to compile shader with dynamic settings,
+// and you want to tune parameters in menu, then
+// try to reduce somewhere below Mwidth from 32 to lower,
+// or disable USE_DELAY_LINE or USE_RAW, or all at once.
+//#undef PARAMETER_UNIFORM
+
+// use delay line technique
+// without delay line technique, color would interleave
+// to avoid this, set HueRotation to zero.
+#define USE_DELAY_LINE
+
+// use this if you need to swap even/odd V sign.
+// sign of V changes each scanline
+// so if some scanline is positive, then next is negative
+// and if you want to match picture
+// to actual running PAL NES on TV
+// you may want to have this option, to change signs
+// if they don't match
+//#define SWAP_VSIGN
+
+// phase shift from frame to frame as NTSC NES does.
+// but PAL NES doesn't
+//#define ANIMATE_PHASE
+
+// rough simulation of scanlines
+// better if you use additional shader instead
+// if you still use it, make sure that SizeY
+// is at least twice lower than output height
+//#define USE_SCANLINES
+
+// this option changes active visible fields.
+// this is not how actual NES works
+// it does not alter fields.
+//#define ANIMATE_SCANLINE
+
+// simulate CRT TV subpixels
+// better if you use CRT-specialized shader instead
+//#define USE_SUBPIXELS
+
+// to change gamma of virtual TV from 2.2 to something else
+//#define USE_GAMMA
+
+// use core size. for NES use this, for other cores turn off
+// for other cores use "size" tweak.
+//#define USE_CORE_SIZE
+
+// use raw palette, turn it on if you
+// have nestopia and having using raw palette
+//#define USE_RAW
+
+// use lookup texture, faster but less accuracy
+// it's working only if USE_RAW enabled.
+//#define USE_LUT
+
+// compensate filter width
+// it will make width of picture shorter
+// to make picture right border visible
+#define COMPENSATE_WIDTH
+
+// use sampled version. it's much more slower version of shader.
+// because it is computing x4 more values. NOT RECOMMENDED.
+//#define USE_SAMPLED
+
+#ifndef PARAMETER_UNIFORM
+
+// NTSC standard gamma = 2.2
+// PAL standard gamma = 2.8
+// according to many sources, very unlikely gamma of TV is 2.8
+// most likely gamma of PAL TV is in range 2.4-2.5
+static const float Gamma_static = 2.5; // gamma of virtual TV
+
+static const float Brightness_static = 0.0;
+static const float Contrast_static = 1.0;
+static const float Saturation_static = 1.0;
+
+static const int
+	Ywidth_static = 12,
+	Uwidth_static = 23,
+	Vwidth_static = 23;
+
+// correct one is -2.5
+// works only with USE_RAW
+static const float HueShift = -2.5;
+
+// rotation of hue due to luma level.
+static const float HueRotation = 2.;
+
+// touch this only if you know what you doing
+static const float Phase_Y = 2.; // mod(341*10,12)
+static const float Phase_One = 0.; // alternating phases.
+static const float Phase_Two = 8.;
+
+// screen size, scanlines = y*2; y one field, and y other field.
+static const int SizeX = 256;
+static const int SizeY = 240;
+
+// count of pixels of virtual TV.
+// value close to 1000 produce small artifacts
+static const int TV_Pixels = 400;
+
+static const float dark_scanline = 0.5; // half
+
 #endif
+
+// this is using following matrixes.
+// it provides more scientific approach
+// by conversion into linear XYZ space
+// and back to sRGB.
+// it's using Gamma setting too.
+// define USE_GAMMA is not required.
+#define USE_COLORIMETRY
+
+static const float3x3 RGB_to_XYZ =
+{
+	0.4306190, 0.3415419, 0.1783091,
+	0.2220379, 0.7066384, 0.0713236,
+	0.0201853, 0.1295504, 0.9390944
 };
 
-out_vertex main_vertex(COMPAT_IN_VERTEX)
+static const float3x3 XYZ_to_sRGB =
 {
-	out_vertex OUT;
-#ifdef HLSL_4
-	float4 position = VIN.position;
-	float2 texCoord = VIN.texCoord;
+	 3.2406, -1.5372, -0.4986,
+	-0.9689,  1.8758,  0.0415,
+	 0.0557, -0.2040,  1.0570
+};
+
+// TWEAKS end
+
+#ifdef PARAMETER_UNIFORM
+
+#pragma parameter Gamma "PAL Gamma" 2.5 0.0 10.0 0.03125
+#pragma parameter Brightness "PAL Brightness" 0.0 -1.0 2.0 0.03125
+#pragma parameter Contrast "PAL Contrast" 1.0 -1.0 2.0 0.03125
+#pragma parameter Saturation "PAL Saturation" 1.0 -1.0 2.0 0.03125
+#pragma parameter HueShift "PAL Hue Shift" -2.5 -6.0 6.0 0.015625
+#pragma parameter HueRotation "PAL Hue Rotation" 2.0 -5.0 5.0 0.015625
+#pragma parameter Ywidth "PAL Y Width" 12.0 1.0 32.0 1.0
+#pragma parameter Uwidth "PAL U Width" 23.0 1.0 32.0 1.0
+#pragma parameter Vwidth "PAL V Width" 23.0 1.0 32.0 1.0
+#pragma parameter SizeX "Active Width" 256.0 1.0 4096.0 1.0
+#pragma parameter SizeY "Active Height" 240.0 1.0 4096.0 1.0
+#pragma parameter TV_Pixels "PAL TV Pixels" 200.0 1.0 2400.0 1.0
+#pragma parameter dark_scanline "PAL Scanline" 0.5 0.0 1.0 0.025
+#pragma parameter Phase_Y "PAL Phase Y" 2.0 0.0 12.0 0.025
+#pragma parameter Phase_One "PAL Phase One" 0.0 0.0 12.0 0.025
+#pragma parameter Phase_Two "PAL Phase Two" 8.0 0.0 12.0 0.025
+
+uniform float Gamma;
+uniform float Brightness;
+uniform float Contrast;
+uniform float Saturation;
+uniform float HueShift;
+uniform float HueRotation;
+uniform int Ywidth;
+uniform int Uwidth;
+uniform int Vwidth;
+uniform int TV_Pixels;
+uniform int SizeX;
+uniform int SizeY;
+uniform float dark_scanline;
+uniform float Phase_Y;
+uniform float Phase_One;
+uniform float Phase_Two;
+
+static const float Mwidth = 24;
+
+static const int Ywidth_static = 1;
+static const int Uwidth_static = 1;
+static const int Vwidth_static = 1;
+
+static const float Contrast_static = 1.;
+static const float Saturation_static = 1.;
+
 #else
-	OUT.Color = color;
+
+#define Brightness Brightness_static
+#define Gamma Gamma_static
+
+#define Ywidth Ywidth_static
+#define Uwidth Uwidth_static
+#define Vwidth Vwidth_static
+
+static const int Mwidth = max(float(Ywidth), max(float(Uwidth), float(Vwidth)));
+
+#ifdef USE_CORE_SIZE
+// just use core output size.
+#define size (IN.video_size.xy)
+#else
+static const float2 size = float2(SizeX,SizeY);
 #endif
-	OUT.position = mul(modelViewProj, position);
-	OUT.texCoord = texCoord * 1.0001;
-	
-	return OUT;
-}
- 
-const float pi = 3.142;
- 
-float3 monitor(COMPAT_Texture2D(decal), float2 p, float2 texture_size)
+
+#endif
+
+static const float YUV_u = 0.492;
+static const float YUV_v = 0.877;
+
+static const float3x3 RGB_to_YUV =
 {
-        float2 size = texture_size;
-        float2 pos = floor(p*size);
-        float2 uv = floor(pos)/size;
-        float4 res = COMPAT_Sample(decal, uv);
-        float3 yuv = mul(float3x3(
-                0.2126, 0.7152, 0.0722,
-                -0.09991, -0.33609, 0.436,
-                0.615, -0.55861, -0.05639), res.xyz);
-        float alpha = (floor(p.x*size.x*4.)/2.0)*pi;
-        float2 sincv = float2(cos(alpha), sin(alpha));
-        if (mod(pos.y + 5.,4.) < 2.)
-                sincv.x = -sincv.x;
-        if (mod(pos.y, 4.) >= 2.)
-                sincv.y = -sincv.y;
-        float mc = 1.+dot(sincv, yuv.zy)/yuv.x;
- 
-        /*float3 rgb = float3(
-                yuv.x + 1.28033 * yuv.z,
-                yuv.x - 0.21482 * yuv.y - 0.38059 * yuv.z,
-                yuv.x + 2.12798 * yuv.y);*/
-    return res.xyz*mc;
-}
- 
-// pos (left corner, sample size)
-float4 monitor_sample(COMPAT_Texture2D(decal), float2 p, float2 sample, float2 texture_size)
+	float3( 0.299, 0.587, 0.114), //Y
+	float3(-0.299,-0.587, 0.886)*YUV_u, //B-Y
+	float3( 0.701,-0.587,-0.114)*YUV_v //R-Y
+};
+
+#ifdef USE_RAW
+#ifndef USE_LUT
+static const float Voltage_0 = 0.518;
+static const float Voltage_1 = 1.962;
+static const float DeltaV = (Voltage_1-Voltage_0);
+#else
+static const float Voltage_0 = 0.15103768593097774;
+static const float Voltage_1 = 1.;
+static const float DeltaV = (Voltage_1-Voltage_0);
+#endif
+
+#else
+static const float DeltaV = 1.;
+#endif
+
+#ifdef USE_DELAY_LINE
+static const float comb_line = 1.;
+#else
+static const float comb_line = 2.;
+#endif
+
+static const double RGB_y = Contrast_static/Ywidth_static/DeltaV;
+static const double RGB_u = comb_line*Contrast_static*Saturation_static/YUV_u/Uwidth_static/DeltaV;
+static const double RGB_v = comb_line*Contrast_static*Saturation_static/YUV_v/Vwidth_static/DeltaV;
+
+static const float3x3 YUV_to_RGB =
 {
-        // linear interpolation was...
-        // now other thing.
-        // http://imgur.com/m8Z8trV
-        // AT LAST IT WORKS!!!!
-        // going to check in retroarch...
-        float2 size = texture_size;
-        float2 next = float2(.25,1.)/size;
-        float2 f = fract(float2(4.,1.)*size*p);
-        sample *= float2(4.,1.)*size;
-        float2 l;
-        float2 r;
-        if (f.x+sample.x < 1.)
-        {
-                l.x = f.x+sample.x;
-                r.x = 0.;
-        }
-        else
-        {
-                l.x = 1.-f.x;
-                r.x = min(1.,f.x+sample.x-1.);
-        }
-        if (f.y+sample.y < 1.)
-        {
-                l.y = f.y+sample.y;
-                r.y = 0.;
-        }
-        else
-        {
-                l.y = 1.-f.y;
-                r.y = min(1.,f.y+sample.y-1.);
-        }
-        float3 top = lerp(monitor(decal, p, texture_size), monitor(decal, p+float2(next.x,0.), texture_size), r.x/(l.x+r.x));
-        float3 bottom = lerp(monitor(decal, p+float2(0.,next.y), texture_size), monitor(decal, p+next, texture_size), r.x/(l.x+r.x));
-        return float4(lerp(top,bottom, r.y/(l.y+r.y)),1.0);
-}
- 
-float4 r57shell_PAL(COMPAT_Texture2D(decal), float2 coords, float2 texture_size, float2 output_size)
+	float3(1., 1., 1.)*RGB_y,
+	float3(0., -0.114/0.587, 1.)*RGB_u,
+	float3(1., -0.299/0.587, 0.)*RGB_v
+};
+
+static const float pi = 3.1415926535897932384626433832795;
+
+void main_vertex
+(
+	float4 position : POSITION,
+	out float4 oPosition : POSITION,
+	uniform float4x4 modelViewProj,
+
+	float2 tex : TEXCOORD,
+	out float2 oTex : TEXCOORD
+)
 {
-        return monitor_sample(decal, coords, 1./output_size, texture_size);
- 
-        // difference
-        //float zoom = 8;
-        //float4 sampled = monitor_sample(decal, coords, 1./zoom/output_size, texture_size);
-        //float4 simple = float4(monitor(decal, coords, texture_size),1.);
-        //return float4(length(sampled - simple)*5*sin(frame_count/30.))+simple;
+	oPosition = mul(modelViewProj, position);
+	oTex = tex;
 }
 
-float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+struct input
 {
-	return r57shell_PAL(decal, VOUT.texCoord, COMPAT_texture_size, COMPAT_output_size);
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float  frame_count;
+	float  frame_direction;
+	float frame_rotation;
+};
+
+#ifdef USE_RAW
+
+bool InColorPhase(int color, float phase)
+{
+	return mod((color*2. + phase),24.) < 12.;
 }
-COMPAT_END
+
+#ifndef USE_LUT
+// from nesdev wiki page NTSC_video
+float NTSCsignal(vec3 pixel, float phase)
+{
+	// Voltage levels, relative to synch voltage
+	static const float black=.518f, white=1.962f, attenuation=.746f,
+		levels[8] = {.350f, .518f, .962f,1.550f,  // Signal low
+				1.094f,1.506f,1.962f,1.962f}; // Signal high
+
+	// Decode the NES color.
+	int color = int(pixel.r*15);	// 0..15 "cccc"
+	int level = int(pixel.g*3);	// 0..3  "ll"
+	int emphasis = int(pixel.b*7+0.1);	// 0..7  "eee"
+	if (color > 13) { level = 1; }	// For colors 14..15, level 1 is forced.
+
+	// The square wave for this color alternates between these two voltages:
+	float low = levels[0], high = levels[4];
+	if (level == 1) { low = levels[1], high = levels[5]; }
+	if (level == 2) { low = levels[2], high = levels[6]; }
+	if (level == 3) { low = levels[3], high = levels[7]; }
+	if(color == 0) { low = high; } // For color 0, only high level is emitted
+	if(color > 12) { high = low; } // For colors 13..15, only low level is emitted
+
+
+	// Generate the square wave
+	// When de-emphasis bits are set, some parts of the signal are attenuated:
+	float2 e = mod(float2(emphasis), float2(2,4));
+	float signal = InColorPhase(color,phase) ? high : low;
+
+	if( ((e.x != 0) && InColorPhase(0,phase))
+	||  ((e.y-e.x != 0) && InColorPhase(4,phase))
+	||  ((emphasis-e.y != 0) && InColorPhase(8,phase)) )
+		return signal * attenuation;
+	else
+		return signal;
+}
+
+#else
+
+uniform sampler2D nes_lut;
+float NTSCsignal(vec3 pixel, float phase)
+{
+	return tex2D(nes_lut,float2(dot(pixel,float3(
+		15.*(8.)/512.,
+		3.*(16.*8.)/512.,
+		7./512.)
+		) + 0.5/(4.*16.*8.), fract(phase/24.))).r;
+}
+
+#endif
+
+#endif
+
+float sinn(float x)
+{
+	return sin(/*mod(x,24)*/x*(pi*2./24.));
+}
+
+float coss(float x)
+{
+	return cos(/*mod(x,24)*/x*(pi*2./24.));
+}
+
+vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
+{
+#ifdef PARAMETER_UNIFORM
+	const float2 size = float2(SizeX,SizeY);
+#endif
+	// align vertical coord to center of texel
+	vec2 uv = vec2(
+#ifdef COMPENSATE_WIDTH
+		p.x+p.x*(Ywidth/8.)/size.x,
+#else
+		p.x,
+#endif
+		(floor(p.y*IN.texture_size.y)+0.5)/IN.texture_size.y);
+#ifdef USE_DELAY_LINE
+	vec2 sh = (IN.video_size/IN.texture_size/size)*vec2(14./10.,-1.0);
+#endif
+	vec2 pc = uv*IN.texture_size/IN.video_size*size*vec2(10.,1.);
+	float alpha = dot(floor(vec2(pc.x,pc.y)),vec2(2.,Phase_Y*2.));
+	alpha += Phase_One*2.;
+#ifdef ANIMATE_PHASE
+	if (mod(IN.frame_count,2) > 1.)
+		alpha += (Phase_Two-Phase_One)*2.;
+#endif
+
+	// 1/size.x of screen in uv coords = IN.video_size.x/IN.texture_size.x/size.x;
+	// then 1/10*size.x of screen:
+	float ustep = IN.video_size.x/IN.texture_size.x/size.x/10.;
+
+	float border = IN.video_size.x/IN.texture_size.x;
+	float ss = 2.0;
+#ifdef SWAP_VSIGN
+#define PAL_SWITCH(A) A < 1.
+#else
+#define PAL_SWITCH(A) A > 1.
+#endif
+	if (PAL_SWITCH(mod(uv.y*IN.texture_size.y/IN.video_size.y*size.y,2.0)))
+	{
+		// cos(pi-alpha) = -cos(alpha)
+		// sin(pi-alpha) = sin(alpha)
+		// pi - alpha
+		alpha = -alpha+12012.0;
+		ss = -2.0;
+	}
+
+	float ysum = 0., usum = 0., vsum = 0.;
+	for (int i=0; i<Mwidth; ++i)
+	{
+		vec4 res = tex2D(tex, uv);
+#ifdef USE_RAW
+		float sig = NTSCsignal(res.xyz,HueShift*2.+alpha-res.g*ss*HueRotation)-Voltage_0;
+		// outside of texture is 0,0,0 which is white instead of black
+		if (uv.x <= 0.0 || uv.x >= border)
+			sig = 0;
+#ifdef USE_DELAY_LINE
+		vec4 res1 = tex2D(tex, uv+sh);
+		float sig1 = NTSCsignal(res1.xyz,HueShift*2.+12012.0-alpha+res.g*ss*HueRotation)-Voltage_0;
+		if (uv.x + sh.x <= 0.0 || uv.x + sh.x >= border)
+			sig1 = 0;
+#endif
+
+#else
+		vec3 yuv = mul(RGB_to_YUV, res.xyz);
+		const float a1 = alpha+(HueShift+2.5)*2.-yuv.x*ss*HueRotation;
+		float sig = yuv.x+dot(yuv.yz,sign(vec2(sinn(a1),coss(a1))));
+#ifdef USE_DELAY_LINE
+		vec4 res1 = tex2D(tex, uv+sh);
+		vec3 yuv1 = mul(RGB_to_YUV, res1.xyz);
+		const float a2 = (HueShift+2.5)*2.+12012.0-alpha+yuv.x*ss*HueRotation;
+		float sig1 = yuv1.x+dot(yuv1.yz,sign(vec2(sinn(a2),coss(a2))));
+#endif
+
+#endif
+		if (i < Ywidth)
+			ysum += sig;
+
+#ifdef USE_DELAY_LINE
+		if (i < Uwidth)
+			usum += (sig+sig1)*sinn(alpha);
+		if (i < Vwidth)
+			vsum += (sig-sig1)*coss(alpha);
+#else
+		if (i < Uwidth)
+			usum += sig*sinn(alpha);
+		if (i < Vwidth)
+			vsum += sig*coss(alpha);
+#endif
+		alpha -= ss;
+		uv.x -= ustep;
+	}
+
+#ifdef PARAMETER_UNIFORM
+	ysum *= Contrast/Ywidth;
+	usum *= Contrast*Saturation/Uwidth;
+	vsum *= Contrast*Saturation/Vwidth;
+#endif
+
+	vec3 rgb = mul(vec3(ysum+Brightness*Ywidth_static,usum,vsum), YUV_to_RGB);
+#if defined(USE_GAMMA) && !defined(USE_COLORIMETRY)
+	vec3 rgb1 = saturate(rgb);
+	rgb = pow(rgb1, Gamma/2.2);
+#endif
+
+#ifdef USE_COLORIMETRY
+	vec3 rgb1 = saturate(rgb);
+	rgb = pow(rgb1, Gamma);
+#endif
+
+#if (defined(USE_SUBPIXELS) || defined(USE_SCANLINES))
+	vec2 q = (p*IN.texture_size/IN.video_size)*vec2(TV_Pixels*3,size.y*2);
+#endif
+
+#ifdef USE_SCANLINES
+	float scanlines = size.y/IN.output_size.x;
+	float top = mod(q.y-0.5*scanlines*2,2);
+	float bottom = top+fract(scanlines)*2;
+	vec2 sw = saturate(min(vec2(1.,2.),vec2(bottom))
+		-max(vec2(0.,1.),vec2(top)))
+		+saturate(min(vec2(3.,4.),vec2(bottom))
+		-max(vec2(2.,3.),vec2(top)))
+		+floor(scanlines);
+#ifdef ANIMATE_SCANLINE
+#define SCANLINE_MUL (mod(int(IN.frame_count),2.0)<1 \
+		? sw.x*dark_scanline+sw.y \
+		: sw.x+sw.y*dark_scanline)
+#else
+#define SCANLINE_MUL (sw.x*dark_scanline+sw.y)
+#endif
+	rgb = rgb*SCANLINE_MUL/(sw.x+sw.y);
+
+/*
+	//old stupid method
+	float z =
+#ifdef ANIMATE_SCANLINE
+	mod(IN.frame_count,2.0)+
+#endif
+		0.5;
+
+	if (abs(mod(q.y+0.5,2)-z)<0.5)
+		rgb *= dark_scanline;
+*/
+#endif
+
+	// size of pixel screen in texture coords:
+	//float output_pixel_size = IN.video_size.x/(IN.output_size.x*IN.texture_size.x);
+
+	// correctness check
+	//if (mod(p.x*output_pixel_size,2.0) < 1.0)
+	//	rgb = vec3(0);
+
+#ifdef USE_SUBPIXELS
+	float pixels = TV_Pixels/IN.output_size.x;
+	float left = mod(q.x-0.5*pixels*3,3);
+	float right = left+fract(pixels)*3.;
+	vec3 w = saturate(min(vec3(1.,2.,3.),vec3(right))
+		-max(vec3(0.,1.,2.),vec3(left)))
+		+saturate(min(vec3(4.,5.,6.),vec3(right))
+		-max(vec3(3.,4.,5.),vec3(left)))
+		+floor(pixels);
+	rgb = rgb*3.*w/(w.x+w.y+w.z);
+#endif
+
+#ifdef USE_COLORIMETRY
+	vec3 xyz1 = mul(RGB_to_XYZ,rgb);
+	vec3 srgb = saturate(mul(XYZ_to_sRGB,xyz1));
+	vec3 a1 = 12.92*srgb;
+	vec3 a2 = 1.055*pow(srgb,1/2.4)-0.055;
+	vec3 ssrgb = (srgb<vec3(0.0031308)?a1:a2);
+	return ssrgb;
+#else
+	return rgb;
+#endif
+}
+
+// pos (left corner, sample size)
+vec4 monitor_sample(uniform sampler2D tex : TEXUNIT0, vec2 p, vec2 sample, uniform input IN)
+{
+	// linear interpolation was...
+	// now other thing.
+	// http://imgur.com/m8Z8trV
+	// AT LAST IT WORKS!!!!
+	// going to check in retroarch...
+	float2 size = IN.texture_size;
+	vec2 next = vec2(.25,1.)/size;
+	vec2 f = fract(vec2(4.,1.)*size*p);
+	sample *= vec2(4.,1.)*size;
+	vec2 l;
+	vec2 r;
+	if (f.x+sample.x < 1.)
+	{
+		l.x = f.x+sample.x;
+		r.x = 0.;
+	}
+	else
+	{
+		l.x = 1.-f.x;
+		r.x = min(1.,f.x+sample.x-1.);
+	}
+	if (f.y+sample.y < 1.)
+	{
+		l.y = f.y+sample.y;
+		r.y = 0.;
+	}
+	else
+	{
+		l.y = 1.-f.y;
+		r.y = min(1.,f.y+sample.y-1.);
+	}
+	vec3 top = mix(monitor(tex, p, IN), monitor(tex, p+vec2(next.x,0.), IN), r.x/(l.x+r.x));
+	vec3 bottom = mix(monitor(tex, p+vec2(0.,next.y), IN), monitor(tex, p+next, IN), r.x/(l.x+r.x));
+	return vec4(mix(top,bottom, r.y/(l.y+r.y)),1.0);
+}
+
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
+{
+#ifdef USE_SAMPLED
+	return monitor_sample(tex, coords, 1./IN.output_size, IN);
+#else
+	return vec4(monitor(tex, coords, IN), 1.);
+#endif
+}

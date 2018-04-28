@@ -1,0 +1,108 @@
+// CG shader
+// NES CRT simulation
+// by r57shell
+// thanks to feos & HardWareMan 
+
+void main_vertex
+(
+	float4 position : POSITION,
+	out float4 oPosition : POSITION,
+	uniform float4x4 modelViewProj,
+
+	float2 tex : TEXCOORD,
+	out float2 oTex : TEXCOORD
+)
+{
+	oPosition = mul(modelViewProj, position);
+	oTex = tex;
+}
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+	float  frame_count;
+	float  frame_direction;
+	float frame_rotation;
+};
+
+const float pi = 3.142;
+
+const float phase_x = 0.83333334899648563972123297929094*2.;
+//16.52723/10.0; // 4./2.0
+const float phase_y = 0.16667200780160314494044593822*2.;
+//12.33362/10.0; // 1./3.0
+
+vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
+{
+	float2 size = IN.texture_size;
+	vec2 pos = floor(p*size);
+	vec2 uv = floor(pos)/size;
+	vec4 res = tex2D(tex, uv);
+	vec3 yuv = mul(float3x3(
+		0.299,0.587,0.114,
+		-0.299,-0.587,1.-0.114,
+		1.-0.299,-0.587,-0.114), res.xyz);
+	//floor(p.y*size.y)/2.0
+	float alpha = (p.x*size.x*phase_x+floor(p.y*size.y)*phase_y)*pi;
+	if (mod(p.y*size.y, 2.0) < 1.)
+		alpha = pi-alpha;
+	yuv.x += dot(yuv.yz*vec2(0.492,0.877),vec2(sin(alpha),cos(alpha)));
+	vec3 rgb = mul(float3x3(
+		1., 0., 1.,
+		1., -0.1942078364565588, -0.5093696763202726,
+		1., 1., 0.), yuv);
+
+	return rgb;
+}
+
+// pos (left corner, sample size)
+vec4 monitor_sample(uniform sampler2D tex : TEXUNIT0, vec2 p, vec2 sample, uniform input IN)
+{
+	// linear interpolation was...
+	// now other thing.
+	// http://imgur.com/m8Z8trV
+	// AT LAST IT WORKS!!!!
+	// going to check in retroarch...
+	float2 size = IN.texture_size;
+	vec2 next = vec2(.25,1.)/size;
+	vec2 f = fract(vec2(4.,1.)*size*p);
+	sample *= vec2(4.,1.)*size;
+	vec2 l;
+	vec2 r;
+	if (f.x+sample.x < 1.)
+	{
+		l.x = f.x+sample.x;
+		r.x = 0.;
+	}
+	else
+	{
+		l.x = 1.-f.x;
+		r.x = min(1.,f.x+sample.x-1.);
+	}
+	if (f.y+sample.y < 1.)
+	{
+		l.y = f.y+sample.y;
+		r.y = 0.;
+	}
+	else
+	{
+		l.y = 1.-f.y;
+		r.y = min(1.,f.y+sample.y-1.);
+	}
+	vec3 top = mix(monitor(tex, p, IN), monitor(tex, p+vec2(next.x,0.), IN), r.x/(l.x+r.x));
+	vec3 bottom = mix(monitor(tex, p+vec2(0.,next.y), IN), monitor(tex, p+next, IN), r.x/(l.x+r.x));
+	return vec4(mix(top,bottom, r.y/(l.y+r.y)),1.0);
+}
+
+float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
+{
+	return monitor_sample(tex, coords, 1./IN.output_size, IN);
+
+	// difference
+	//float zoom = 8;
+	//vec4 sampled = monitor_sample(tex, coords, 1./zoom/IN.output_size, IN);
+	//vec4 simple = vec4(monitor(tex, coords, IN),1.);
+	//return vec4(length(sampled - simple)*5*sin(IN.frame_count/30.))+simple;
+}
