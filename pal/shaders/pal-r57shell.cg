@@ -107,7 +107,7 @@ static const float HueShift = -2.5;
 static const float HueRotation = 2.;
 
 // touch this only if you know what you doing
-static const float Phase_Y = 2.; // mod(341*10,12)
+static const float Phase_Y = 2.; // fmod(341*10,12)
 static const float Phase_One = 0.; // alternating phases.
 static const float Phase_Two = 8.;
 
@@ -284,12 +284,12 @@ struct input
 
 bool InColorPhase(int color, float phase)
 {
-	return mod((color*2. + phase),24.) < 12.;
+	return fmod((color*2. + phase),24.) < 12.;
 }
 
 #ifndef USE_LUT
 // from nesdev wiki page NTSC_video
-float NTSCsignal(vec3 pixel, float phase)
+float NTSCsignal(float3 pixel, float phase)
 {
 	// Voltage levels, relative to synch voltage
 	static const float black=.518f, white=1.962f, attenuation=.746f,
@@ -313,7 +313,7 @@ float NTSCsignal(vec3 pixel, float phase)
 
 	// Generate the square wave
 	// When de-emphasis bits are set, some parts of the signal are attenuated:
-	float2 e = mod(float2(emphasis), float2(2,4));
+	float2 e = fmod(float2(emphasis), float2(2.,4.));
 	float signal = InColorPhase(color,phase) ? high : low;
 
 	if( ((e.x != 0) && InColorPhase(0,phase))
@@ -327,13 +327,13 @@ float NTSCsignal(vec3 pixel, float phase)
 #else
 
 uniform sampler2D nes_lut;
-float NTSCsignal(vec3 pixel, float phase)
+float NTSCsignal(float3 pixel, float phase)
 {
 	return tex2D(nes_lut,float2(dot(pixel,float3(
 		15.*(8.)/512.,
 		3.*(16.*8.)/512.,
 		7./512.)
-		) + 0.5/(4.*16.*8.), fract(phase/24.))).r;
+		) + 0.5/(4.*16.*8.), frac(phase/24.))).r;
 }
 
 #endif
@@ -342,21 +342,21 @@ float NTSCsignal(vec3 pixel, float phase)
 
 float sinn(float x)
 {
-	return sin(/*mod(x,24)*/x*(pi*2./24.));
+	return sin(/*fmod(x,24)*/x*(pi*2./24.));
 }
 
 float coss(float x)
 {
-	return cos(/*mod(x,24)*/x*(pi*2./24.));
+	return cos(/*fmod(x,24)*/x*(pi*2./24.));
 }
 
-vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
+float3 monitor(uniform sampler2D tex : TEXUNIT0, float2 p, uniform input IN)
 {
 #ifdef PARAMETER_UNIFORM
 	const float2 size = float2(SizeX,SizeY);
 #endif
 	// align vertical coord to center of texel
-	vec2 uv = vec2(
+	float2 uv = float2(
 #ifdef COMPENSATE_WIDTH
 		p.x+p.x*(Ywidth/8.)/size.x,
 #else
@@ -364,13 +364,13 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 #endif
 		(floor(p.y*IN.texture_size.y)+0.5)/IN.texture_size.y);
 #ifdef USE_DELAY_LINE
-	vec2 sh = (IN.video_size/IN.texture_size/size)*vec2(14./10.,-1.0);
+	float2 sh = (IN.video_size/IN.texture_size/size)*float2(14./10.,-1.0);
 #endif
-	vec2 pc = uv*IN.texture_size/IN.video_size*size*vec2(10.,1.);
-	float alpha = dot(floor(vec2(pc.x,pc.y)),vec2(2.,Phase_Y*2.));
+	float2 pc = uv*IN.texture_size/IN.video_size*size*float2(10.,1.);
+	float alpha = dot(floor(float2(pc.x,pc.y)),float2(2.,Phase_Y*2.));
 	alpha += Phase_One*2.;
 #ifdef ANIMATE_PHASE
-	if (mod(IN.frame_count,2) > 1.)
+	if (fmod(IN.frame_count,2) > 1.)
 		alpha += (Phase_Two-Phase_One)*2.;
 #endif
 
@@ -385,7 +385,7 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 #else
 #define PAL_SWITCH(A) A > 1.
 #endif
-	if (PAL_SWITCH(mod(uv.y*IN.texture_size.y/IN.video_size.y*size.y,2.0)))
+	if (PAL_SWITCH(fmod(uv.y*IN.texture_size.y/IN.video_size.y*size.y,2.0)))
 	{
 		// cos(pi-alpha) = -cos(alpha)
 		// sin(pi-alpha) = sin(alpha)
@@ -397,28 +397,28 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 	float ysum = 0., usum = 0., vsum = 0.;
 	for (int i=0; i<Mwidth; ++i)
 	{
-		vec4 res = tex2D(tex, uv);
+		float4 res = tex2D(tex, uv);
 #ifdef USE_RAW
 		float sig = NTSCsignal(res.xyz,HueShift*2.+alpha-res.g*ss*HueRotation)-Voltage_0;
 		// outside of texture is 0,0,0 which is white instead of black
 		if (uv.x <= 0.0 || uv.x >= border)
 			sig = 0;
 #ifdef USE_DELAY_LINE
-		vec4 res1 = tex2D(tex, uv+sh);
+		float4 res1 = tex2D(tex, uv+sh);
 		float sig1 = NTSCsignal(res1.xyz,HueShift*2.+12012.0-alpha+res.g*ss*HueRotation)-Voltage_0;
 		if (uv.x + sh.x <= 0.0 || uv.x + sh.x >= border)
 			sig1 = 0;
 #endif
 
 #else
-		vec3 yuv = mul(RGB_to_YUV, res.xyz);
+		float3 yuv = mul(RGB_to_YUV, res.xyz);
 		const float a1 = alpha+(HueShift+2.5)*2.-yuv.x*ss*HueRotation;
-		float sig = yuv.x+dot(yuv.yz,sign(vec2(sinn(a1),coss(a1))));
+		float sig = yuv.x+dot(yuv.yz,sign(float2(sinn(a1),coss(a1))));
 #ifdef USE_DELAY_LINE
-		vec4 res1 = tex2D(tex, uv+sh);
-		vec3 yuv1 = mul(RGB_to_YUV, res1.xyz);
+		float4 res1 = tex2D(tex, uv+sh);
+		float3 yuv1 = mul(RGB_to_YUV, res1.xyz);
 		const float a2 = (HueShift+2.5)*2.+12012.0-alpha+yuv.x*ss*HueRotation;
-		float sig1 = yuv1.x+dot(yuv1.yz,sign(vec2(sinn(a2),coss(a2))));
+		float sig1 = yuv1.x+dot(yuv1.yz,sign(float2(sinn(a2),coss(a2))));
 #endif
 
 #endif
@@ -446,32 +446,32 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 	vsum *= Contrast*Saturation/Vwidth;
 #endif
 
-	vec3 rgb = mul(vec3(ysum+Brightness*Ywidth_static,usum,vsum), YUV_to_RGB);
+	float3 rgb = mul(float3(ysum+Brightness*Ywidth_static,usum,vsum), YUV_to_RGB);
 #if defined(USE_GAMMA) && !defined(USE_COLORIMETRY)
-	vec3 rgb1 = saturate(rgb);
+	float3 rgb1 = saturate(rgb);
 	rgb = pow(rgb1, Gamma/2.2);
 #endif
 
 #ifdef USE_COLORIMETRY
-	vec3 rgb1 = saturate(rgb);
+	float3 rgb1 = saturate(rgb);
 	rgb = pow(rgb1, Gamma);
 #endif
 
 #if (defined(USE_SUBPIXELS) || defined(USE_SCANLINES))
-	vec2 q = (p*IN.texture_size/IN.video_size)*vec2(TV_Pixels*3,size.y*2);
+	float2 q = (p*IN.texture_size/IN.video_size)*float2(TV_Pixels*3.,size.y*2.);
 #endif
 
 #ifdef USE_SCANLINES
 	float scanlines = size.y/IN.output_size.x;
-	float top = mod(q.y-0.5*scanlines*2,2);
-	float bottom = top+fract(scanlines)*2;
-	vec2 sw = saturate(min(vec2(1.,2.),vec2(bottom))
-		-max(vec2(0.,1.),vec2(top)))
-		+saturate(min(vec2(3.,4.),vec2(bottom))
-		-max(vec2(2.,3.),vec2(top)))
+	float top = fmod(q.y-0.5*scanlines*2.,2.);
+	float bottom = top+frac(scanlines)*2.;
+	float2 sw = saturate(min(float2(1.,2.),float2(bottom, bottom))
+		-max(float2(0.,1.),float2(top)))
+		+saturate(min(float2(3.,4.),float2(bottom, bottom))
+		-max(float2(2.,3.),float2(top)))
 		+floor(scanlines);
 #ifdef ANIMATE_SCANLINE
-#define SCANLINE_MUL (mod(int(IN.frame_count),2.0)<1 \
+#define SCANLINE_MUL (fmod(int(IN.frame_count),2.0)<1 \
 		? sw.x*dark_scanline+sw.y \
 		: sw.x+sw.y*dark_scanline)
 #else
@@ -483,11 +483,11 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 	//old stupid method
 	float z =
 #ifdef ANIMATE_SCANLINE
-	mod(IN.frame_count,2.0)+
+	fmod(IN.frame_count,2.0)+
 #endif
 		0.5;
 
-	if (abs(mod(q.y+0.5,2)-z)<0.5)
+	if (abs(fmod(q.y+0.5,2)-z)<0.5)
 		rgb *= dark_scanline;
 */
 #endif
@@ -496,27 +496,27 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 	//float output_pixel_size = IN.video_size.x/(IN.output_size.x*IN.texture_size.x);
 
 	// correctness check
-	//if (mod(p.x*output_pixel_size,2.0) < 1.0)
-	//	rgb = vec3(0);
+	//if (fmod(p.x*output_pixel_size,2.0) < 1.0)
+	//	rgb = float3(0.,0.,0.);
 
 #ifdef USE_SUBPIXELS
 	float pixels = TV_Pixels/IN.output_size.x;
-	float left = mod(q.x-0.5*pixels*3,3);
-	float right = left+fract(pixels)*3.;
-	vec3 w = saturate(min(vec3(1.,2.,3.),vec3(right))
-		-max(vec3(0.,1.,2.),vec3(left)))
-		+saturate(min(vec3(4.,5.,6.),vec3(right))
-		-max(vec3(3.,4.,5.),vec3(left)))
+	float left = fmod(q.x-0.5*pixels*3,3);
+	float right = left+frac(pixels)*3.;
+	float3 w = saturate(min(float3(1.,2.,3.),float3(right))
+		-max(float3(0.,1.,2.),float3(left)))
+		+saturate(min(float3(4.,5.,6.),float3(right))
+		-max(float3(3.,4.,5.),float3(left)))
 		+floor(pixels);
 	rgb = rgb*3.*w/(w.x+w.y+w.z);
 #endif
 
 #ifdef USE_COLORIMETRY
-	vec3 xyz1 = mul(RGB_to_XYZ,rgb);
-	vec3 srgb = saturate(mul(XYZ_to_sRGB,xyz1));
-	vec3 a1 = 12.92*srgb;
-	vec3 a2 = 1.055*pow(srgb,1/2.4)-0.055;
-	vec3 ssrgb = (srgb<vec3(0.0031308)?a1:a2);
+	float3 xyz1 = mul(RGB_to_XYZ,rgb);
+	float3 srgb = saturate(mul(XYZ_to_sRGB,xyz1));
+	float3 a1 = 12.92*srgb;
+	float3 a2 = 1.055*pow(srgb,1/2.4)-0.055;
+	float3 ssrgb = (srgb<float3(0.0031308)?a1:a2);
 	return ssrgb;
 #else
 	return rgb;
@@ -524,7 +524,7 @@ vec3 monitor(uniform sampler2D tex : TEXUNIT0, vec2 p, uniform input IN)
 }
 
 // pos (left corner, sample size)
-vec4 monitor_sample(uniform sampler2D tex : TEXUNIT0, vec2 p, vec2 sample, uniform input IN)
+float4 monitor_sample(uniform sampler2D tex : TEXUNIT0, float2 p, float2 sample, uniform input IN)
 {
 	// linear interpolation was...
 	// now other thing.
@@ -532,11 +532,11 @@ vec4 monitor_sample(uniform sampler2D tex : TEXUNIT0, vec2 p, vec2 sample, unifo
 	// AT LAST IT WORKS!!!!
 	// going to check in retroarch...
 	float2 size = IN.texture_size;
-	vec2 next = vec2(.25,1.)/size;
-	vec2 f = fract(vec2(4.,1.)*size*p);
-	sample *= vec2(4.,1.)*size;
-	vec2 l;
-	vec2 r;
+	float2 next = float2(.25,1.)/size;
+	float2 f = frac(float2(4.,1.)*size*p);
+	sample *= float2(4.,1.)*size;
+	float2 l;
+	float2 r;
 	if (f.x+sample.x < 1.)
 	{
 		l.x = f.x+sample.x;
@@ -557,9 +557,9 @@ vec4 monitor_sample(uniform sampler2D tex : TEXUNIT0, vec2 p, vec2 sample, unifo
 		l.y = 1.-f.y;
 		r.y = min(1.,f.y+sample.y-1.);
 	}
-	vec3 top = mix(monitor(tex, p, IN), monitor(tex, p+vec2(next.x,0.), IN), r.x/(l.x+r.x));
-	vec3 bottom = mix(monitor(tex, p+vec2(0.,next.y), IN), monitor(tex, p+next, IN), r.x/(l.x+r.x));
-	return vec4(mix(top,bottom, r.y/(l.y+r.y)),1.0);
+	float3 top = mix(monitor(tex, p, IN), monitor(tex, p+float2(next.x,0.), IN), r.x/(l.x+r.x));
+	float3 bottom = mix(monitor(tex, p+float2(0.,next.y), IN), monitor(tex, p+next, IN), r.x/(l.x+r.x));
+	return float4(mix(top,bottom, r.y/(l.y+r.y)),1.0);
 }
 
 float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0, uniform input IN) : COLOR
@@ -567,6 +567,6 @@ float4 main_fragment(uniform sampler2D tex : TEXUNIT0, float2 coords : TEXCOORD0
 #ifdef USE_SAMPLED
 	return monitor_sample(tex, coords, 1./IN.output_size, IN);
 #else
-	return vec4(monitor(tex, coords, IN), 1.);
+	return float4(monitor(tex, coords, IN), 1.);
 #endif
 }
