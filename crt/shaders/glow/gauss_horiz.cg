@@ -43,7 +43,7 @@ float4 main_fragment (uniform input IN, in data vertex, uniform sampler2D s0 : T
 
    float texel = floor(vertex.pix_no);
    float phase = vertex.pix_no - texel;
-   float base_phase = phase.x - 0.5;
+   float base_phase = phase - 0.5;
    float2 tex = float2((texel + 0.5) / IN.texture_size.x, vertex.tex.y);
 
    float3 col = float3(0.0);
