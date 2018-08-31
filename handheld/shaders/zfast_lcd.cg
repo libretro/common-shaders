@@ -1,0 +1,118 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11
+*/
+
+/*
+    zfast_lcd_standard - A very simple LCD shader meant to be used at 1080p
+		on the raspberry pi 3.
+		
+    Copyright (C) 2017 Greg Hogan (SoltanGris42)
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation; either version 2 of the License, or (at your option)
+    any later version.
+Notes:  This shader just does nearest neighbor scaling of the game and then
+		darkens the border pixels to imitate an LCD screen. You can change the
+		amount of darkening and the thickness of the borders.  You can also 
+		do basic gamma adjustment.
+		
+*/
+
+//Some drivers don't return black with texture coordinates out of bounds
+//SNES Classic is too slow to black these areas out when using fullscreen
+//overlays.  But you can uncomment the below to black them out if necessary
+
+//#define BLACK_OUT_BORDER
+
+#pragma parameter BORDERMULT "Border Multiplier" 14.0 -40.0 40.0 1.0
+#pragma parameter GBAGAMMA "GBA Gamma Hack" 1.0 0.0 1.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float BORDERMULT;
+uniform float GBAGAMMA;
+#else
+#define BORDERMULT 14.0
+#define GBAGAMMA 1.0
+#endif
+
+#include "../../compat_includes.inc"
+
+// ************
+// * UNIFORMS *
+// ************
+
+uniform float4x4 modelViewProj;
+uniform COMPAT_Texture2D(decal);
+
+// ***********
+// * STRUCTS *
+// ***********
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+   float2 invSize;
+};
+
+// *****************
+// * VERTEX SHADER *
+// *****************
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+   
+   OUT.invSize = 1.0 / COMPAT_texture_size.xy;
+
+	return OUT;
+}
+
+// ****************
+// * PIXEL SHADER *
+// ****************
+
+float4 zfast_lcd(COMPAT_Texture2D(Source), float2 texture_size, float2 coord, float2 invSize)
+{
+	float2 texcoordInPixels = coord.xy * texture_size.xy;
+	float2 centerCoord = floor(texcoordInPixels.xy)+float2(0.5,0.5);
+	float2 distFromCenter = abs(centerCoord - texcoordInPixels);
+
+	float Y = max(distFromCenter.x,(distFromCenter.y));
+
+	Y=Y*Y;
+	float YY = Y*Y;
+	float YYY = YY*Y;
+
+	float LineWeight = YY - 2.7*YYY;
+	LineWeight = 1.0 - BORDERMULT*LineWeight;
+
+	float3 colour = COMPAT_SamplePoint(Source, invSize*centerCoord).rgb*LineWeight;
+
+//#if defined(GBAGAMMA)
+//	//colour.rgb = pow(colour.rgb, float3(1.35,1.35,1.35));
+//	colour.rgb*=0.6+0.4*(colour.rgb); //fake gamma because the pi is too slow!
+//#endif
+	if (GBAGAMMA > 0.5)
+		colour.rgb*=0.6+0.4*(colour.rgb); //fake gamma because the pi is too slow!
+		
+   return float4(colour.rgb , 1.0);
+}
+   
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return zfast_lcd(decal, COMPAT_texture_size, VOUT.texCoord, VOUT.invSize);
+}
+COMPAT_END
