@@ -1,0 +1,194 @@
+/*
+	rAA post-3x - Pass 0
+	by Sp00kyFox, 2018-09-12
+
+Filter:	Nearest
+Scale:	1x
+
+This is a generalized continuation of the reverse antialiasing filter by
+Christoph Feck. Unlike the original filter this is supposed to be used on an
+already upscaled image. Which makes it possible to combine rAA with other filters
+just as ScaleFX, xBR or others.
+
+Pass 0 does the horizontal filtering.
+
+
+
+Copyright (c) 2018 Sp00kyFox - ScaleFX@web.de
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/ 
+ 
+#pragma parameter RAA_SHR0 "rAA-3x 0 Sharpness" 2.0 0.0 10.0 0.05
+#pragma parameter RAA_PRT0 "rAA-3x 0 Gradient Protection" 0.5 0.0 2.0 0.01
+
+
+#ifdef PARAMETER_UNIFORM
+uniform float RAA_SHR0, RAA_PRT0;
+#else
+#define RAA_SHR0 2.0
+#define RAA_PRT0 0.5
+#endif
+
+
+static const int scl = 3; // scale factor
+static const int rad = 7; // search radius
+
+
+// arithmetic mean of the interval [a,b] in array px with index offset off
+float3 avg(float3 px[], int a, int b, int off)
+{
+	float3 res;
+	for(int i=a; i<=b; i++){
+		res = res + px[i+off];
+	}
+	return res/(b-a+1);
+}
+
+// original core function of rAA - tilt of a pixel
+float3 res2x(float3 pre2, float3 pre1, float3 px, float3 pos1, float3 pos2)
+{
+    float3 t, m;
+    float4x3 pre = float4x3(pre2, pre1,   px, pos1);
+    float4x3 pos = float4x3(pre1,   px, pos1, pos2);
+    float4x3  df = pos - pre;
+
+    m = (px < 0.5) ? px : (1.0-px);
+	m = RAA_SHR0 * min(m, min(abs(df[1]), abs(df[2])));
+	t = (7 * (df[1] + df[2]) - 3 * (df[0] + df[3])) / 16;
+    t = dot(df[1], df[2]) > 0 ? clamp(t, -m, m) : 0; // don't touch outstanding pixels
+	
+	return t;
+}
+
+
+struct input
+{
+    float2 video_size;
+    float2 texture_size;
+    float2 output_size;
+    float frame_count;
+    float frame_direction;
+    float frame_rotation;
+};
+
+
+struct out_vertex {
+    float4 position : POSITION;
+    float4 color    : COLOR;
+    float2 texCoord : TEXCOORD0;
+    float2 t1       : TEXCOORD1;
+};
+
+/*    VERTEX_SHADER    */
+out_vertex main_vertex
+(
+    float4 position : POSITION,
+    float4 color    : COLOR,
+    float2 texCoord1 : TEXCOORD0,
+
+    uniform float4x4 modelViewProj,
+    uniform input IN
+)
+{
+    out_vertex OUT;
+
+    OUT.position = mul(modelViewProj, position);
+    OUT.color = color;
+
+    float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+    float dx = ps.x;
+    float dy = ps.y;
+
+	// This line fix a bug in ATI cards.
+	float2 texCoord = texCoord1 + float2(0.0000001, 0.0000001);
+
+    OUT.texCoord = texCoord;
+    OUT.t1 = 1.0/IN.texture_size;
+
+    return OUT;
+}
+
+
+/*    FRAGMENT SHADER    */
+float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, uniform input IN) : COLOR
+{
+
+	// read texels
+
+	float3 tx[2*rad+1];
+
+	#define TX(n) tx[(n)+rad]
+	
+	TX(0) = tex2D(decal, VAR.texCoord).rgb;
+	
+	for(int i=1; i<=rad; i++){
+		TX(-i) = tex2D(decal, VAR.texCoord + float2(-i,0)*VAR.t1).rgb;
+		TX( i) = tex2D(decal, VAR.texCoord + float2( i,0)*VAR.t1).rgb;
+	}
+	
+	
+	// prepare variables for candidate search
+	
+	int2 i1, i2;
+	float3 df1, df2;
+	float2 d1, d2, d3;
+	bool2 cn;
+	
+	df1 = TX(1)-TX(0); df2 = TX(0)-TX(-1);
+	
+	d2 = float4(length(df1), length(df2));
+	d3 = d2.yx;
+	
+	
+	// smoothness weight, protects pixels that are already part of a smooth gradient
+	float sw = all(d2 == 0.0) ? 0.0 : pow(length(df1-df2) / (d2.x + d2.y), RAA_PRT0);
+	
+	
+	// look for proper candidates
+	for(int i=1; i<rad; i++){
+		d1 = d2;
+		d2 = d3;
+		d3 = float2(distance(TX(-i-1), TX(-i)), distance(TX(i), TX(i+1)));
+		cn = max(d1,d3)<d2;
+		i2 = cn && i2==0 && i1!=0 ? i : i2;
+		i1 = cn && i1==0 ? i : i1;
+	}
+	
+	i1 = i1 == 0 ? 1 : i1;
+	i2 = i2 == 0 ? i1+1 : i2;
+
+
+	// rAA core with the candidates found above
+	float3 t = res2x(TX(-i2.x), TX(-i1.x), avg(tx, -i1.x+1, i1.y-1, rad), TX(i1.y), TX(i2.y));
+	
+	// distance weight
+	float dw = all(i1 == 1) ? 0.0 : 2.0 * smoothstep(-i1.x+1.0, i1.y-1.0, 0.0) - 1.0;
+	
+	// result
+	float3 res = TX(0) + ((scl-1.0)/scl) * (sw*dw*t);
+	
+	
+	// prevent ringing	
+	float3 lo  = min(min(TX(-1),TX(0)),TX(1));
+    float3 hi  = max(max(TX(-1),TX(0)),TX(1));
+	
+    return float4(clamp(res, lo, hi), 1.0);
+}
