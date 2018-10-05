@@ -1,0 +1,160 @@
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11
+*/
+
+// GritsScanlines by torridgristle
+// license: public domain (https://forums.libretro.com/t/lightweight-lut-based-scanline-glow-concept-prototype-glsl/18336/7)
+
+#pragma parameter ScanlinesOpacity "Scanline Opacity" 0.9 0.0 1.0 0.05
+#pragma parameter GammaCorrection "Gamma Correction" 1.2 0.5 2.0 0.1
+
+#ifdef PARAMETER_UNIFORM
+uniform float ScanlinesOpacity, GammaCorrection;
+#else
+#define ScanlinesOpacity 0.9
+#define GammaCorrection 1.2
+#endif
+
+//#define LuminanceDawnbringer
+#define LuminanceLUT
+//#define TrinitronColors
+
+#include "../../../compat_includes.inc"
+
+// ************
+// * UNIFORMS *
+// ************
+
+uniform float4x4 modelViewProj;
+uniform COMPAT_Texture2D(decal);
+uniform COMPAT_Texture2D(scanlines_LUT);
+uniform COMPAT_Texture2D(color_LUT);
+uniform COMPAT_Texture2D(luminance_LUT);
+
+// ***********
+// * STRUCTS *
+// ***********
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+};
+
+// *****************
+// * VERTEX SHADER *
+// *****************
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+
+	return OUT;
+}
+
+// ****************
+// * PIXEL SHADER *
+// ****************
+
+#ifdef LuminanceLUT
+
+#define LUT_SizeLum 16.0
+
+	// Code taken from RetroArch's LUT shader
+float luminancelut(float4 org)
+{
+	float4 imgColorLum = org;
+	float redLum = ( imgColorLum.r * (LUT_SizeLum - 1.0) + 0.4999 ) / (LUT_SizeLum * LUT_SizeLum);
+	float greenLum = ( imgColorLum.g * (LUT_SizeLum - 1.0) + 0.4999 ) / LUT_SizeLum;
+	float blue1Lum = (floor( imgColorLum.b  * (LUT_SizeLum - 1.0) ) / LUT_SizeLum) + redLum;
+	float blue2Lum = (ceil( imgColorLum.b  * (LUT_SizeLum - 1.0) ) / LUT_SizeLum) + redLum;
+	float mixerLum = clamp(max((imgColorLum.b - blue1Lum) / (blue2Lum - blue1Lum), 0.0), 0.0, 32.0);
+	float color1Lum = COMPAT_Sample(luminance_LUT, float2( blue1Lum, greenLum )).x;
+	float color2Lum = COMPAT_Sample(luminance_LUT, float2( blue2Lum, greenLum )).x;
+	return lerp(color1Lum, color2Lum, mixerLum);
+}
+#endif
+
+#ifdef TrinitronColors
+
+#define LUT_SizeTrinitron 32.0
+
+float4 TrinitronD50(float4 org)
+{
+	float4 imgColorTrinitron = org;
+	float redTrinitron = ( imgColorTrinitron.r * (LUT_SizeTrinitron - 1.0) + 0.4999 ) / (LUT_SizeTrinitron * LUT_SizeTrinitron);
+	float greenTrinitron = ( imgColorTrinitron.g * (LUT_SizeTrinitron - 1.0) + 0.4999 ) / LUT_SizeTrinitron;
+	float blue1Trinitron = (floor( imgColorTrinitron.b  * (LUT_SizeTrinitron - 1.0) ) / LUT_SizeTrinitron) + redTrinitron;
+	float blue2Trinitron = (ceil( imgColorTrinitron.b  * (LUT_SizeTrinitron - 1.0) ) / LUT_SizeTrinitron) + redTrinitron;
+	float mixerTrinitron = clamp(max((imgColorTrinitron.b - blue1Trinitron) / (blue2Trinitron - blue1Trinitron), 0.0), 0.0, 32.0);
+	float4 color1Trinitron = COMPAT_Sample(color_LUT, float2( blue1Trinitron, greenTrinitron ));
+	float4 color2Trinitron = COMPAT_Sample(color_LUT, float2( blue2Trinitron, greenTrinitron ));
+	float4 fragColorTrinitron = lerp(color1Trinitron, color2Trinitron, mixerTrinitron);
+	return float4(pow(fragColorTrinitron.rgb,vec3(GammaCorrection,GammaCorrection,GammaCorrection)),1.0);
+} 
+#endif
+
+float4 grits_scanlines(float2 texture_size, COMPAT_Texture2D(decal), COMPAT_Texture2D(scanlines_LUT),
+#ifdef TrinitronColors
+COMPAT_Texture2D(color_LUT),
+#endif
+#ifdef LuminanceLUT
+COMPAT_Texture2D(luminance_LUT),
+#endif
+float2 coord)
+{
+//Source Image
+	float4 org = COMPAT_Sample(decal, coord);
+   
+#ifdef LuminanceLUT
+// Use a 3DLUT instead of an equation so that it can use any arbitrary mess you can come up with.
+	float luminance = luminancelut(org);
+#elif defined LuminanceDawnbringer
+// Dawnbringer's brightness equation from Dawnbringer's Toolbox scripts for Grafx2
+	float luminance = sqrt(org.r*org.r*0.0676 + org.g*org.g*0.3025 + org.b*org.b*0.0361) * 1.5690256395005606;
+#else
+// Plain, standard, fine; slightly faster
+	float luminance = ((0.299*org.r) + (0.587*org.g) + (0.114*org.b));
+#endif
+
+// Don't let it exceed 1.0
+	luminance = clamp(luminance, 0.0, 1.0);
+
+// Scanline Mapping, based on the Phosphor LUT shader's method of tiling a texture over the screen
+	float2 LUTeffectiveCoord = float2(luminance,fract(coord.y*texture_size.y));
+
+// Scanline Layer
+	float4 screen = COMPAT_Sample(scanlines_LUT, LUTeffectiveCoord);
+
+// Output multiplying the scanlines into the original image, with control over opacity
+#ifdef TrinitronColors
+	org = TrinitronD50(org);
+#endif
+	return ((screen*ScanlinesOpacity)+(1.0 - ScanlinesOpacity)) * (org);
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return grits_scanlines(COMPAT_texture_size, decal, scanlines_LUT,
+#ifdef TrinitronColors
+   color_LUT,
+#endif
+#ifdef LuminanceLUT
+   luminance_LUT,
+#endif
+   VOUT.texCoord);
+}
+COMPAT_END
