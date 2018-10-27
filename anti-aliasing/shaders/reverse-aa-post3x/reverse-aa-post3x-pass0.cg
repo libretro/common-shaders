@@ -149,7 +149,7 @@ float4 main_fragment(in out_vertex VAR, uniform sampler2D decal : TEXUNIT0, unif
 	
 	// prepare variables for candidate search
 	
-	int2 i1, i2;
+	int2 i1 = int2(0), i2 = int2(0);
 	float3 df1, df2, A, B, D, E;
 	float2 d1, d2, d3;
 	bool2 cn;
