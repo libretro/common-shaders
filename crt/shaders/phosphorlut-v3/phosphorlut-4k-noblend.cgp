@@ -12,7 +12,7 @@ shader1 = phosphorlut-pass0.cg // Applies the LUT to the game image
 shader2 = gauss-horiz.cg //gaussian-horiz.cg // Blurs the combined LUT/game image horizontally
 shader3 = gauss-vert.cg
 shader4 = phosphorlut-pass1.cg // Combines the LUTed image with the blurred image
-shader5 = ../../misc/image-adjustment.cg // Adds some gamma correction
+shader5 = ../../../misc/image-adjustment.cg // Adds some gamma correction
 
 scale_type_x0 = source
 scale_type_y0 = source
@@ -37,7 +37,7 @@ scale_type4 = source
 filter_linear4 = true
 
 textures = PHOSPHOR_LUT
-PHOSPHOR_LUT = shaders/phosphorlut-v3/luts/4k-mask.png
+PHOSPHOR_LUT = luts/4k-mask.png
 PHOSPHOR_LUT_linear = true
 
 parameters = "target_gamma;monitor_gamma;overscan_percent_x;overscan_percent_y;saturation;contrast;luminance;bright_boost;R;G;B;PHOSPHOR_SCALE_X;PHOSPHOR_SCALE_Y;MASK_TOGGLE;percent;WID;WIDV"

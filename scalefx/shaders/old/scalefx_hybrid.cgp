@@ -1,6 +1,6 @@
 shaders = 5
 
-shader0 = ../../anti-aliasing/shaders/reverse-aa-noring.cg
+shader0 = ../../../anti-aliasing/shaders/reverse-aa-noring.cg
 filter_linear0 = false
 scale_type0 = source
 scale0 = 3.0

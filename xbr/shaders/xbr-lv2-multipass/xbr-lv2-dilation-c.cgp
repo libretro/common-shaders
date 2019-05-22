@@ -13,6 +13,6 @@ scale_type_x1 = "source"
 scale_x1 = "4.000000"
 scale_type_y1 = "source"
 scale_y1 = "4.000000"
-shader2 = ../../warp/dilation.cg
+shader2 = ../../../warp/shaders/dilation.cg
 filter_linear2 = "false"
 float_framebuffer2 = "false"

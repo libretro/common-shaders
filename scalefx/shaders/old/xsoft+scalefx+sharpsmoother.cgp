@@ -20,12 +20,12 @@ filter_linear3 = false
 scale_type3 = source
 scale3 = 3.0
 
-shader4 = ../../blurs/sharpsmoother.cg
+shader4 = ../../../blurs/sharpsmoother.cg
 filter_linear4 = false
 scale_type4 = source
 scale4 = 1.0
 
-shader5 = ../../xsoft/shaders/4xsoft.cg
+shader5 = ../../../xsoft/shaders/4xsoft.cg
 filter_linear5 = false
 scale_type5 = source
 scale5 = 2.0

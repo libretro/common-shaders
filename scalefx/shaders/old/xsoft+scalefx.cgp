@@ -20,7 +20,7 @@ filter_linear3 = false
 scale_type3 = source
 scale3 = 3.0
 
-shader4 = ../../xsoft/shaders/4xsoft.cg
+shader4 = ../../../xsoft/shaders/4xsoft.cg
 filter_linear4 = false
 scale_type4 = source
 scale4 = 2.0
