@@ -38,6 +38,3 @@ scale_y5 = "1.000000"
 shader6 = "shaders/super-xbr/custom-jinc2-sharper.cg"
 filter_linear6 = false
 
-parameters = "DETAILS"
-DETAILS = "1.0"
-
