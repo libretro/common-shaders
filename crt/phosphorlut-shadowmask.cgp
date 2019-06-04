@@ -31,7 +31,6 @@ scale2 = 0.5
 scale_type3 = source
 filter_linear3 = true
 
-scale_type4 = source
 filter_linear4 = true
 
 textures = PHOSPHOR_LUT

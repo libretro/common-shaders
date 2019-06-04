@@ -8,4 +8,3 @@ scale_y0 = 4.0
 
 shader1 = ../stock.cg
 filter_linear1 = true
-scale_type1 = source
