@@ -1,7 +1,7 @@
 shaders = "3"
 shader0 = "../motionblur/shaders/motionblur-simple.cg"
 shader1 = "../misc/image-adjustment.cg"
-shader2 = "../retro/shaders/retro-v2.cg"
+shader2 = "../handheld/shaders/retro-v2.cg"
 
 scale_type_x0 = "source"
 scale_x0 = "1.000000"

@@ -1,7 +1,7 @@
 shaders = "3"
 shader0 = ../misc/nes-color-decoder.cg
 shader1 = ../misc/colorimetry.cg
-shader2 = ../retro/shaders/pixellate.cg
+shader2 = ../interpolation/shaders/pixellate.cg
 
 filter_linear0 = "false"
 scale_type0 = "source"

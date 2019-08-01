@@ -1,7 +1,7 @@
 shaders = "2"
 
 shader0 = "../misc/image-adjustment.cg"
-shader1 = "../retro/shaders/retro-v2.cg"
+shader1 = "../handheld/shaders/retro-v2.cg"
 
 parameters = "target_gamma;monitor_gamma;overscan_percent_x;overscan_percent_y;saturation;contrast;luminance;bright_boost;R;G;B;RETRO_PIXEL_SIZE"
 target_gamma = "2.400000"
