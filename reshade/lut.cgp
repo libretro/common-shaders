@@ -4,5 +4,8 @@ shader0 = shaders/LUT/LUT.cg
 
 textures = SamplerLUT
 
-SamplerLUT = shaders/LUT/schindlers-list-17.png
+SamplerLUT = shaders/LUT/64.png
 SamplerLUT_linear = true
+
+parameters = "LUT_Size"
+LUT_Size = 64.0
