@@ -1,0 +1,93 @@
+// A version of the LUT shader that loads 2 LUTs.
+// For use with Kurozumi's 64-bit colorspace LUTs.
+
+#pragma parameter LUT_selector_param "Color Temp (1=D65, 2=D93)" 1.0 1.0 2.0 1.0
+//#pragma parameter LUT_Size1 "LUT Size 1" 16.0 1.0 64.0 1.0
+//#pragma parameter LUT_Size2 "LUT Size 2" 16.0 1.0 64.0 1.0
+#ifdef PARAMETER_UNIFORM
+uniform float LUT_selector_param;
+#else
+#define LUT_selector_param 1.0
+#endif
+
+/* COMPATIBILITY 
+   - HLSL compilers
+   - Cg   compilers
+   - FX11 compilers
+*/
+
+#include "../../../compat_includes.inc"
+uniform COMPAT_Texture2D(decal) : TEXUNIT0;
+uniform COMPAT_Texture2D(SamplerLUT1) : TEXUNIT1;
+uniform COMPAT_Texture2D(SamplerLUT2) : TEXUNIT2;
+uniform float4x4 modelViewProj;
+
+struct out_vertex
+{
+	float4 position : COMPAT_POS;
+	float2 texCoord : TEXCOORD0;
+#ifndef HLSL_4
+	float4 Color    : COLOR;
+#endif
+};
+
+out_vertex main_vertex(COMPAT_IN_VERTEX)
+{
+	out_vertex OUT;
+#ifdef HLSL_4
+	float4 position = VIN.position;
+	float2 texCoord = VIN.texCoord;
+#else
+	OUT.Color = color;
+#endif
+	OUT.position = mul(modelViewProj, position);
+	OUT.texCoord = texCoord;
+
+	return OUT;
+}
+
+const float LUT_Size1 = 64.0;
+const float LUT_Size2 = 64.0; // hardcode these for Kurozumi's LUTs
+
+// This shouldn't be necessary but it seems some undefined values can
+// creep in and each GPU vendor handles that differently. This keeps
+// all values within a safe range
+float4 mixfix(float4 a, float4 b, float c)
+{
+	return (a.z < 1.0) ? mix(a, b, c) : a;
+}
+
+float4 lut_palette(float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(SamplerLUT1), COMPAT_Texture2D(SamplerLUT2)) 
+{
+	int LUT_selector = int(LUT_selector_param);  
+	float4 imgColor = COMPAT_SamplePoint(decal, texCoord.xy);
+	float4 color1, color2 = float4(0.,0.,0.,0.);
+	float red, green, blue1, blue2, mixer = 0.0;
+	if(LUT_selector == 1)
+	{
+		red = ( imgColor.r * (LUT_Size1 - 1.0) + 0.4999 ) / (LUT_Size1 * LUT_Size1);
+		green = ( imgColor.g * (LUT_Size1 - 1.0) + 0.4999 ) / LUT_Size1;
+		blue1 = (floor( imgColor.b  * (LUT_Size1 - 1.0) ) / LUT_Size1) + red;
+		blue2 = (ceil( imgColor.b  * (LUT_Size1 - 1.0) ) / LUT_Size1) + red;
+		mixer = clamp(max((imgColor.b - blue1) / (blue2 - blue1), 0.0), 0.0, 32.0);
+		color1 = COMPAT_SamplePoint( SamplerLUT1, float2( blue1, green ));
+		color2 = COMPAT_SamplePoint( SamplerLUT1, float2( blue2, green ));
+	}
+	if(LUT_selector == 2)
+	{
+		red = ( imgColor.r * (LUT_Size2 - 1.0) + 0.4999 ) / (LUT_Size2 * LUT_Size2);
+		green = ( imgColor.g * (LUT_Size2 - 1.0) + 0.4999 ) / LUT_Size2;
+		blue1 = (floor( imgColor.b  * (LUT_Size2 - 1.0) ) / LUT_Size2) + red;
+		blue2 = (ceil( imgColor.b  * (LUT_Size2 - 1.0) ) / LUT_Size2) + red;
+		mixer = clamp(max((imgColor.b - blue1) / (blue2 - blue1), 0.0), 0.0, 32.0);
+		color1 = COMPAT_SamplePoint( SamplerLUT2, float2( blue1, green ));
+		color2 = COMPAT_SamplePoint( SamplerLUT2, float2( blue2, green ));
+	}
+	return mixfix(color1, color2, mixer);//mix(color1, color2, mixer);
+}
+
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
+{
+	return lut_palette(VOUT.texCoord, decal, SamplerLUT1, SamplerLUT2);
+}
+COMPAT_END

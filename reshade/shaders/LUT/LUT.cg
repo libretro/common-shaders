@@ -57,8 +57,8 @@ float4 lut_palette(float2 texCoord, COMPAT_Texture2D(decal), COMPAT_Texture2D(Sa
 	float blue1 = (floor( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size) + red;
 	float blue2 = (ceil( imgColor.b  * (LUT_Size - 1.0) ) / LUT_Size) + red;
 	float mixer = clamp(max((imgColor.b - blue1) / (blue2 - blue1), 0.0), 0.0, 32.0);
-	float4 color1 = COMPAT_SamplePoint( SamplerLUT, vec2( blue1, green ));
-	float4 color2 = COMPAT_SamplePoint( SamplerLUT, vec2( blue2, green ));
+	float4 color1 = COMPAT_SamplePoint( SamplerLUT, float2( blue1, green ));
+	float4 color2 = COMPAT_SamplePoint( SamplerLUT, float2( blue2, green ));
 	return mixfix(color1, color2, mixer);//mix(color1, color2, mixer);
 }
 
