@@ -218,7 +218,7 @@
 //  uniform samplers (or resizing the phosphor mask three times altogether).
 //  With dynamic branches, we can process only one of these branches on top of
 //  quickly discarding fragments we don't need (cgc seems able to overcome
-//  limigations around dependent texture fetches inside of branches).  Without
+//  limitations around dependent texture fetches inside of branches).  Without
 //  dynamic branches, we have to process every branch for every fragment...which
 //  is slower.  Runtime sampling mode selection is slower without dynamic
 //  branches as well.  Let the user's static #defines decide if it's worth it.
