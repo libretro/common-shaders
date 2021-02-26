@@ -52,7 +52,7 @@ BACKGROUND_linear = true
 BORDER = resources/pocket-border-square-4x.png
 BORDER_linear = true
 
-parameters = "video_scale;SCALE;OUT_X;OUT_Y;baseline_alpha;grey_balance;contrast;screen_light;pixel_opacity"
+parameters = "video_scale;SCALE;OUT_X;OUT_Y;baseline_alpha;grey_balance;contrast;screen_light;pixel_opacity;shadow_opacity"
 video_scale = "3.0"
 SCALE = "1.0"
 OUT_X = "2400.0"
