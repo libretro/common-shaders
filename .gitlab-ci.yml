@@ -7,7 +7,7 @@ stages:
   variables:
     MEDIA_PATH: .media
   before_script:
-    - rm -fr Makefile .git* *.inc configure
+    - rm -fr Makefile .git* configure
   script:
     - mkdir -p ${MEDIA_PATH}/${CI_PROJECT_NAME}
     - cp -R ./* ${MEDIA_PATH}/${CI_PROJECT_NAME}
