@@ -179,9 +179,10 @@ float3 MakeRGBColor(int emphasis, int level, int color)
       float spot = wave(p, color) ? high : low;
 
       // De-emphasis bits attenuate a part of the signal:
-      if ((bool(emphasis & 1) && wave(p, 12)) ||
-          (bool(emphasis & 2) && wave(p, 4)) ||
-          (bool(emphasis & 4) && wave(p, 8))) 
+      // Compat Note: replaced the bitwise AND with simple multiplication
+      if ((bool(emphasis * 1) && wave(p, 12)) ||
+          (bool(emphasis * 2) && wave(p, 4)) ||
+          (bool(emphasis * 4) && wave(p, 8))) 
       {
           spot *= attenuation;
       }
