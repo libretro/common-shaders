@@ -1,8 +1,6 @@
 /*
 Adapted for RetroArch from Flyguy's "Apple II-Like Artifact Colors" from shadertoy:
 https://www.shadertoy.com/view/llyGzR
-
-"Colors created through NTSC artifacting on 4-bit patterns, similar to the Apple II's lo-res mode."
 */
 
 /* COMPATIBILITY 
@@ -48,8 +46,6 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 //Modulator
 
-//#define F_COL (1.0 / 4.0) // moved to parameter
-
 float3x3 rgb2yiq = float3x3(0.299, 0.596, 0.211,
                     0.587,-0.274,-0.523,
                     0.114,-0.322, 0.312);
@@ -57,18 +53,22 @@ float3x3 rgb2yiq = float3x3(0.299, 0.596, 0.211,
 //Complex oscillator, Fo = Oscillator freq., Fs = Sample freq., n = Sample index
 float2 Oscillator(float Fo, float Fs, float n)
 {
-	float tau = atan(1.0)*8.0;
+    float tau = 6.283185308;
     float phase = (tau*Fo*floor(n))/Fs;
     return float2(cos(phase),sin(phase));
 }
 
-#define gl_FragCoord float2((texCoord.xy * float2(output_size.xy))*(texture_size.xy/video_size.xy))
-
-float4 artifact_colors0(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-    float Fs = texture_size.x;
+    float2 texCoord = VOUT.texCoord;
+    float2 texture_size = COMPAT_texture_size;
+    float2 video_size = COMPAT_video_size;
+    float2 output_size = COMPAT_output_size;
+
+    float Fs = video_size.x;
     float Fcol = Fs * F_COL;
-    float n = floor(gl_FragCoord.x);
+    float2 fc = float2((texCoord.xy * output_size.xy) * (texture_size.xy / video_size.xy));
+    float n = floor(fc.x);
     
     float3 cRGB = COMPAT_Sample(decal, texCoord.xy).rgb;
     float3 cYIQ = mul(cRGB, rgb2yiq);
@@ -77,13 +77,6 @@ float4 artifact_colors0(float2 texture_size, float2 video_size, float2 output_si
     
     float sig = cYIQ.x + dot(cOsc, cYIQ.yz);
 
-   float4 final = float4(sig,0.,0.,0.);
-   
-   return final;
-}
-
-float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
-{
-	return artifact_colors0(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+    return float4(sig, 0., 0., 1.);
 }
 COMPAT_END

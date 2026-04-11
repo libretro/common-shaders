@@ -1,9 +1,7 @@
 /*
 Adapted for RetroArch from Flyguy's "Apple II-Like Artifact Colors" from shadertoy:
 https://www.shadertoy.com/view/llyGzR
-
-"Colors created through NTSC artifacting on 4-bit patterns, similar to the Apple II's lo-res mode."
-*/ 
+*/
 
 /* COMPATIBILITY 
    - HLSL compilers
@@ -55,15 +53,10 @@ out_vertex main_vertex(COMPAT_IN_VERTEX)
 
 //Demodulator
 
-//#define F_COL (1.0 / 4.0) // moved to parameter
-//#define F_LUMA_LP (1.0 / 6.0) // moved to parameter
-//#define F_COL_BW (1.0 / 50.0) // moved to parameter
-
-
 #define FIR_SIZE 29
 
-float pi = 3.141592654;//atan(1.0)*4.0;
-float tau = 6.283185308;//atan(1.0)*8.0;
+float pi = 3.141592654;
+float tau = 6.283185308;
 
 //Non-normalized texture sampling.
 float4 sample2D(COMPAT_Texture2D(tex), float2 resolution, float2 uv)
@@ -97,7 +90,6 @@ float WindowBlackman(float a, int N, int i)
 }
 
 //FIR lowpass filter 
-//Fc = Cutoff freq., Fs = Sample freq., N = # of taps, i = Tap index
 float Lowpass(float Fc, float Fs, int N, int i)
 {    
     float wc = (Fc/Fs);
@@ -108,7 +100,6 @@ float Lowpass(float Fc, float Fs, int N, int i)
 }
 
 //FIR bandpass filter 
-//Fa/Fb = Low/High cutoff freq., Fs = Sample freq., N = # of taps, i = Tap index
 float Bandpass(float Fa, float Fb, float Fs, int N, int i)
 {    
     float wa = (Fa/Fs);
@@ -119,28 +110,33 @@ float Bandpass(float Fa, float Fb, float Fs, int N, int i)
     return 2.0*(wb-wa) * wnd * (sinc(2.0*wb * float(i - N/2)) - sinc(2.0*wa * float(i - N/2)));
 }
 
-//Complex oscillator, Fo = Oscillator freq., Fs = Sample freq., n = Sample index
+//Complex oscillator, Fo = Oscillator freq., Fs = Sample freq., N = Sample index
 float2 Oscillator(float Fo, float Fs, float N)
 {
     float phase = (tau*Fo*floor(N))/Fs;
     return float2(cos(phase),sin(phase));
 }
 
-#define gl_FragCoord float2((texCoord.xy * float2(output_size.xy))*(texture_size.xy/video_size.xy))
-
 #define macroloop(i) tpidx = int(FIR_SIZE) - i - 1; \
         lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx); \
         bp = Bandpass(Fcol - Fcolbw, Fcol + Fcolbw, Fs, int(FIR_SIZE), tpidx); \
-        y_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp; \
-        iq_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
+        y_sig += sample2D(decal, texture_size.xy, float2(n - float(i), fc.y)).r * lp; \
+        iq_sig += sample2D(decal, texture_size.xy, float2(n - float(i), fc.y)).r * bp;
 
-float4 artifact_colors1(float2 texture_size, float2 video_size, float2 output_size, float2 texCoord, COMPAT_Texture2D(decal))
+float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
 {
-    float Fs = texture_size.x;
+    float2 texCoord = VOUT.texCoord;
+    float2 texture_size = COMPAT_texture_size;
+    float2 video_size = COMPAT_video_size;
+    float2 output_size = COMPAT_output_size;
+
+    float2 fc = float2((texCoord.xy * output_size.xy) * (texture_size.xy / video_size.xy));
+
+    float Fs = video_size.x;
     float Fcol = Fs * F_COL;
     float Fcolbw = Fs * (1.0 / F_COL_BW);
     float Flumlp = Fs * F_LUMA_LP;
-    float n = floor(gl_FragCoord.x);
+    float n = floor(fc.x);
     
     float y_sig = 0.0;    
     float iq_sig = 0.0;
@@ -149,20 +145,9 @@ float4 artifact_colors1(float2 texture_size, float2 video_size, float2 output_si
 	
     n += float(FIR_SIZE)/2.0;
     
-    //Separate luma(Y) & chroma(IQ) signals
 	int tpidx;
 	float lp;
 	float bp;
-/*    for(int i = 0;i < FIR_SIZE;i++)
-    {
-        int tpidx = int(FIR_SIZE) - i - 1;
-        float lp = Lowpass(Flumlp, Fs, int(FIR_SIZE), tpidx);
-        float bp = Bandpass(Fcol - Fcolbw, Fcol + Fcolbw, Fs, int(FIR_SIZE), tpidx);
-        
-        y_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * lp;
-        iq_sig += sample2D(decal, texture_size.xy, float2(n - float(i), (gl_FragCoord.y))).r * bp;
-    }
-*/
 
     macroloop(0)
     macroloop(1)
@@ -197,12 +182,6 @@ float4 artifact_colors1(float2 texture_size, float2 video_size, float2 output_si
     //Shift IQ signal down from Fcol to DC 
     float2 iq_sig_mix = cmul(float2(iq_sig, 0.), cOsc);
     
-   float4 final = float4(y_sig, iq_sig_mix, 0.);
-   return final;
-}
-
-float4 main_fragment(COMPAT_IN_FRAGMENT) : COMPAT_Output
-{
-	return artifact_colors1(COMPAT_texture_size, COMPAT_video_size, COMPAT_output_size, VOUT.texCoord, decal);
+   return float4(y_sig, iq_sig_mix, 1.);
 }
 COMPAT_END
